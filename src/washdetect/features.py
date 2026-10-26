@@ -1,10 +1,10 @@
 """Wallet-level features and the holder table.
 
-The feature columns are the contract the later models train on. They are
-computed for real from swaps and transfers (this is not an empty stub) so
-the batch command can already write a training frame. The holder table is
-what the Wallets and Holders source boxes read. It is data, not a wash
-score: loading a token builds it, and nothing is shown until a graph asks.
+The feature columns are what the models train on. They are computed from
+swaps and transfers. Rule outputs stay on the frame for labelling and are
+excluded from the model matrix. The holder table is what the Wallets and
+Holders source boxes read. It is data, not a wash score: loading a token
+builds it, and nothing is shown until a graph asks.
 """
 
 from __future__ import annotations
