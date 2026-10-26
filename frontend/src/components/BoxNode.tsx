@@ -10,7 +10,7 @@ export function BoxNodeView({ data }: NodeProps<BoxNode>) {
   return (
     <article className={`box cat-${def?.category ?? "other"}`}>
       <header>
-        <span className="cat">{def?.category ?? "box"}</span>
+        <span className="cat">{friendlyCategory(def?.category)}</span>
         <strong>{data.label}</strong>
       </header>
       <p className="summary">{summary(data.nodeType, data.params)}</p>
@@ -48,6 +48,15 @@ export function BoxNodeView({ data }: NodeProps<BoxNode>) {
       </div>
     </article>
   );
+}
+
+function friendlyCategory(category: string | undefined): string {
+  if (category === "source") return "Data";
+  if (category === "filter") return "Filter";
+  if (category === "detector") return "Detect";
+  if (category === "aggregate" || category === "arrange") return "Combine";
+  if (category === "output") return "Show";
+  return "Box";
 }
 
 function socketTop(index: number, count: number): string {

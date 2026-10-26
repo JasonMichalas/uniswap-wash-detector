@@ -28,6 +28,7 @@ import { BoxNodeView } from "./components/BoxNode";
 import { CatalogProvider } from "./components/catalog";
 import { Inspector } from "./components/Inspector";
 import { Results } from "./components/Results";
+import { TokenPicker } from "./components/TokenPicker";
 import {
   connectionAllowed,
   fromApiGraph,
@@ -37,17 +38,16 @@ import {
   toApiGraph,
   type BoxNode,
 } from "./flow";
-import type { Catalog, GraphError, LoadResult, RunResult, TemplateSummary } from "./types";
+import type { Catalog, GraphError, LoadResult, PaletteItem, RunResult, TemplateSummary, TokenSuggestion } from "./types";
 
 const nodeTypes = { box: BoxNodeView };
 const PRESETS = [7, 30, 60, 90];
-const CATEGORIES: [string, string][] = [
-  ["source", "Sources"],
-  ["filter", "Filters"],
-  ["detector", "Detectors"],
-  ["aggregate", "Aggregates"],
-  ["arrange", "Arrange"],
-  ["output", "Outputs"],
+const GROUPS: { id: string; title: string; categories: string[] }[] = [
+  { id: "data", title: "Data", categories: ["source"] },
+  { id: "filter", title: "Filter", categories: ["filter"] },
+  { id: "detect", title: "Detect", categories: ["detector"] },
+  { id: "combine", title: "Combine", categories: ["aggregate", "arrange"] },
+  { id: "show", title: "Show", categories: ["output"] },
 ];
 
 export function App() {
@@ -95,8 +95,9 @@ function Editor({ catalog }: { catalog: Catalog }) {
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
   const [graphName, setGraphName] = useState("untitled");
   const [templates, setTemplates] = useState<TemplateSummary[]>([]);
+  const [tokenQuery, setTokenQuery] = useState("");
   const [address, setAddress] = useState("");
-  const [preset, setPreset] = useState<number | null>(null);
+  const [preset, setPreset] = useState<number | null>(7);
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [loading, setLoading] = useState(false);
@@ -112,8 +113,15 @@ function Editor({ catalog }: { catalog: Catalog }) {
   const [runError, setRunError] = useState<string | null>(null);
   const [tab, setTab] = useState<"query" | "sql" | "result">("query");
   const [banner, setBanner] = useState<string | null>(null);
+  const [theme, setTheme] = useState<"light" | "dark">(
+    document.documentElement.dataset.theme === "dark" ? "dark" : "light",
+  );
+  const [examplesAt, setExamplesAt] = useState<"toolbar" | "canvas" | null>(null);
+  const [panelHeight, setPanelHeight] = useState(180);
+  const [panelCollapsed, setPanelCollapsed] = useState(false);
   const idRef = useRef(1);
   const fileRef = useRef<HTMLInputElement>(null);
+  const wrapRef = useRef<HTMLDivElement>(null);
   const alive = useRef(true);
   const nodesRef = useRef(nodes);
   const edgesRef = useRef(edges);
@@ -223,9 +231,25 @@ function Editor({ catalog }: { catalog: Catalog }) {
   }));
 
   const addressOk = isAddress(address);
+  const typedAddressProblem = addressProblem(tokenQuery);
   const customProblem = preset === null && (startDate || endDate) ? rangeProblem(startDate, endDate) : null;
   const windowReady = preset !== null || (preset === null && startDate !== "" && endDate !== "" && customProblem === null);
   const canLoad = addressOk && windowReady && !loading;
+  const step: 1 | 2 | 3 = !addressOk ? 1 : loaded ? 3 : 2;
+
+  function clickPosition(): { x: number; y: number } {
+    const rect = wrapRef.current?.getBoundingClientRect();
+    const count = nodesRef.current.length;
+    if (!rect) return { x: 80 + count * 24, y: 80 };
+    return screenToFlowPosition({
+      x: rect.left + Math.min(rect.width * 0.35, 280) + (count % 3) * 28,
+      y: rect.top + 72 + count * 18,
+    });
+  }
+
+  function placeChip(item: PaletteItem) {
+    addBox(item.node_type, item.data, item.label, clickPosition());
+  }
 
   async function onLoad() {
     setLoadError(null);
@@ -238,8 +262,7 @@ function Editor({ catalog }: { catalog: Catalog }) {
     setLoaded(null);
     try {
       const token = address.trim().toLowerCase();
-      const body =
-        preset !== null ? { token, days: preset } : { token, start: startDate, end: endDate };
+      const body = preset !== null ? { token, days: preset } : { token, start: startDate, end: endDate };
       const { job_id: jobId } = await startLoad(body);
       for (;;) {
         const job = await fetchJob(jobId);
@@ -281,10 +304,12 @@ function Editor({ catalog }: { catalog: Catalog }) {
       setSql(result.sql);
       setQuery(result.query);
       setTab("result");
+      setPanelCollapsed(false);
     } catch (error) {
       setRun(null);
       setRunError(error instanceof ApiError ? error.message : "The run failed.");
       setTab("result");
+      setPanelCollapsed(false);
     } finally {
       setRunning(false);
     }
@@ -324,6 +349,7 @@ function Editor({ catalog }: { catalog: Catalog }) {
     setEdges(placed.edges);
     setGraphName(name || graph.name || "untitled");
     setBanner(null);
+    setExamplesAt(null);
     window.setTimeout(() => fitView({ padding: 0.2, duration: 200 }), 30);
   }
 
@@ -339,9 +365,7 @@ function Editor({ catalog }: { catalog: Catalog }) {
   function updateParams(id: string, params: Record<string, unknown>, label?: string) {
     setNodes((current) =>
       current.map((node) =>
-        node.id === id
-          ? { ...node, data: { ...node.data, params, label: label || node.data.label } }
-          : node,
+        node.id === id ? { ...node, data: { ...node.data, params, label: label || node.data.label } } : node,
       ),
     );
   }
@@ -352,15 +376,50 @@ function Editor({ catalog }: { catalog: Catalog }) {
     if (node) setCenter(node.position.x + 110, node.position.y + 50, { zoom: 1.1, duration: 200 });
   }
 
+  function toggleTheme() {
+    const next = theme === "dark" ? "light" : "dark";
+    setTheme(next);
+    document.documentElement.dataset.theme = next;
+    try {
+      localStorage.setItem("washdetect-theme", next);
+    } catch {
+      /* private mode */
+    }
+  }
+
+  function onPickToken(token: TokenSuggestion, label: string) {
+    setTokenQuery(label);
+    setAddress(token.address);
+  }
+
   const selected = nodes.find((node) => node.selected) ?? null;
+  const runReady = Boolean(loaded) && !running && nodes.length > 0 && errors.length === 0;
+  const hint = stepHint(step, loading, preset, nodes.length, errors.length);
 
   return (
     <div className="app">
       <header className="top">
-        <div className="brand">
-          <h1>Uniswap Wash Detector</h1>
-          <p>Uniswap v2 and v3, Ethereum mainnet. Build the question. Nothing is scored until you press Run.</p>
+        <div className="brand-row">
+          <div className="brand">
+            <h1>Uniswap Wash Detector</h1>
+            <p>Uniswap on Ethereum. You build the question, then press Run.</p>
+          </div>
+          <button type="button" className="text theme" aria-pressed={theme === "dark"} onClick={toggleTheme}>
+            {theme === "dark" ? "Light theme" : "Dark theme"}
+          </button>
         </div>
+        <ol className="steps">
+          <li className={step === 1 ? "current" : "done"}>
+            <span className="n">1</span> Choose a token
+          </li>
+          <li className={step === 2 ? "current" : step > 2 ? "done" : ""}>
+            <span className="n">2</span> Choose a time window
+          </li>
+          <li className={step === 3 ? "current" : ""}>
+            <span className="n">3</span> Drag boxes and connect them, then press Run
+          </li>
+        </ol>
+        <p className="step-hint">{hint}</p>
         <form
           className="load"
           onSubmit={(event) => {
@@ -368,25 +427,19 @@ function Editor({ catalog }: { catalog: Catalog }) {
             if (canLoad) void onLoad();
           }}
         >
-          <label className="address">
+          <label className="token-field">
             Token
-            <input
-              value={address}
-              spellCheck={false}
-              placeholder="0x… contract address"
-              onChange={(event) => setAddress(event.target.value)}
-            />
+            <TokenPicker query={tokenQuery} onQuery={(value) => {
+              setTokenQuery(value);
+              setAddress(isAddress(value) ? value.trim().toLowerCase() : "");
+            }} onPick={onPickToken} />
+            {addressOk && !isAddress(tokenQuery) && <span className="token-chosen">Using {shortAddress(address)}</span>}
           </label>
           <fieldset>
-            <legend>History window</legend>
+            <legend>Time window</legend>
             <div className="presets">
               {PRESETS.map((days) => (
-                <button
-                  key={days}
-                  type="button"
-                  aria-pressed={preset === days}
-                  onClick={() => setPreset(days)}
-                >
+                <button key={days} type="button" aria-pressed={preset === days} onClick={() => setPreset(days)}>
                   {days}d
                 </button>
               ))}
@@ -422,9 +475,9 @@ function Editor({ catalog }: { catalog: Catalog }) {
         </form>
       </header>
 
-      {(loadError || customProblem || (address && !addressOk) || progress) && (
+      {(loadError || customProblem || typedAddressProblem || loading) && (
         <div className="notices">
-          {address && !addressOk && <p className="banner error">Enter a 20-byte token address, 0x plus 40 hex characters.</p>}
+          {typedAddressProblem && <p className="banner error">{typedAddressProblem}</p>}
           {customProblem && preset === null && <p className="banner error">{customProblem}</p>}
           {loadError && <p className="banner error">{loadError}</p>}
           {loading && <p className="banner">{progress}</p>}
@@ -446,67 +499,96 @@ function Editor({ catalog }: { catalog: Catalog }) {
           </span>
           <span>{loaded.seconds}s</span>
           {loaded.eth_usd !== null && <span>ETH ${loaded.eth_usd.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>}
-          <span className="quiet">
-            {run ? "Last result came from Run." : "No analysis has been run."}
-          </span>
-          <span className="quiet" title="Already-covered spans, summed across each pool and the transfer log. Extending the window fetches only the missing blocks.">
+          <span className="quiet">{run ? "Last result came from Run." : "No analysis has been run."}</span>
+          <span
+            className="quiet"
+            title="Already-covered spans, summed across each pool and the transfer log. Extending the window fetches only the missing blocks."
+          >
             fetched {loaded.blocks_fetched.toLocaleString()} · cached {loaded.blocks_cached.toLocaleString()}
           </span>
           {loaded.balances_truncated && <span className="quiet">Balances capped at the most active wallets.</span>}
         </section>
       )}
 
-      <div className="workspace">
-        <aside className="palette">
-          <div className="palette-head">
-            <h2>Boxes</h2>
-            <details>
-              <summary>Examples</summary>
-              <ul>
-                {templates.map((item) => (
-                  <li key={item.id}>
-                    <button type="button" onClick={() => void openTemplate(item.id)}>
-                      <strong>{item.name}</strong>
-                      <span>{item.description}</span>
-                    </button>
-                  </li>
-                ))}
-                {templates.length === 0 && <li className="muted">No examples found.</li>}
-              </ul>
-            </details>
-          </div>
-          {CATEGORIES.map(([category, title]) => (
-            <section key={category}>
-              <h3>{title}</h3>
+      <div className="toolbar">
+        {GROUPS.map((group) => (
+          <div className="tool-group" key={group.id}>
+            <span className={`tool-label cat-${group.id}`}>
+              <CategoryIcon name={group.id} />
+              {group.title}
+            </span>
+            <div className="tool-chips">
               {catalog.palette
-                .filter((item) => item.category === category)
+                .filter((item) => group.categories.includes(item.category))
                 .map((item) => (
                   <button
                     key={`${item.node_type}-${item.label}`}
                     type="button"
-                    className={`chip cat-${category}`}
+                    className={`chip cat-${group.id}`}
+                    title={item.blurb}
                     draggable
                     onDragStart={(event) => {
                       event.dataTransfer.setData("application/washdetect", JSON.stringify(item));
                       event.dataTransfer.effectAllowed = "move";
                     }}
-                    onClick={() =>
-                      addBox(item.node_type, item.data, item.label, {
-                        x: 72 + (nodes.length % 4) * 40,
-                        y: 48 + nodes.length * 24,
-                      })
-                    }
+                    onClick={() => placeChip(item)}
                   >
-                    <strong>{item.label}</strong>
-                    <span>{item.blurb}</span>
+                    {item.label}
                   </button>
                 ))}
-            </section>
-          ))}
-        </aside>
+            </div>
+          </div>
+        ))}
+        <ExampleMenu
+          templates={templates}
+          open={examplesAt === "toolbar"}
+          onToggle={() => setExamplesAt((current) => (current === "toolbar" ? null : "toolbar"))}
+          onOpen={(id) => void openTemplate(id)}
+        />
+      </div>
 
+      <div className="action-bar">
+        <p className="action-status">{actionStatus(loaded, nodes.length, errors.length, running)}</p>
+        <div className="actions">
+          <strong className="graph-title">{graphName === "untitled" ? "New question" : graphName}</strong>
+          <button type="button" onClick={onSave} disabled={nodes.length === 0}>
+            Save JSON
+          </button>
+          <button type="button" onClick={() => fileRef.current?.click()}>
+            Open JSON
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setNodes([]);
+              setEdges([]);
+              setGraphName("untitled");
+            }}
+            disabled={nodes.length === 0 && edges.length === 0}
+          >
+            Clear
+          </button>
+          <button type="button" className="primary" disabled={!runReady} onClick={() => void onRun()}>
+            {running ? "Running…" : "Run"}
+          </button>
+          <input
+            ref={fileRef}
+            type="file"
+            accept="application/json,.json"
+            hidden
+            onChange={(event) => {
+              const file = event.target.files?.[0];
+              event.target.value = "";
+              if (file) onFile(file);
+            }}
+          />
+        </div>
+      </div>
+
+      <div className="workspace">
         <div
           className="canvas-wrap"
+          ref={wrapRef}
           onDragOver={(event) => {
             event.preventDefault();
             event.dataTransfer.dropEffect = "move";
@@ -521,8 +603,14 @@ function Editor({ catalog }: { catalog: Catalog }) {
         >
           {nodes.length === 0 && (
             <div className="empty-canvas">
-              <p>The canvas is empty on purpose.</p>
-              <p>Loading a token only caches its pools, swaps, and transfers. Add boxes, wire them, then press Run.</p>
+              <p>Drag a Data box here to start</p>
+              <ExampleMenu
+                templates={templates}
+                open={examplesAt === "canvas"}
+                label="Or open an example"
+                onToggle={() => setExamplesAt((current) => (current === "canvas" ? null : "canvas"))}
+                onOpen={(id) => void openTemplate(id)}
+              />
             </div>
           )}
           <ReactFlow
@@ -536,45 +624,17 @@ function Editor({ catalog }: { catalog: Catalog }) {
             deleteKeyCode={["Backspace", "Delete"]}
             proOptions={{ hideAttribution: false }}
             fitView
-            colorMode="dark"
+            colorMode={theme}
           >
-            <Background gap={22} color="#2a2e24" />
+            <Background gap={22} color={theme === "dark" ? "#3a372f" : "#e4ddd0"} />
             <Controls />
-            <MiniMap pannable zoomable maskColor="rgba(12, 14, 10, 0.7)" />
-          </ReactFlow>
-          <div className="canvas-actions">
-            <button type="button" onClick={onSave} disabled={nodes.length === 0}>
-              Save JSON
-            </button>
-            <button type="button" onClick={() => fileRef.current?.click()}>
-              Open JSON
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setNodes([]);
-                setEdges([]);
-                setGraphName("untitled");
-              }}
-              disabled={nodes.length === 0 && edges.length === 0}
-            >
-              Clear
-            </button>
-            <button type="button" className="primary" disabled={!loaded || running || nodes.length === 0 || errors.length > 0} onClick={() => void onRun()}>
-              {running ? "Running…" : "Run"}
-            </button>
-            <input
-              ref={fileRef}
-              type="file"
-              accept="application/json,.json"
-              hidden
-              onChange={(event) => {
-                const file = event.target.files?.[0];
-                event.target.value = "";
-                if (file) onFile(file);
-              }}
+            <MiniMap
+              pannable
+              zoomable
+              style={{ width: 120, height: 80 }}
+              maskColor={theme === "dark" ? "rgba(28, 27, 25, 0.72)" : "rgba(246, 244, 239, 0.78)"}
             />
-          </div>
+          </ReactFlow>
         </div>
 
         <Inspector
@@ -591,9 +651,6 @@ function Editor({ catalog }: { catalog: Catalog }) {
       </div>
 
       {banner && <p className="banner error slim">{banner}</p>}
-      {loaded === null && !loading && (
-        <p className="hint bar">Pick a window, load a token, then build a graph. Run stays off until both exist.</p>
-      )}
 
       <Results
         query={query}
@@ -605,9 +662,130 @@ function Editor({ catalog }: { catalog: Catalog }) {
         tab={tab}
         onTab={setTab}
         onFocusNode={focusNode}
+        height={panelHeight}
+        collapsed={panelCollapsed}
+        onCollapsed={setPanelCollapsed}
+        onHeight={setPanelHeight}
       />
     </div>
   );
+}
+
+function ExampleMenu({
+  templates,
+  open,
+  onToggle,
+  onOpen,
+  label = "Examples",
+}: {
+  templates: TemplateSummary[];
+  open: boolean;
+  onToggle: () => void;
+  onOpen: (id: string) => void;
+  label?: string;
+}) {
+  return (
+    <div className="examples">
+      <button type="button" aria-expanded={open} onClick={onToggle}>
+        {label}
+      </button>
+      {open && (
+        <ul>
+          {templates.map((item) => (
+            <li key={item.id}>
+              <button type="button" onClick={() => onOpen(item.id)}>
+                <strong>{item.name}</strong>
+                <span>{item.description}</span>
+              </button>
+            </li>
+          ))}
+          {templates.length === 0 && <li className="muted">No examples found.</li>}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+function CategoryIcon({ name }: { name: string }) {
+  const common = {
+    width: 14,
+    height: 14,
+    viewBox: "0 0 16 16",
+    fill: "none",
+    stroke: "currentColor",
+    strokeWidth: 1.5,
+    "aria-hidden": true as const,
+  };
+  if (name === "data") {
+    return (
+      <svg {...common}>
+        <path d="M2.5 4.5v7c0 1.4 2.5 2.5 5.5 2.5s5.5-1.1 5.5-2.5v-7" />
+        <path d="M2.5 4.5c0 1.4 2.5 2.5 5.5 2.5s5.5-1.1 5.5-2.5-2.5-2.5-5.5-2.5-5.5 1.1-5.5 2.5z" />
+        <path d="M2.5 8c0 1.4 2.5 2.5 5.5 2.5s5.5-1.1 5.5-2.5" />
+      </svg>
+    );
+  }
+  if (name === "filter") {
+    return (
+      <svg {...common}>
+        <path d="M2 2.5h12l-4.2 5.2V13l-3.6 1.5V7.7L2 2.5z" />
+      </svg>
+    );
+  }
+  if (name === "detect") {
+    return (
+      <svg {...common}>
+        <circle cx="7" cy="7" r="4.2" />
+        <path d="M10.2 10.2L14 14" />
+      </svg>
+    );
+  }
+  if (name === "combine") {
+    return (
+      <svg {...common}>
+        <rect x="2" y="2" width="8" height="8" rx="1.2" />
+        <rect x="6" y="6" width="8" height="8" rx="1.2" />
+      </svg>
+    );
+  }
+  return (
+    <svg {...common}>
+      <path d="M2.5 13.5V8M8 13.5V3M13.5 13.5V6" />
+    </svg>
+  );
+}
+
+function stepHint(step: 1 | 2 | 3, loading: boolean, preset: number | null, boxes: number, problems: number): string {
+  if (loading) return "Fetching this token's swaps and transfers. Nothing is calculated yet.";
+  if (step === 1) return "Search by name, or pick a token from the list. You do not need a contract address.";
+  if (step === 2) {
+    return preset === 7
+      ? "Seven days is already selected. Press Load token. Nothing is calculated yet."
+      : "Press Load token. Nothing is calculated yet.";
+  }
+  if (boxes === 0) return "Drag a Data box onto the canvas, connect the boxes, then press Run.";
+  if (problems > 0) return "Fix the highlighted box, then press Run.";
+  return "Connect the boxes, then press Run.";
+}
+
+function actionStatus(loaded: LoadResult | null, boxes: number, problems: number, running: boolean): string {
+  if (running) return "Running your question.";
+  if (!loaded) return "Run stays off until a token is loaded.";
+  if (boxes === 0) return "Add a box, then press Run.";
+  if (problems > 0) return "Run stays off while a box has a problem.";
+  return "Ready to run.";
+}
+
+function addressProblem(text: string): string | null {
+  const trimmed = text.trim();
+  if (!trimmed.toLowerCase().startsWith("0x")) return null;
+  const body = trimmed.slice(2);
+  if (body.length === 0) return null;
+  const hex = /^[0-9a-fA-F]+$/.test(body);
+  if (!hex || body.length > 40) {
+    return "That address needs 0x and 40 hex characters. Or pick a token from the list.";
+  }
+  return null;
 }
 
 function sleep(ms: number) {

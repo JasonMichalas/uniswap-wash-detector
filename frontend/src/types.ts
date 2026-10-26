@@ -125,3 +125,18 @@ export type TemplateSummary = {
   name: string;
   description: string;
 };
+
+export type TokenSuggestion = {
+  name: string;
+  symbol: string;
+  address: string;
+  logo_url: string | null;
+  volume_24h_usd: number | null;
+};
+
+export type TokenSuggestions = {
+  source: "geckoterminal" | "curated" | string;
+  trending: TokenSuggestion[];
+  top_volume: TokenSuggestion[];
+  results?: TokenSuggestion[];
+};

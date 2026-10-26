@@ -1,3 +1,4 @@
+import type { PointerEvent as ReactPointerEvent } from "react";
 import type { GraphError, OutputResult, RunResult } from "../types";
 
 export function Results({
@@ -10,6 +11,10 @@ export function Results({
   tab,
   onTab,
   onFocusNode,
+  height,
+  collapsed,
+  onCollapsed,
+  onHeight,
 }: {
   query: string;
   sql: string;
@@ -20,22 +25,61 @@ export function Results({
   tab: "query" | "sql" | "result";
   onTab: (tab: "query" | "sql" | "result") => void;
   onFocusNode: (id: string) => void;
+  height: number;
+  collapsed: boolean;
+  onCollapsed: (collapsed: boolean) => void;
+  onHeight: (height: number) => void;
 }) {
+  function openTab(next: "query" | "sql" | "result") {
+    onCollapsed(false);
+    onTab(next);
+  }
+
+  function startResize(event: ReactPointerEvent<HTMLDivElement>) {
+    event.preventDefault();
+    const startY = event.clientY;
+    const start = height;
+    function move(ev: PointerEvent) {
+      const max = Math.round(window.innerHeight * 0.5);
+      onHeight(Math.min(max, Math.max(120, start + (startY - ev.clientY))));
+    }
+    function up() {
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", up);
+    }
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", up);
+  }
+
   return (
-    <section className="bottom">
+    <section className={collapsed ? "bottom collapsed" : "bottom"} style={collapsed ? undefined : { height }}>
+      {!collapsed && (
+        <div
+          className="resize-handle"
+          role="separator"
+          aria-orientation="horizontal"
+          aria-label="Resize the results panel"
+          onPointerDown={startResize}
+        />
+      )}
       <div className="tabs">
-        <button type="button" className={tab === "query" ? "on" : ""} onClick={() => onTab("query")}>
+        <button type="button" className={tab === "query" ? "on" : ""} onClick={() => openTab("query")}>
           Query
         </button>
-        <button type="button" className={tab === "sql" ? "on" : ""} onClick={() => onTab("sql")}>
+        <button type="button" className={tab === "sql" ? "on" : ""} onClick={() => openTab("sql")}>
           SQL
         </button>
-        <button type="button" className={tab === "result" ? "on" : ""} onClick={() => onTab("result")}>
+        <button type="button" className={tab === "result" ? "on" : ""} onClick={() => openTab("result")}>
           Result
         </button>
-        <span className="tab-note">{checking ? "Checking the graph…" : errors.length ? `${errors.length} problem${errors.length === 1 ? "" : "s"}` : "Graph compiles"}</span>
+        <span className="tab-note">
+          {checking ? "Checking…" : errors.length ? `${errors.length} problem${errors.length === 1 ? "" : "s"}` : "Ready"}
+        </span>
+        <button type="button" className="text" onClick={() => onCollapsed(!collapsed)}>
+          {collapsed ? "Show panel" : "Hide panel"}
+        </button>
       </div>
-      {errors.length > 0 && (
+      {!collapsed && errors.length > 0 && (
         <ul className="problems">
           {errors.map((error, index) => (
             <li key={`${error.node_id ?? ""}-${error.edge_id ?? ""}-${index}`}>
@@ -50,20 +94,20 @@ export function Results({
           ))}
         </ul>
       )}
-      {tab === "query" && (
-        <pre className="code">{query || "Wire an output box and the compiled query language appears here."}</pre>
+      {!collapsed && tab === "query" && (
+        <pre className="code">{query || "Add a Show box and the question you built appears here."}</pre>
       )}
-      {tab === "sql" && (
-        <pre className="code">{sql || run?.sql || "SQL is filled in when you press Run. The query above is the program that produces it."}</pre>
+      {!collapsed && tab === "sql" && (
+        <pre className="code">{sql || run?.sql || "SQL appears here after you press Run."}</pre>
       )}
-      {tab === "result" && <ResultBody run={run} runError={runError} />}
+      {!collapsed && tab === "result" && <ResultBody run={run} runError={runError} />}
     </section>
   );
 }
 
 function ResultBody({ run, runError }: { run: RunResult | null; runError: string | null }) {
   if (runError) return <p className="banner error">{runError}</p>;
-  if (!run) return <p className="muted pad">Nothing has been run. Loading a token does not score wash trading.</p>;
+  if (!run) return <p className="muted pad">Nothing has been run. Loading a token does not calculate anything.</p>;
   return (
     <div className="result-stack">
       {run.warnings.map((warning) => (

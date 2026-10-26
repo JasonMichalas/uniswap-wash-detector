@@ -29,7 +29,7 @@ export function Inspector({
     return (
       <aside className="inspector">
         <h2>Inspector</h2>
-        <p className="muted">Select a box to edit its fields. Delete removes the selected box, or press Backspace.</p>
+        <p className="muted">Click a box to change it. Delete removes the selected box, or press Backspace.</p>
       </aside>
     );
   }

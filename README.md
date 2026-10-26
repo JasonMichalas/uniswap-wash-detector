@@ -48,8 +48,8 @@ On Debian or Ubuntu, `python3 -m venv` needs the distro package: `sudo apt insta
 
 ### A short first run
 
-1. Paste ENS: `0xC18360217D8F7Ab5e7c516566761Ea12Ce7F9D72`.
-2. Use a **custom** window of one day (set the start and end to the same date). A one-day public-RPC load of ENS is the quick path. Seven days works too; it just takes longer the first time. The status line says **No analysis has been run.**
+1. Click the token box and choose **ENS** from the list (or paste `0xC18360217D8F7Ab5e7c516566761Ea12Ce7F9D72`).
+2. The **7d** chip is already selected. For a quicker first fetch, clear it and set a custom window of one day (start and end on the same date). Seven days works too; it just takes longer the first time. Press **Load token**. The status line says **No analysis has been run.**
 3. Open **Examples** and choose **Wash volume percent**. That graph is Swaps + Transfers → Cycle detector → Condition `is_wash = true` → Percent of `usd_value` → Number, format percent. Press **Run**. That number is the rule.
 4. Open **ML wash volume percent**. Swaps → ML wash score → Percent of `ml_weighted_usd` divided by `usd_value` → Number, format percent. Press **Run**. The card is the probability-weighted wash percent, with a 95% bootstrap interval under the figure.
 5. Open **Top 10 wallets by wash probability**, then **Explain the top wallets**. Explain lists the SHAP features that push each wallet's score up or down.
