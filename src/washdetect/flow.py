@@ -169,7 +169,11 @@ def find_flow_groups(
     for seed in buys:
         if len(found) >= max_groups:
             break
-        lo = seed.block
+        # One window on either side of the seed. A later buyer can be the
+        # wallet that reaches every seller, while an earlier buy still belongs
+        # to the group. The attributed swaps must themselves span at most
+        # max_block_gap, so the wide slice cannot glue two distant episodes.
+        lo = seed.block - config.max_block_gap
         hi = seed.block + config.max_block_gap
         window_transfers = _slice(ordered_transfers, lo, hi, transfer_blocks)
         window_swaps = list(_slice(ordered_swaps, lo, hi, swap_blocks))
@@ -214,6 +218,18 @@ def find_flow_groups(
             continue
 
         member_swaps = [swap for swap in window_swaps if swap.wallet in group]
+        if member_swaps:
+            span = max(swap.block for swap in member_swaps) - min(swap.block for swap in member_swaps)
+            if span > config.max_block_gap:
+                member_swaps = [
+                    swap
+                    for swap in member_swaps
+                    if seed.block <= swap.block <= seed.block + config.max_block_gap
+                ]
+                kept = {swap.wallet for swap in member_swaps}
+                group = {wallet for wallet in group if wallet in kept}
+        if len(group) < 2:
+            continue
         buy_amount = sum(swap.amount for swap in member_swaps if swap.side == "buy")
         sell_amount = sum(swap.amount for swap in member_swaps if swap.side == "sell")
         denom = max(buy_amount, sell_amount)

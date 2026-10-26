@@ -180,6 +180,33 @@ def test_wallet_that_buys_and_sells_inside_a_larger_group():
     assert ("0xsellb", 0) in found.flagged
 
 
+def test_earlier_buy_is_kept_when_a_later_buyer_reaches_the_sellers():
+    # A buys first and only pays C. B buys two blocks later and pays D.
+    # Forward from A never sees D, but the group nets only with A's buy.
+    swaps = as_swaps(
+        [
+            swap("0xa", 10, "buy", 6, 6, "0xba"),
+            swap("0xb", 12, "buy", 4, 4, "0xbb"),
+            swap("0xa", 40, "sell", 3, 3, "0xsa"),
+            swap("0xc", 42, "sell", 4, 4, "0xsc"),
+            swap("0xd", 44, "sell", 3.05, 3.05, "0xsd"),
+        ]
+    )
+    transfers = as_transfers(
+        [
+            ("0xa", "0xc", 20, 3, "0xt1"),
+            ("0xb", "0xc", 22, 1, "0xt2"),
+            ("0xb", "0xd", 24, 3, "0xt3"),
+        ]
+    )
+    found = detect(swaps, transfers, config=CFG)
+    group = _groups(found, "many_to_many")[0]
+    assert group.n_buyers == 2
+    assert group.n_sellers == 3
+    assert group.n_wallets == 4
+    assert ("0xba", 0) in found.flagged
+
+
 def test_window_and_group_size_are_configurable():
     swaps = as_swaps(
         [
