@@ -105,7 +105,7 @@ def _lists(fetch: Client) -> tuple[str, list[dict[str, Any]], list[dict[str, Any
     if cached is not None:
         return cached["source"], cached["trending"], cached["top_volume"]
     trending = _safe_pools(_TRENDING, fetch)
-    top = _safe_pools(_TOP, fetch)
+    top = _top_pools(fetch)
     if trending or top:
         payload = {"source": "geckoterminal", "trending": trending, "top_volume": top}
     else:
@@ -139,7 +139,24 @@ def _safe_pools(url: str, fetch: Client) -> list[dict[str, Any]]:
 
 
 _TRENDING = f"{_API}/networks/eth/trending_pools?include=base_token,quote_token,dex&page=1"
-_TOP = f"{_API}/networks/eth/pools?include=base_token,quote_token,dex&sort=h24_volume_usd_desc&page=1"
+
+
+def _top_pools(fetch: Client) -> list[dict[str, Any]]:
+    """Two pages. The first page is often quote pairs and Uniswap v4, which we skip."""
+    merged: dict[str, dict[str, Any]] = {}
+    for page in (1, 2):
+        url = (
+            f"{_API}/networks/eth/pools?include=base_token,quote_token,dex"
+            f"&sort=h24_volume_usd_desc&page={page}"
+        )
+        for row in _safe_pools(url, fetch):
+            current = merged.get(row["address"])
+            if current is None or _outranks(row, current):
+                merged[row["address"]] = row
+        if len(merged) >= _LIST_CAP:
+            break
+    ranked = sorted(merged.values(), key=lambda item: (item["volume_24h_usd"] is None, -(item["volume_24h_usd"] or 0)))
+    return ranked[:_LIST_CAP]
 
 
 def pools_to_tokens(payload: dict[str, Any]) -> list[dict[str, Any]]:

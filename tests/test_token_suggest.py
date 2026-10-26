@@ -92,6 +92,29 @@ def test_mocked_pools_keep_uniswap_v2_and_v3_token_addresses():
     assert body["trending"][0]["address"] == PEPE
 
 
+def test_top_volume_includes_a_second_page_when_the_first_is_short():
+    extra = "0x" + "99" * 20
+    extra_id = f"eth_{extra}"
+    page2 = {
+        "data": [_pool("0x" + "ab" * 20, "uniswap_v3", extra_id, f"eth_{WETH}", "42")],
+        "included": [
+            _token(extra_id, extra, "Second Page", "PAGE2"),
+            _token(f"eth_{WETH}", WETH, "Wrapped Ether", "WETH"),
+        ],
+    }
+
+    def client(url: str) -> dict:
+        if "page=2" in url:
+            return page2
+        return _payload()
+
+    body = suggest_tokens(client=client)
+    symbols = [item["symbol"] for item in body["top_volume"]]
+    assert "PAGE2" in symbols
+    assert "PEPE" in symbols
+    assert all(item["symbol"] != "PAGE2" for item in body["trending"])
+
+
 def test_fallback_when_the_api_fails_and_search_matches_the_curated_list():
     def client(url: str) -> dict:
         raise RuntimeError("geckoterminal down")
