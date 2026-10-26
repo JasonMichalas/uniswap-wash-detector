@@ -1,0 +1,87 @@
+// Query language for washdetect.
+//
+// Short form (hand-written, and what the unit tests use):
+//   wash_percent
+//   wash_wallets where confidence > 0.8
+//   top_holders limit 20
+//   holders where held_days > 90
+//   wallets where not sold_in(30d)
+//   cycles where size >= 3
+//
+// Program form (what a node graph lowers to):
+//   n_swaps = source swaps
+//   n_out = filter n_swaps where side = "buy"
+//   output table n_out as "Buys"
+
+start: program | simple
+
+program: stmt+
+stmt: assign | output
+
+assign: NAME "=" expr
+
+expr: source
+    | detect
+    | project
+    | filter
+    | timewin
+    | groupby
+    | aggregate
+    | ratio
+    | sort
+    | limitstmt
+    | ml
+
+source: "source" SOURCE_KIND
+detect: "detect_cycles" "(" NAME "," NAME ")"
+project: "project" NAME PROJ_KIND
+filter: "filter" NAME "where" cond ("and" cond)*
+timewin: "window" NAME "last" NUMBER UNIT
+       | "window" NAME "from" STRING "to" STRING
+groupby: "group" NAME "by" GROUP_KEY
+aggregate: COUNT NAME
+         | SUM NAME "of" FIELD
+         | AVG NAME "of" FIELD
+ratio: "ratio" NAME NAME "of" FIELD
+sort: "sort" NAME "by" FIELD DIR?
+limitstmt: "limit" NAME NUMBER
+ml: "ml_score" NAME
+
+output: "output" OUT_KIND NAME ("as" STRING)? ("format" OUT_FORMAT)?
+
+cond: NOT sold_call
+    | sold_call
+    | FIELD COMP value
+
+sold_call: "sold_in" "(" NUMBER UNIT ")"
+value: NUMBER | STRING | BOOL
+
+simple: SIMPLE_HEAD where_clause? limit_clause?
+where_clause: "where" cond ("and" cond)*
+limit_clause: "limit" NUMBER
+
+SOURCE_KIND: "swaps" | "transfers" | "wallets" | "holders" | "pools"
+PROJ_KIND: "swaps" | "wallets" | "cycles"
+GROUP_KEY: "day" | "wallet" | "pool"
+OUT_KIND: "number" | "table" | "chart"
+OUT_FORMAT: "percent" | "integer" | "number"
+DIR: "asc" | "desc"
+SIMPLE_HEAD.10: "wash_percent" | "wash_wallets" | "top_holders" | "holders" | "wallets" | "cycles" | "swaps" | "transfers" | "pools"
+NOT: "not"
+COUNT: "count"
+SUM: "sum"
+AVG: "avg"
+BOOL: "true" | "false"
+COMP: ">=" | "<=" | "!=" | "=" | ">" | "<"
+UNIT: "d" | "h"
+
+NAME: /[a-z_][a-z0-9_]*/
+FIELD: /[a-z_][a-z0-9_]*/
+STRING: /"(?:[^"\\]|\\.)*"/
+NUMBER: /[0-9]+(?:\.[0-9]+)?/
+
+COMMENT: /#[^\n]*/
+
+%import common.WS
+%ignore WS
+%ignore COMMENT
