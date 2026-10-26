@@ -37,6 +37,7 @@ export function Inspector({
   const outputs = inferOutputs(nodes, edges, catalog);
   const input = singleInput(node, edges, outputs, catalog);
   const part = inputOnHandle(node, "in_part", edges, outputs);
+  const whole = inputOnHandle(node, "in_whole", edges, outputs);
   const fields = fieldsFor(node.data.nodeType, input, part);
 
   function update(key: string, value: unknown) {
@@ -138,13 +139,21 @@ export function Inspector({
         </>
       )}
       {node.data.nodeType === "ratio" && (
-        <FieldSelect
-          label="Field"
-          fields={(part?.fields ?? fields).filter((field) => field.kind === "number")}
-          value={String(node.data.params.field ?? "")}
-          onChange={(value) => update("field", value)}
-          allowFree
-        />
+        <>
+          <FieldSelect
+            label="Field"
+            fields={(part?.fields ?? fields).filter((field) => field.kind === "number")}
+            value={String(node.data.params.field ?? "")}
+            onChange={(value) => update("field", value)}
+            allowFree
+          />
+          <FieldSelect
+            label="Divide by (blank = same field)"
+            fields={(whole?.fields ?? []).filter((field) => field.kind === "number")}
+            value={String(node.data.params.over ?? "")}
+            onChange={(value) => update("over", value)}
+          />
+        </>
       )}
       {node.data.nodeType === "sort" && (
         <>

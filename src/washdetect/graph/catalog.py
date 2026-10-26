@@ -2,7 +2,7 @@
 
 The editor asks the API for this catalog, so the Python file is the one
 place a student adds a field or a box. Sockets only connect when
-`can_connect` says so. `rows`, `timed`, and `walletish` are input-only
+`can_connect` says so. `rows`, `timed`, `walletish`, and `scoreable` are input-only
 wildcards; they are never the type of an output.
 """
 
@@ -74,6 +74,14 @@ TYPES: dict[str, list[tuple[str, str]]] = {
         ("swap_count", "number"),
         ("volume_usd", "number"),
     ],
+    "explanations": [
+        ("wallet", "string"),
+        ("rank", "number"),
+        ("feature", "string"),
+        ("feature_value", "number"),
+        ("shap_value", "number"),
+        ("direction", "string"),
+    ],
     "scalar": [("value", "number")],
     "grouped": [
         ("day", "string"),
@@ -103,6 +111,7 @@ ROW_TYPES = (
     "cycles",
     "pools",
     "grouped",
+    "explanations",
 )
 
 SOURCE_TYPES = {
@@ -129,6 +138,8 @@ def can_connect(src: str, dst: str) -> bool:
         return src in {"swaps", "swaps_flagged", "transfers"}
     if dst == "walletish":
         return src in {"wallets", "wash_wallets"}
+    if dst == "scoreable":
+        return src in {"swaps", "swaps_flagged", "wallets", "wash_wallets"}
     if dst == "swaps":
         # The detector wants the raw swap stream, not one it has already flagged.
         return src == "swaps"
@@ -215,11 +226,36 @@ NODE_DEFS: list[dict[str, Any]] = [
         "label": "ML wash score",
         "category": "detector",
         "description": (
-            "Milestone 2. Will attach an XGBoost probability to each wallet. "
-            "The box validates today and refuses to run until a model is trained."
+            "Attaches a calibrated XGBoost wash probability (ml_score). "
+            "On swaps it also adds ml_weighted_usd = probability × usd_value. "
+            "A Percent of box divides that by usd_value to get the probability-weighted wash percent."
+        ),
+        "inputs": [{"id": "in", "label": "swaps or wallets", "type": "scoreable"}],
+        "outputs": [{"id": "out", "label": "scored", "type": "same"}],
+        "params": [],
+    },
+    {
+        "type": "anomaly_score",
+        "label": "Anomaly score",
+        "category": "detector",
+        "description": (
+            "Attaches an Isolation Forest score in [0, 1]. Higher means the wallet or swap "
+            "looks less like the bulk of the training tokens. This is a rank, not a probability."
+        ),
+        "inputs": [{"id": "in", "label": "swaps or wallets", "type": "scoreable"}],
+        "outputs": [{"id": "out", "label": "scored", "type": "same"}],
+        "params": [],
+    },
+    {
+        "type": "explain",
+        "label": "Explain",
+        "category": "detector",
+        "description": (
+            "Top TreeSHAP reasons for up to 25 wallets. Sort and limit first to explain "
+            "the highest-scoring wallets. Reasons describe the raw XGBoost margin."
         ),
         "inputs": [{"id": "in", "label": "wallets", "type": "walletish"}],
-        "outputs": [{"id": "out", "label": "scored", "type": "same"}],
+        "outputs": [{"id": "out", "label": "reasons", "type": "explanations"}],
         "params": [],
     },
     {
@@ -249,13 +285,19 @@ NODE_DEFS: list[dict[str, Any]] = [
         "type": "ratio",
         "label": "Percent of",
         "category": "aggregate",
-        "description": "100 × sum(part) / sum(whole) for one numeric field. This is how wash % is built.",
+        "description": (
+            "100 × sum(part) / sum(whole). Leave Divide by blank to use the same field on both. "
+            "For the ML wash percent, divide ml_weighted_usd by usd_value on the scored swaps."
+        ),
         "inputs": [
             {"id": "in_part", "label": "part", "type": "rows"},
             {"id": "in_whole", "label": "whole", "type": "rows"},
         ],
         "outputs": [{"id": "out", "label": "percent", "type": "scalar"}],
-        "params": [{"name": "field", "label": "Field", "kind": "field"}],
+        "params": [
+            {"name": "field", "label": "Field", "kind": "field"},
+            {"name": "over", "label": "Divide by (blank = same field)", "kind": "field"},
+        ],
     },
     {
         "type": "sort",
@@ -376,7 +418,21 @@ PALETTE: list[dict[str, Any]] = [
         "node_type": "ml_score",
         "label": "ML wash score",
         "category": "detector",
-        "blurb": "Not trained yet. Reserved for XGBoost.",
+        "blurb": "Calibrated XGBoost probability.",
+        "data": {},
+    },
+    {
+        "node_type": "anomaly_score",
+        "label": "Anomaly score",
+        "category": "detector",
+        "blurb": "Isolation Forest rank in [0, 1].",
+        "data": {},
+    },
+    {
+        "node_type": "explain",
+        "label": "Explain",
+        "category": "detector",
+        "blurb": "Top SHAP reasons for the selected wallets.",
         "data": {},
     },
     {
@@ -455,6 +511,7 @@ def catalog_payload() -> dict[str, Any]:
             "rows": list(ROW_TYPES),
             "timed": ["swaps", "swaps_flagged", "transfers"],
             "walletish": ["wallets", "wash_wallets"],
+            "scoreable": ["swaps", "swaps_flagged", "wallets", "wash_wallets"],
             "swaps_exact": ["swaps"],
         },
     }

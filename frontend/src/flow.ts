@@ -81,6 +81,7 @@ export function canConnectTypes(src: string, dst: string, catalog: Catalog): boo
   if (dst === "rows") return catalog.connect.rows.includes(src);
   if (dst === "timed") return catalog.connect.timed.includes(src);
   if (dst === "walletish") return catalog.connect.walletish.includes(src);
+  if (dst === "scoreable") return catalog.connect.scoreable.includes(src);
   if (dst === "swaps") return src === "swaps";
   return src === dst;
 }
@@ -146,12 +147,28 @@ function produce(
   if (ntype === "aggregate" || ntype === "ratio") {
     return { out: stream(catalog, "scalar") };
   }
-  if (ntype === "condition" || ntype === "time_window" || ntype === "sort" || ntype === "limit" || ntype === "ml_score") {
+  if (ntype === "explain") {
+    return { out: stream(catalog, "explanations") };
+  }
+  if (
+    ntype === "condition" ||
+    ntype === "time_window" ||
+    ntype === "sort" ||
+    ntype === "limit" ||
+    ntype === "ml_score" ||
+    ntype === "anomaly_score"
+  ) {
     const input = singleInput(node, edges, outputs, catalog);
     if (!input) return {};
     const fields = input.fields.map((field) => ({ ...field }));
     if (ntype === "ml_score" && !fields.some((field) => field.name === "ml_score")) {
       fields.push({ name: "ml_score", kind: "number" });
+      if (fields.some((field) => field.name === "usd_value")) {
+        fields.push({ name: "ml_weighted_usd", kind: "number" });
+      }
+    }
+    if (ntype === "anomaly_score" && !fields.some((field) => field.name === "anomaly_score")) {
+      fields.push({ name: "anomaly_score", kind: "number" });
     }
     return { out: { type: input.type, fields } };
   }

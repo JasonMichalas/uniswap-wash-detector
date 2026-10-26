@@ -111,6 +111,17 @@ def test_holder_queries():
     assert {row["wallet"] for row in quiet.outputs[0].rows} == {"0xlong", "0xflat"}
 
 
+def test_ratio_can_divide_one_field_by_another():
+    result = _run(
+        's = source swaps\n'
+        'p = ratio s s of amount_token over usd_value\n'
+        'output number p as "Tokens per dollar" format percent\n'
+    )
+    # 2100 token / 1050 USD * 100.
+    assert abs(result.outputs[0].rows[0]["value"] - 200) < 0.01
+    assert result.outputs[0].note is None
+
+
 def test_string_filter_cannot_break_out_of_the_literal():
     nasty = "0xabc'; DROP TABLE secrets; --"
     wallets = pd.DataFrame(

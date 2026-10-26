@@ -15,9 +15,11 @@ from lark import Lark, Token, Tree, UnexpectedInput
 
 from washdetect.querylang.ast import (
     Aggregate,
+    AnomalyScore,
     Assign,
     Condition,
     Detect,
+    Explain,
     Filter,
     GroupBy,
     Limit,
@@ -125,7 +127,8 @@ def _expr(tree: Tree):
     if kind == "aggregate":
         return _aggregate(tree)
     if kind == "ratio":
-        return Ratio(str(tree.children[0]), str(tree.children[1]), str(tree.children[2]))
+        whole_field = str(tree.children[3]) if len(tree.children) > 3 else None
+        return Ratio(str(tree.children[0]), str(tree.children[1]), str(tree.children[2]), whole_field)
     if kind == "sort":
         direction = str(tree.children[2]) if len(tree.children) > 2 else "desc"
         return Sort(str(tree.children[0]), str(tree.children[1]), direction)
@@ -133,6 +136,10 @@ def _expr(tree: Tree):
         return Limit(str(tree.children[0]), _int(tree.children[1], "limit"))
     if kind == "ml":
         return MlScore(str(tree.children[0]))
+    if kind == "anomaly":
+        return AnomalyScore(str(tree.children[0]))
+    if kind == "explainstmt":
+        return Explain(str(tree.children[0]))
     raise QueryError(f"Unknown expression {kind}.")
 
 
@@ -214,6 +221,20 @@ def _simple(tree: Tree) -> tuple[str, list[Condition], int | None]:
 
 
 def _desugar(head: str, conditions: list[Condition], limit: int | None) -> Program:
+    if head == "ml_wash_percent":
+        if conditions or limit is not None:
+            raise QueryError(
+                "ml_wash_percent stands on its own. Filter and sort in the node editor "
+                "if you want a slice of the scored swaps."
+            )
+        return Program(
+            [
+                Assign("s", Source("swaps")),
+                Assign("m", MlScore("s")),
+                Assign("p", Ratio("m", "m", "ml_weighted_usd", "usd_value")),
+                Output("number", "p", "ML wash volume", "percent"),
+            ]
+        )
     if head == "wash_percent":
         if conditions or limit is not None:
             raise QueryError(

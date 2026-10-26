@@ -31,6 +31,8 @@ expr: source
     | sort
     | limitstmt
     | ml
+    | anomaly
+    | explainstmt
 
 source: "source" SOURCE_KIND
 detect: "detect_cycles" "(" NAME "," NAME ("," NUMBER "," NUMBER "," NUMBER)? ")"
@@ -42,10 +44,12 @@ groupby: "group" NAME "by" GROUP_KEY
 aggregate: COUNT NAME
          | SUM NAME "of" FIELD
          | AVG NAME "of" FIELD
-ratio: "ratio" NAME NAME "of" FIELD
+ratio: "ratio" NAME NAME "of" FIELD ("over" FIELD)?
 sort: "sort" NAME "by" FIELD DIR?
 limitstmt: "limit" NAME NUMBER
 ml: "ml_score" NAME
+anomaly: "anomaly_score" NAME
+explainstmt: "explain" NAME
 
 output: "output" OUT_KIND NAME ("as" STRING)? ("format" OUT_FORMAT)?
 
@@ -66,7 +70,7 @@ GROUP_KEY: "day" | "wallet" | "pool"
 OUT_KIND: "number" | "table" | "chart"
 OUT_FORMAT: "percent" | "integer" | "number"
 DIR: "asc" | "desc"
-SIMPLE_HEAD.10: "wash_percent" | "wash_wallets" | "top_holders" | "holders" | "wallets" | "cycles" | "swaps" | "transfers" | "pools"
+SIMPLE_HEAD.10: "ml_wash_percent" | "wash_percent" | "wash_wallets" | "top_holders" | "holders" | "wallets" | "cycles" | "swaps" | "transfers" | "pools"
 NOT: "not"
 COUNT: "count"
 SUM: "sum"

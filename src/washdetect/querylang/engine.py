@@ -24,9 +24,11 @@ from washdetect.features import WALLET_COLUMNS, build_wallet_table
 from washdetect.graph.catalog import TYPES, field_map
 from washdetect.querylang.ast import (
     Aggregate,
+    AnomalyScore,
     Assign,
     Condition,
     Detect,
+    Explain,
     Filter,
     GroupBy,
     Limit,
@@ -40,6 +42,7 @@ from washdetect.querylang.ast import (
     TimeWindow,
 )
 from washdetect.querylang.errors import QueryError
+from washdetect.scoring import ScoreCache, explain_wallets, score_rows
 
 _IDENT = re.compile(r"^[a-z_][a-z0-9_]*$")
 _MAX_ROWS = 1000
@@ -88,9 +91,10 @@ class OutputResult:
     columns: list[str]
     rows: list[dict[str, Any]]
     truncated: bool = False
+    note: str | None = None
 
     def as_dict(self) -> dict[str, Any]:
-        return {
+        payload = {
             "kind": self.kind,
             "title": self.title,
             "format": self.format,
@@ -98,6 +102,9 @@ class OutputResult:
             "rows": self.rows,
             "truncated": self.truncated,
         }
+        if self.note:
+            payload["note"] = self.note
+        return payload
 
 
 @dataclass
@@ -122,6 +129,10 @@ class _Stream:
     view: str
     type_name: str
     fields: dict[str, str]
+    note: str | None = None
+
+
+_SCOREABLE = {"swaps", "swaps_flagged", "wallets", "wash_wallets"}
 
 
 @dataclass
@@ -142,6 +153,7 @@ def execute_frames(
     end_ts: datetime | None = None,
     window_start: datetime | None = None,
     window_end: datetime | None = None,
+    model_dir: str | None = None,
 ) -> ExecResult:
     """Execute `program`. Frames are the loaded window, already filtered to it."""
     end_ts = end_ts or datetime(2026, 1, 1)
@@ -209,6 +221,9 @@ def execute_frames(
     outputs: list[OutputResult] = []
     detection: Detection | None = None
     counter = 0
+    # Registered frames have to outlive the views that read them.
+    kept: list[pd.DataFrame] = []
+    cache = ScoreCache()
 
     def fresh(name: str) -> str:
         nonlocal counter
@@ -234,6 +249,11 @@ def execute_frames(
                 fresh=lambda name=bound_name: fresh(name),
                 sql_lines=sql_lines,
                 comment=stmt.to_text(),
+                cache=cache,
+                base_swaps=swaps_df,
+                base_transfers=transfers_df,
+                model_dir=model_dir,
+                kept=kept,
             )
             env[stmt.name] = value
             if isinstance(produced, Detection):
@@ -271,6 +291,11 @@ def _eval(
     fresh: Any,
     sql_lines: list[str],
     comment: str,
+    cache: ScoreCache,
+    base_swaps: pd.DataFrame,
+    base_transfers: pd.DataFrame,
+    model_dir: str | None,
+    kept: list[pd.DataFrame],
 ) -> tuple[_Stream | _Bundle, Detection | None]:
     if isinstance(expr, Source):
         view = {
@@ -372,18 +397,27 @@ def _eval(
     if isinstance(expr, Ratio):
         part = _need_stream(env, expr.part)
         whole = _need_stream(env, expr.whole)
-        column = _numeric(expr.field, part.fields, expr.part)
-        _numeric(expr.field, whole.fields, expr.whole)
+        part_column = _numeric(expr.field, part.fields, expr.part)
+        whole_name = expr.whole_field or expr.field
+        whole_column = _numeric(whole_name, whole.fields, expr.whole)
         view = fresh()
         sql = (
             f"CREATE VIEW {view} AS SELECT CASE "
-            f"WHEN (SELECT COALESCE(SUM({column}), 0) FROM {whole.view}) = 0 THEN 0 "
-            f"ELSE 100.0 * (SELECT COALESCE(SUM({column}), 0) FROM {part.view}) "
-            f"/ (SELECT COALESCE(SUM({column}), 0) FROM {whole.view}) END AS value"
+            f"WHEN (SELECT COALESCE(SUM({whole_column}), 0) FROM {whole.view}) = 0 THEN 0 "
+            f"ELSE 100.0 * (SELECT COALESCE(SUM({part_column}), 0) FROM {part.view}) "
+            f"/ (SELECT COALESCE(SUM({whole_column}), 0) FROM {whole.view}) END AS value"
         )
         _run(con, sql)
         sql_lines.append(f"-- {comment}\n{sql}")
-        return _Stream(view, "scalar", field_map("scalar")), None
+        note = None
+        if (
+            expr.field == "ml_weighted_usd"
+            and part.view == whole.view
+            and "ml_score" in part.fields
+            and "usd_value" in part.fields
+        ):
+            note = _bootstrap_note(con, part.view)
+        return _Stream(view, "scalar", field_map("scalar"), note=note), None
 
     if isinstance(expr, Sort):
         stream = _need_stream(env, expr.name)
@@ -413,12 +447,195 @@ def _eval(
         return _Stream(view, stream.type_name, dict(stream.fields)), None
 
     if isinstance(expr, MlScore):
-        raise QueryError(
-            "ML wash score is not trained yet (milestone 2). The box is wired correctly "
-            "and lowers to ml_score. WashXGBoost.predict_proba will fill ml_score from "
-            "wallet_features once a model exists."
-        )
+        return _score_stream(
+            expr.name,
+            "ml",
+            env=env,
+            con=con,
+            excluded=excluded,
+            fresh=fresh,
+            sql_lines=sql_lines,
+            comment=comment,
+            cache=cache,
+            base_swaps=base_swaps,
+            base_transfers=base_transfers,
+            model_dir=model_dir,
+            kept=kept,
+        ), None
+
+    if isinstance(expr, AnomalyScore):
+        return _score_stream(
+            expr.name,
+            "anomaly",
+            env=env,
+            con=con,
+            excluded=excluded,
+            fresh=fresh,
+            sql_lines=sql_lines,
+            comment=comment,
+            cache=cache,
+            base_swaps=base_swaps,
+            base_transfers=base_transfers,
+            model_dir=model_dir,
+            kept=kept,
+        ), None
+
+    if isinstance(expr, Explain):
+        return _explain_stream(
+            expr.name,
+            env=env,
+            con=con,
+            excluded=excluded,
+            warnings=warnings,
+            fresh=fresh,
+            sql_lines=sql_lines,
+            comment=comment,
+            cache=cache,
+            base_swaps=base_swaps,
+            base_transfers=base_transfers,
+            model_dir=model_dir,
+            kept=kept,
+        ), None
     raise QueryError(f"Cannot run expression {type(expr).__name__}.")
+
+
+def _load_scores(
+    cache: ScoreCache,
+    base_swaps: pd.DataFrame,
+    base_transfers: pd.DataFrame,
+    excluded: set[str],
+    model_dir: str | None,
+) -> None:
+    from washdetect.models import ModelNotTrained
+
+    try:
+        cache.ensure(base_swaps, base_transfers, excluded, model_dir)
+    except ModelNotTrained as exc:
+        raise QueryError(str(exc)) from exc
+
+
+def _score_stream(
+    name: str,
+    mode: str,
+    *,
+    env: dict[str, _Stream | _Bundle],
+    con: duckdb.DuckDBPyConnection,
+    excluded: set[str],
+    fresh: Any,
+    sql_lines: list[str],
+    comment: str,
+    cache: ScoreCache,
+    base_swaps: pd.DataFrame,
+    base_transfers: pd.DataFrame,
+    model_dir: str | None,
+    kept: list[pd.DataFrame],
+) -> _Stream:
+    stream = _need_stream(env, name)
+    if stream.type_name not in _SCOREABLE:
+        raise QueryError(
+            f"ML scores apply to swaps or wallets. {name} is {stream.type_name}."
+        )
+    _load_scores(cache, base_swaps, base_transfers, excluded, model_dir)
+    frame = con.execute(f"SELECT * FROM {stream.view}").df()
+    try:
+        scored = score_rows(frame, cache, mode)
+    except ValueError as exc:
+        raise QueryError(str(exc)) from exc
+    kept.append(scored)
+    view = fresh()
+    registered = f"scored_{view}"
+    con.register(registered, scored)
+    sql = f"CREATE VIEW {view} AS SELECT * FROM {registered}"
+    _run(con, sql)
+    sql_lines.append(f"-- {comment}\n{sql}")
+    fields = dict(stream.fields)
+    if mode == "ml":
+        fields["ml_score"] = "number"
+        if "usd_value" in scored.columns:
+            fields["ml_weighted_usd"] = "number"
+    else:
+        fields["anomaly_score"] = "number"
+    return _Stream(view, stream.type_name, fields)
+
+
+def _explain_stream(
+    name: str,
+    *,
+    env: dict[str, _Stream | _Bundle],
+    con: duckdb.DuckDBPyConnection,
+    excluded: set[str],
+    warnings: list[str],
+    fresh: Any,
+    sql_lines: list[str],
+    comment: str,
+    cache: ScoreCache,
+    base_swaps: pd.DataFrame,
+    base_transfers: pd.DataFrame,
+    model_dir: str | None,
+    kept: list[pd.DataFrame],
+) -> _Stream:
+    stream = _need_stream(env, name)
+    if stream.type_name not in {"wallets", "wash_wallets"}:
+        raise QueryError(
+            f"Explain reads wallets. {name} is {stream.type_name}. "
+            "Connect a Wallets source or the detector's wallets output."
+        )
+    if "wallet" not in stream.fields:
+        raise QueryError(f"{name} has no wallet column to explain.")
+    _load_scores(cache, base_swaps, base_transfers, excluded, model_dir)
+    frame = con.execute(f"SELECT wallet FROM {stream.view}").df()
+    wallets = [str(wallet) for wallet in frame["wallet"].tolist() if wallet]
+    from washdetect.models import ModelNotTrained
+
+    try:
+        reasons, truncated = explain_wallets(wallets, cache)
+    except ModelNotTrained as exc:
+        raise QueryError(str(exc)) from exc
+    if truncated:
+        warnings.append(
+            "Explain is capped at 25 wallets. Sort and limit the stream to choose which ones."
+        )
+    explained = {str(wallet).lower() for wallet in reasons["wallet"].tolist()} if not reasons.empty else set()
+    chosen: list[str] = []
+    seen: set[str] = set()
+    for wallet in wallets:
+        key = wallet.lower()
+        if key and key not in seen:
+            seen.add(key)
+            chosen.append(key)
+    asked = set(chosen[:25])
+    missing = len(asked - explained)
+    if missing > 0:
+        warnings.append(
+            f"{missing} wallets have no swaps in this window, so there is nothing to explain."
+        )
+    kept.append(reasons)
+    view = fresh()
+    registered = f"explain_{view}"
+    con.register(registered, reasons)
+    sql = f"CREATE VIEW {view} AS SELECT * FROM {registered}"
+    _run(con, sql)
+    sql_lines.append(f"-- {comment}\n{sql}")
+    return _Stream(view, "explanations", field_map("explanations"))
+
+
+def _bootstrap_note(con: duckdb.DuckDBPyConnection, view: str) -> str:
+    from washdetect.models import probability_weighted_wash_percent
+
+    frame = con.execute(f"SELECT ml_score, usd_value FROM {view}").df()
+    stats = probability_weighted_wash_percent(
+        frame["usd_value"].tolist(),
+        frame["ml_score"].tolist(),
+        n_bootstrap=400,
+        seed=0,
+    )
+    if int(stats["n"]) == 0:
+        return "No priced swaps to resample, so the bootstrap interval is empty."
+    return (
+        f"95% bootstrap interval {float(stats['ci_low']):.2f}%–{float(stats['ci_high']):.2f}% "
+        f"on {int(stats['n'])} priced swaps. "
+        "The interval resamples this window; it is not a guarantee about other tokens."
+    )
 
 
 def _detector_config(expr: Detect) -> HeuristicConfig:
@@ -759,6 +976,7 @@ def _read_output(con: duckdb.DuckDBPyConnection, stream: _Stream, stmt: Output) 
         columns=columns,
         rows=rows,
         truncated=truncated,
+        note=stream.note,
     )
 
 

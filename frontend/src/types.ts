@@ -44,6 +44,7 @@ export type Catalog = {
     rows: string[];
     timed: string[];
     walletish: string[];
+    scoreable: string[];
     swaps_exact: string[];
   };
 };
@@ -109,6 +110,7 @@ export type OutputResult = {
   columns: string[];
   rows: Record<string, unknown>[];
   truncated: boolean;
+  note?: string;
 };
 
 export type RunResult = {

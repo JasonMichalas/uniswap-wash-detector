@@ -240,6 +240,8 @@ def _query(args: argparse.Namespace) -> int:
                 value = output.rows[0]["value"] if output.rows else None
                 suffix = "%" if output.format == "percent" else ""
                 print(f"{value}{suffix}")
+                if output.note:
+                    print(output.note)
             else:
                 columns = output.columns
                 print("\t".join(columns))

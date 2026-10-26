@@ -131,9 +131,13 @@ class Ratio:
     part: str
     whole: str
     field: str
+    whole_field: str | None = None
 
     def to_text(self) -> str:
-        return f"ratio {self.part} {self.whole} of {self.field}"
+        text = f"ratio {self.part} {self.whole} of {self.field}"
+        if self.whole_field and self.whole_field != self.field:
+            text += f" over {self.whole_field}"
+        return text
 
 
 @dataclass
@@ -163,6 +167,22 @@ class MlScore:
         return f"ml_score {self.name}"
 
 
+@dataclass
+class AnomalyScore:
+    name: str
+
+    def to_text(self) -> str:
+        return f"anomaly_score {self.name}"
+
+
+@dataclass
+class Explain:
+    name: str
+
+    def to_text(self) -> str:
+        return f"explain {self.name}"
+
+
 Expr = (
     Source
     | Detect
@@ -175,6 +195,8 @@ Expr = (
     | Sort
     | Limit
     | MlScore
+    | AnomalyScore
+    | Explain
 )
 
 

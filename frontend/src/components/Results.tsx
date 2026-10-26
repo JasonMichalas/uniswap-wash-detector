@@ -90,6 +90,7 @@ function NumberCard({ output }: { output: OutputResult }) {
     <article className="number-card">
       <h3>{output.title}</h3>
       <p>{formatNumber(raw, output.format)}</p>
+      {output.note && <p className="hint">{output.note}</p>}
     </article>
   );
 }

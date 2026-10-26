@@ -15,9 +15,11 @@ from washdetect.graph.catalog import NODE_BY_TYPE
 from washdetect.graph.validate import GraphErrorItem, validate_graph
 from washdetect.querylang.ast import (
     Aggregate,
+    AnomalyScore,
     Assign,
     Condition,
     Detect,
+    Explain,
     Filter,
     GroupBy,
     Limit,
@@ -128,10 +130,17 @@ def _lower(graph: dict[str, Any]) -> Program:
             names[(node_id, "out")] = name
         elif ntype == "ratio":
             name = uname(node_id)
+            over = data.get("over")
+            whole_field = str(over) if isinstance(over, str) and over.strip() else None
             statements.append(
                 Assign(
                     name,
-                    Ratio(upstream(node_id, "in_part"), upstream(node_id, "in_whole"), str(data["field"])),
+                    Ratio(
+                        upstream(node_id, "in_part"),
+                        upstream(node_id, "in_whole"),
+                        str(data["field"]),
+                        whole_field,
+                    ),
                 )
             )
             names[(node_id, "out")] = name
@@ -155,6 +164,14 @@ def _lower(graph: dict[str, Any]) -> Program:
         elif ntype == "ml_score":
             name = uname(node_id)
             statements.append(Assign(name, MlScore(upstream(node_id, "in"))))
+            names[(node_id, "out")] = name
+        elif ntype == "anomaly_score":
+            name = uname(node_id)
+            statements.append(Assign(name, AnomalyScore(upstream(node_id, "in"))))
+            names[(node_id, "out")] = name
+        elif ntype == "explain":
+            name = uname(node_id)
+            statements.append(Assign(name, Explain(upstream(node_id, "in"))))
             names[(node_id, "out")] = name
         elif ntype in {"output_number", "output_table", "output_chart"}:
             kind = {"output_number": "number", "output_table": "table", "output_chart": "chart"}[ntype]

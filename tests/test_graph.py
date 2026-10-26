@@ -26,6 +26,30 @@ def test_templates_validate_and_compile(path: Path):
     assert "output " in text
 
 
+def test_ml_wash_percent_template_divides_weighted_usd():
+    graph = _load(ROOT / "examples" / "graphs" / "11-ml-wash-percent.json")
+    text = compile_graph(graph)[1]
+    assert "ml_score " in text
+    assert "ml_weighted_usd over usd_value" in text
+    assert "format percent" in text
+
+
+def test_transfers_cannot_feed_the_ml_score():
+    graph = {
+        "nodes": [
+            {"id": "t", "type": "source", "data": {"source": "transfers"}},
+            {"id": "m", "type": "ml_score", "data": {}},
+            {"id": "o", "type": "output_table", "data": {"title": "nope"}},
+        ],
+        "edges": [
+            {"id": "e1", "source": "t", "target": "m", "sourceHandle": "out", "targetHandle": "in"},
+            {"id": "e2", "source": "m", "target": "o", "sourceHandle": "out", "targetHandle": "in"},
+        ],
+    }
+    errors = validate_graph(graph)
+    assert any("Cannot connect" in error.message for error in errors)
+
+
 def test_wash_percent_template_uses_general_boxes():
     graph = _load(ROOT / "examples" / "graphs" / "01-wash-percent.json")
     text = compile_graph(graph)[1]

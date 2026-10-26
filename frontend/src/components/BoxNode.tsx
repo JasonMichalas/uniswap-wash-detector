@@ -73,12 +73,18 @@ export function summary(nodeType: string, params: Record<string, unknown>): stri
     const group = params.max_group_size ?? 16;
     return `tol ${tolerance}, ${windowBlocks} blocks, ≤${group} wallets`;
   }
-  if (nodeType === "ml_score") return "not trained";
+  if (nodeType === "ml_score") return "XGBoost probability";
+  if (nodeType === "anomaly_score") return "Isolation Forest";
+  if (nodeType === "explain") return "top SHAP reasons";
   if (nodeType === "group_by") return `by ${params.by ?? "?"}`;
   if (nodeType === "aggregate") {
     return params.fn === "count" ? "count" : `${params.fn ?? "sum"} ${params.field || ""}`.trim();
   }
-  if (nodeType === "ratio") return `100 × ${params.field || "field"}`;
+  if (nodeType === "ratio") {
+    const field = String(params.field || "field");
+    const over = String(params.over || "");
+    return over ? `100 × ${field} / ${over}` : `100 × ${field}`;
+  }
   if (nodeType === "sort") return `${params.field || "field"} ${params.direction ?? "desc"}`;
   if (nodeType === "limit") return `first ${params.n ?? "?"}`;
   if (String(nodeType).startsWith("output")) return String(params.title || "untitled");

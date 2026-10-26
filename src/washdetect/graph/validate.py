@@ -245,14 +245,21 @@ def _produce(
             "out_cycles": ("cycles", field_map("cycles")),
         }
 
-    if ntype in {"condition", "time_window", "sort", "limit", "ml_score"}:
+    if ntype in {"condition", "time_window", "sort", "limit", "ml_score", "anomaly_score"}:
         if input_type is None or input_fields is None:
             return {}
         fields = dict(input_fields)
         if ntype == "ml_score":
             fields["ml_score"] = "number"
+            if "usd_value" in fields:
+                fields["ml_weighted_usd"] = "number"
+        if ntype == "anomaly_score":
+            fields["anomaly_score"] = "number"
         _check_params(ntype, data, input_type, fields, node_id, label, errors)
         return {"out": (input_type, fields)}
+
+    if ntype == "explain":
+        return {"out": ("explanations", field_map("explanations"))}
 
     if ntype == "group_by":
         if input_type is None:
@@ -515,6 +522,7 @@ def _friendly_input(type_name: str) -> str:
         "rows": "any table",
         "timed": "swaps or transfers",
         "walletish": "wallets",
+        "scoreable": "swaps or wallets",
         "scalar": "a single number",
         "swaps": "swaps",
     }.get(type_name, type_name)
