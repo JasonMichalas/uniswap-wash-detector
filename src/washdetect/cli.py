@@ -289,6 +289,7 @@ def _train(args: argparse.Namespace) -> int:
         raise ValueError(f"{path} has no token addresses.")
     tables = []
     failures: list[str] = []
+    cold_seconds = _cold_fetch_seconds(args.db)
     for token in tokens:
         print(f"\n=== {token}", flush=True)
         try:
@@ -321,7 +322,7 @@ def _train(args: argparse.Namespace) -> int:
                     swaps,
                     transfers,
                     excluded=set(frames["pool_addresses"]),
-                    seconds=report.seconds,
+                    seconds=cold_seconds.get(report.token.lower(), report.seconds),
                     start_block=report.start_block,
                     end_block=report.end_block,
                 )
@@ -342,6 +343,11 @@ def _train(args: argparse.Namespace) -> int:
         window = f"Window: the last {args.days} day(s) ending when each token was fetched, Ethereum mainnet, public RPC, no API key."
     else:
         window = f"Window: {args.start} through {args.end} inclusive, Ethereum mainnet, public RPC, no API key."
+    window += (
+        " Fetch s is the cold public-RPC scrape when a successful row exists in "
+        "fetch-log.txt beside the database; otherwise it is the time spent loading "
+        "that token during this training run."
+    )
     model_dir = Path(args.model_dir) if args.model_dir else default_model_dir()
     report_path = Path(args.report)
     _bundle, _text = train_tables(
@@ -357,6 +363,23 @@ def _train(args: argparse.Namespace) -> int:
     if failures:
         print(f"skipped {len(failures)} token(s)")
     return 0
+
+
+def _cold_fetch_seconds(db_path: str) -> dict[str, float]:
+    """Successful scrape times written beside the cache, keyed by token address."""
+    path = Path(db_path).expanduser().parent / "fetch-log.txt"
+    found: dict[str, float] = {}
+    if not path.is_file():
+        return found
+    for line in path.read_text(encoding="utf-8").splitlines()[1:]:
+        parts = line.split("\t")
+        if len(parts) < 3 or parts[1] != "0":
+            continue
+        try:
+            found[parts[0].lower()] = float(parts[2])
+        except ValueError:
+            continue
+    return found
 
 
 def _serve(args: argparse.Namespace) -> int:

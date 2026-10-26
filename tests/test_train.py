@@ -1,5 +1,6 @@
 """Train/test is by token, and planted shapes on the held-out token are scored."""
 
+from washdetect.cli import _cold_fetch_seconds
 from washdetect.dataset import assemble_from_events
 from washdetect.detector import SwapEvent
 from washdetect.features import RULE_OUTPUT_COLUMNS
@@ -15,6 +16,19 @@ def _token(index: int) -> object:
     swaps.append(SwapEvent(f"0xrt{index}", 800, "buy", 12, 12, f"0xrtb{index}", 0))
     swaps.append(SwapEvent(f"0xrt{index}", 900, "sell", 12, 12, f"0xrts{index}", 0))
     return assemble_from_events(f"0x{index:040x}", f"T{index}", swaps, [], seed=100 + index)
+
+
+def test_cold_fetch_log_keeps_successful_scrapes_only(tmp_path):
+    log = tmp_path / "fetch-log.txt"
+    log.write_text(
+        "token\texit\tseconds\n"
+        "0xAa\t0\t12.5\n"
+        "0xBb\t1\t3.0\n"
+        "0xCc\t0\tnot-a-number\n",
+        encoding="utf-8",
+    )
+    found = _cold_fetch_seconds(str(tmp_path / "washdetect.duckdb"))
+    assert found == {"0xaa": 12.5}
 
 
 def test_split_keeps_tokens_disjoint():
