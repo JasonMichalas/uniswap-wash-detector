@@ -114,12 +114,12 @@ export function TokenPicker({
             <p className="menu-note">Saved list of well-known tokens. The live list did not load.</p>
           )}
           {showMatches ? (
-            <TokenSection title="Matches" tokens={matches} onPick={choose} empty="No tokens match that. Paste a contract address if you have one." />
+            <TokenSection title="Matches" tokens={matches.slice(0, 8)} onPick={choose} empty="No tokens match that. Paste a contract address if you have one." />
           ) : (
             <>
               {busy && <p className="menu-note">Searching…</p>}
-              <TokenSection title="Trending" tokens={base?.trending ?? []} onPick={choose} />
-              <TokenSection title="Top volume (24h)" tokens={base?.top_volume ?? []} onPick={choose} />
+              <TokenSection title="Trending" tokens={(base?.trending ?? []).slice(0, 4)} onPick={choose} />
+              <TokenSection title="Top volume (24h)" tokens={(base?.top_volume ?? []).slice(0, 4)} onPick={choose} />
             </>
           )}
         </div>

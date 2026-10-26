@@ -493,6 +493,12 @@ button.theme { flex: none; border: 1px solid var(--line); background: var(--pane
 
 .canvas-wrap .react-flow { flex: 1; min-height: 0; width: 100%; height: 100%; background: var(--canvas); }
 .react-flow__attribution { background: transparent !important; color: var(--muted) !important; }
+.react-flow__minimap {
+  background: var(--panel) !important;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  margin: 8px;
+}
 
 .empty-canvas {
   position: absolute;

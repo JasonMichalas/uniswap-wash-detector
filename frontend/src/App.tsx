@@ -242,8 +242,8 @@ function Editor({ catalog }: { catalog: Catalog }) {
     const count = nodesRef.current.length;
     if (!rect) return { x: 80 + count * 24, y: 80 };
     return screenToFlowPosition({
-      x: rect.left + Math.min(rect.width * 0.35, 280) + (count % 3) * 28,
-      y: rect.top + 72 + count * 18,
+      x: rect.left + 56 + (count % 3) * 28,
+      y: rect.top + 40 + count * 16,
     });
   }
 
