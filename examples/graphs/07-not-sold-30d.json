@@ -1,0 +1,13 @@
+{
+  "name": "Not sold in 30 days",
+  "description": "Wallets with no sell in the last 30 days of the loaded window, including wallets that never sold.",
+  "nodes": [
+    {"id": "wallets1", "type": "source", "position": {"x": 40, "y": 80}, "data": {"source": "wallets"}},
+    {"id": "filter1", "type": "condition", "position": {"x": 360, "y": 80}, "data": {"mode": "sold_in", "days": 30, "negate": true}},
+    {"id": "out1", "type": "output_table", "position": {"x": 700, "y": 80}, "data": {"title": "No sale in 30 days"}}
+  ],
+  "edges": [
+    {"id": "e1", "source": "wallets1", "target": "filter1", "sourceHandle": "out", "targetHandle": "in"},
+    {"id": "e2", "source": "filter1", "target": "out1", "sourceHandle": "out", "targetHandle": "in"}
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "name": "Top wash-trading wallet",
+  "description": "The wallet with the most USD volume inside flagged round-trips, if any wallet clears the rule.",
+  "nodes": [
+    {"id": "swaps1", "type": "source", "position": {"x": 40, "y": 60}, "data": {"source": "swaps"}},
+    {"id": "transfers1", "type": "source", "position": {"x": 40, "y": 240}, "data": {"source": "transfers"}},
+    {"id": "detect1", "type": "detect_cycles", "position": {"x": 320, "y": 100}, "data": {}},
+    {"id": "filter1", "type": "condition", "position": {"x": 640, "y": 40}, "data": {"mode": "compare", "field": "confidence", "op": ">", "value": 0}},
+    {"id": "sort1", "type": "sort", "position": {"x": 940, "y": 40}, "data": {"field": "wash_volume_usd", "direction": "desc"}},
+    {"id": "limit1", "type": "limit", "position": {"x": 1220, "y": 40}, "data": {"n": 1}},
+    {"id": "out1", "type": "output_table", "position": {"x": 1480, "y": 40}, "data": {"title": "Top wash wallet"}}
+  ],
+  "edges": [
+    {"id": "e1", "source": "swaps1", "target": "detect1", "sourceHandle": "out", "targetHandle": "in_swaps"},
+    {"id": "e2", "source": "transfers1", "target": "detect1", "sourceHandle": "out", "targetHandle": "in_transfers"},
+    {"id": "e3", "source": "detect1", "target": "filter1", "sourceHandle": "out_wallets", "targetHandle": "in"},
+    {"id": "e4", "source": "filter1", "target": "sort1", "sourceHandle": "out", "targetHandle": "in"},
+    {"id": "e5", "source": "sort1", "target": "limit1", "sourceHandle": "out", "targetHandle": "in"},
+    {"id": "e6", "source": "limit1", "target": "out1", "sourceHandle": "out", "targetHandle": "in"}
+  ]
+}
