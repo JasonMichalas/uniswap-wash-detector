@@ -51,13 +51,16 @@ ROUTERS = frozenset(
 
 # Public Ethereum mainnet endpoints. No API key. The client rotates through
 # this list when one of them rate-limits or rejects a log range.
+# Order is the ones that answered eth_getLogs without an API key on
+# 26 Oct 2026. llamarpc sits behind a browser challenge (403 HTML) and
+# Ankr's public URL now requires a key, so they are not in the list.
 DEFAULT_RPCS = (
     "https://eth.drpc.org",
-    "https://ethereum-rpc.publicnode.com",
-    "https://1rpc.io/eth",
-    "https://rpc.ankr.com/eth",
-    "https://eth.llamarpc.com",
     "https://rpc.mevblocker.io",
+    "https://ethereum-rpc.publicnode.com",
+    "https://rpc.flashbots.net",
+    "https://eth-mainnet.public.blastapi.io",
+    "https://1rpc.io/eth",
 )
 
 # The Graph decentralized network. Used only when GRAPH_API_KEY is set.

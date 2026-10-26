@@ -167,7 +167,7 @@ class RpcClient:
         transport: Callable[[str, Any], Any] | None = None,
         sleep: Callable[[float], None] | None = None,
         timeout: float = 40.0,
-        max_attempts: int = 5,
+        max_attempts: int = 8,
     ) -> None:
         self.endpoints = list(endpoints or DEFAULT_RPCS)
         if not self.endpoints:
