@@ -42,6 +42,8 @@ washdetect serve
 
 Open [http://127.0.0.1:8742](http://127.0.0.1:8742). `washdetect` is on the PATH only while the virtualenv is active. `python -m washdetect.cli serve` is the same command if the script is not found (`py -3.11 -m washdetect.cli serve` on Windows).
 
+On Debian or Ubuntu, `python3 -m venv` needs the distro package: `sudo apt install python3-venv` (or `python3.12-venv`). macOS and the python.org Windows installer already include it.
+
 ### A short first run
 
 1. Paste ENS: `0xC18360217D8F7Ab5e7c516566761Ea12Ce7F9D72`.
