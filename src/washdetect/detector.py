@@ -16,9 +16,15 @@ ERC-20 transfers instead. Hubs (airdrop senders, routers, pools) are not
 allowed to glue unrelated wallets together.
 
 The output is a hard label plus a heuristic confidence in [0, 1]. That
-confidence is not a probability. The milestone-2 models replace it with
+confidence is not a probability. Trained models replace it with
 `predict_proba`, and `probability_weighted_wash_percent` turns those
 probabilities into a percentage and a bootstrap interval.
+
+Besides the pairwise Gan pass, `washdetect.flow` labels a connected flow
+group whenever the wallets' pooled buys and sells cancel within tolerance.
+That is what catches fan-in, fan-out, and M:N shuffles whose pairs do not
+each net out. Each cycle carries `pattern_type`, `n_buyers`, `n_sellers`,
+and `n_wallets`.
 """
 
 from __future__ import annotations
@@ -66,6 +72,15 @@ class Cycle:
     end_block: int
     swap_ids: list[tuple[str, int]] = field(default_factory=list)
     token_amount: float = 0.0
+    # pattern_type is the stable label the editor filters on:
+    # round_trip, ring, one_to_many, many_to_one, many_to_many.
+    # n_wallets counts intermediates that only forward tokens.
+    # n_buyers and n_sellers count wallets that trade that side
+    # (a wallet that does both is in each set).
+    pattern_type: str = ""
+    n_buyers: int = 0
+    n_sellers: int = 0
+    n_wallets: int = 0
 
 
 @dataclass
@@ -384,6 +399,22 @@ def _in_blocks(swaps: list[SwapEvent], lo: int, hi: int) -> list[SwapEvent]:
     return [swap for swap in swaps if lo <= swap.block <= hi]
 
 
+def _shape(swaps: list[SwapEvent], wallets: tuple[str, ...] | set[str], *, has_cycle: bool = False) -> tuple[str, int, int, int]:
+    from washdetect.flow import classify_pattern
+
+    buyers = {swap.wallet for swap in swaps if swap.side == "buy"}
+    sellers = {swap.wallet for swap in swaps if swap.side == "sell"}
+    n_wallets = len(wallets) if wallets else len({swap.wallet for swap in swaps})
+    if n_wallets <= 1:
+        return "round_trip", len(buyers), len(sellers), max(n_wallets, 1 if swaps else 0)
+    return (
+        classify_pattern(n_wallets, len(buyers), len(sellers), has_cycle=has_cycle),
+        len(buyers),
+        len(sellers),
+        n_wallets,
+    )
+
+
 def detect(
     swaps: list[SwapEvent],
     transfers: list[TransferEvent],
@@ -500,10 +531,11 @@ def detect(
         cycle_id = _cycle_id(cluster.kind, cluster.wallets, cluster.start_block, cluster.end_block)
         ids = [(s.tx_hash, s.log_index) for s in cluster.swaps]
         volume = sum(s.usd for s in cluster.swaps)
+        pattern, n_buyers, n_sellers, n_wallets = _shape(cluster.swaps, cluster.wallets)
         cycles.append(
             Cycle(
                 cycle_id=cycle_id,
-                size=cluster.size,
+                size=n_wallets,
                 kind=cluster.kind,
                 wallets=cluster.wallets,
                 volume_usd=volume,
@@ -512,6 +544,10 @@ def detect(
                 end_block=cluster.end_block,
                 swap_ids=ids,
                 token_amount=sum(s.amount for s in cluster.swaps),
+                pattern_type=pattern,
+                n_buyers=n_buyers,
+                n_sellers=n_sellers,
+                n_wallets=n_wallets,
             )
         )
         for swap in cluster.swaps:
@@ -538,10 +574,13 @@ def detect(
             if abs(swap.amount - amount) / max(swap.amount, amount) <= config.net_ratio + 1e-12:
                 matched.append(swap)
         volume = sum(s.usd for s in matched)
+        pattern, n_buyers, n_sellers, n_wallets = _shape(matched, wallets, has_cycle=True)
+        if not matched:
+            pattern, n_buyers, n_sellers, n_wallets = "ring", 0, 0, len(wallets)
         cycles.append(
             Cycle(
                 cycle_id=cycle_id,
-                size=len(wallets),
+                size=n_wallets,
                 kind="transfer_cycle",
                 wallets=wallets,
                 volume_usd=volume,
@@ -550,9 +589,67 @@ def detect(
                 end_block=end,
                 swap_ids=[(s.tx_hash, s.log_index) for s in matched],
                 token_amount=amount,
+                pattern_type=pattern,
+                n_buyers=n_buyers,
+                n_sellers=n_sellers,
+                n_wallets=n_wallets,
             )
         )
         for swap in matched:
+            flag_swap(swap, confidence, cycle_id)
+
+    from washdetect.flow import find_flow_groups
+
+    flow_groups = find_flow_groups(norm_swaps, norm_transfers, excluded, config)
+    by_swaps: dict[frozenset[tuple[str, int]], Cycle] = {}
+    for cycle in cycles:
+        by_swaps.setdefault(frozenset(cycle.swap_ids), cycle)
+    for group in flow_groups:
+        keys = frozenset((swap.tx_hash, swap.log_index) for swap in group.swaps)
+        # A pairwise round-trip can be the swap set of a larger flow (the
+        # intermediates do not themselves trade). Keep one cycle and record
+        # the fuller shape. A strict subset is dropped so the same volume
+        # is not listed twice; the swaps stay flagged.
+        if keys in by_swaps:
+            current = by_swaps[keys]
+            current.pattern_type = group.pattern_type
+            current.n_buyers = group.n_buyers
+            current.n_sellers = group.n_sellers
+            current.n_wallets = group.n_wallets
+            current.size = group.n_wallets
+            current.wallets = group.wallets
+            continue
+        covered = [other for other in by_swaps if other and other < keys]
+        for other in covered:
+            cycles.remove(by_swaps.pop(other))
+        span = group.end_block - group.start_block
+        confidence = score_confidence(
+            group.net_ratio,
+            span,
+            group.n_wallets,
+            limit_ratio=config.net_ratio,
+            limit_span=config.max_block_gap,
+        )
+        cycle_id = _cycle_id(group.pattern_type, group.wallets, group.start_block, group.end_block)
+        cycle = Cycle(
+            cycle_id=cycle_id,
+            size=group.n_wallets,
+            kind=group.pattern_type,
+            wallets=group.wallets,
+            volume_usd=sum(swap.usd for swap in group.swaps),
+            confidence=confidence,
+            start_block=group.start_block,
+            end_block=group.end_block,
+            swap_ids=[(swap.tx_hash, swap.log_index) for swap in group.swaps],
+            token_amount=group.buy_amount + group.sell_amount,
+            pattern_type=group.pattern_type,
+            n_buyers=group.n_buyers,
+            n_sellers=group.n_sellers,
+            n_wallets=group.n_wallets,
+        )
+        cycles.append(cycle)
+        by_swaps[keys] = cycle
+        for swap in group.swaps:
             flag_swap(swap, confidence, cycle_id)
 
     # Wallet rollup. Every wallet that swapped is listed, with confidence 0

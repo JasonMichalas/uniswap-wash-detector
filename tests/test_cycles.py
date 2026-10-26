@@ -29,6 +29,9 @@ def test_self_round_trip_is_flagged_and_a_holder_is_not():
     wallet_a = next(row for row in found.wallets if row.wallet == "0xa")
     assert wallet_a.confidence > 0.8
     assert wallet_a.round_trip_count == 1
+    trip = next(cycle for cycle in found.cycles if "0xa" in cycle.wallets and cycle.n_wallets == 1)
+    assert trip.pattern_type == "round_trip"
+    assert trip.n_buyers == 1 and trip.n_sellers == 1
     features = build_feature_frame(swaps, [], found)
     row = features.set_index("wallet").loc["0xa"]
     assert row["heuristic_label"] == 1

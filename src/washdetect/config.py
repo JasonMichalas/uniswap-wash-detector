@@ -97,3 +97,10 @@ class HeuristicConfig:
     max_cycles: int = 500
     max_links: int = 2_000
     max_triangles: int = 400
+    # Flow groups: a connected set of wallets whose pooled buys and sells
+    # net out. Covers one-to-many, many-to-one, many-to-many, and rings,
+    # not only pairwise round-trips. Capped so a busy component cannot
+    # glue the whole token into one group.
+    max_group_size: int = 16
+    max_flow_groups: int = 500
+    max_flow_seeds: int = 20_000
