@@ -1,0 +1,53 @@
+[project]
+name = "washdetect"
+version = "0.1.0"
+description = "Detect wash-trading patterns in Uniswap v2 and v3 liquidity pools (ECM3401)."
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.11"
+authors = [{ name = "ECM3401 dissertation project, University of Exeter" }]
+dependencies = [
+  "httpx>=0.27",
+    "eth-abi>=5.1",
+    "eth-utils>=5.0",
+    "eth-hash[pycryptodome]>=0.7",
+  "duckdb>=1.1",
+  "lark>=1.1",
+  "pandas>=2.2",
+  "fastapi>=0.115",
+  "uvicorn>=0.32",
+  "pydantic>=2.0",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0", "ruff>=0.6"]
+ml = ["scikit-learn>=1.5", "xgboost>=2.0", "shap>=0.46", "numpy>=1.26"]
+
+[project.scripts]
+washdetect = "washdetect.cli:main"
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+"washdetect.querylang" = ["*.lark"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+ignore = ["E501"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["washdetect"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
