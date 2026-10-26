@@ -1,4 +1,4 @@
-# washdetect
+# Uniswap Wash Detector
 
 Milestone 1 of an ECM3401 dissertation (University of Exeter): a machine-learning *framework* for spotting wash trading in Uniswap liquidity pools. This milestone loads Ethereum mainnet data, labels round-trips with a published heuristic, and lets a researcher **build** an analysis instead of being handed a wash percentage.
 

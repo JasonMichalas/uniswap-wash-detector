@@ -65,7 +65,7 @@ export function App() {
   if (bootError) {
     return (
       <main className="boot">
-        <h1>washdetect</h1>
+        <h1>Uniswap Wash Detector</h1>
         <p>The editor could not read the box catalog.</p>
         <p className="banner error">{bootError}</p>
         <p>Start the API from the repo root, then refresh:</p>
@@ -76,7 +76,7 @@ export function App() {
   if (!catalog) {
     return (
       <main className="boot">
-        <h1>washdetect</h1>
+        <h1>Uniswap Wash Detector</h1>
         <p>Loading the box catalog…</p>
       </main>
     );
@@ -358,7 +358,7 @@ function Editor({ catalog }: { catalog: Catalog }) {
     <div className="app">
       <header className="top">
         <div className="brand">
-          <h1>washdetect</h1>
+          <h1>Uniswap Wash Detector</h1>
           <p>Uniswap v2 and v3, Ethereum mainnet. Build the question. Nothing is scored until you press Run.</p>
         </div>
         <form

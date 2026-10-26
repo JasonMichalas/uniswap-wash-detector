@@ -31,7 +31,7 @@ from washdetect.querylang.errors import QueryError
 from washdetect.snapshot import read_window, window_ready
 from washdetect.store import Store
 
-app = FastAPI(title="washdetect", version="0.1.0")
+app = FastAPI(title="Uniswap Wash Detector", version="0.1.0")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
@@ -263,7 +263,7 @@ def _mount_frontend() -> None:
                 """
                 <!doctype html>
                 <meta charset="utf-8">
-                <title>washdetect</title>
+                <title>Uniswap Wash Detector</title>
                 <body style="font-family: system-ui; max-width: 40rem; margin: 4rem auto; line-height: 1.5">
                 <h1>The editor has not been built</h1>
                 <p>The API is running. Build the React Flow editor, then refresh:</p>

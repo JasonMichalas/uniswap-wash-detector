@@ -1,4 +1,4 @@
-"""Wash-trading detection for Uniswap v2 and v3 on Ethereum mainnet.
+"""Uniswap Wash Detector: wash-trading detection for Uniswap v2 and v3 on Ethereum mainnet.
 
 Milestone 1 of an ECM3401 dissertation (University of Exeter). The package
 loads pool data from public RPC endpoints, stores it in DuckDB, and lets a

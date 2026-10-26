@@ -26,7 +26,7 @@ from washdetect.store import Store
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         prog="washdetect",
-        description="Wash-trading baseline for Uniswap v2/v3. Ethereum mainnet, no API key required.",
+        description="Uniswap Wash Detector. Ethereum mainnet, Uniswap v2 and v3, no API key required.",
     )
     parser.add_argument("--db", default=DEFAULT_DB, help="DuckDB file (default: data/washdetect.duckdb)")
     sub = parser.add_subparsers(dest="cmd", required=True)
@@ -268,7 +268,7 @@ def _serve(args: argparse.Namespace) -> int:
     import os
 
     os.environ["WASHDETECT_DB"] = os_db
-    print(f"washdetect editor on http://127.0.0.1:{args.port}")
+    print(f"Uniswap Wash Detector on http://127.0.0.1:{args.port}")
     print("Loading a token caches data and leaves the canvas empty.")
     uvicorn.run("washdetect.api:app", host=args.host, port=args.port, reload=False)
     return 0
