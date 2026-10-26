@@ -30,6 +30,7 @@ from washdetect.querylang.engine import execute_frames
 from washdetect.querylang.errors import QueryError
 from washdetect.snapshot import read_window, window_ready
 from washdetect.store import Store
+from washdetect.tokensuggest import suggest_tokens
 
 app = FastAPI(title="Uniswap Wash Detector", version="0.1.0")
 app.add_middleware(
@@ -251,6 +252,11 @@ def run(body: RunRequest) -> dict[str, Any]:
     payload = result.as_dict()
     payload["query"] = text
     return payload
+
+
+@app.get("/api/tokens/suggest")
+def tokens_suggest(q: str = "") -> dict[str, Any]:
+    return suggest_tokens(q)
 
 
 def _mount_frontend() -> None:
