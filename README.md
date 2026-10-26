@@ -6,7 +6,7 @@ No API key is required. Loading a token never scores wash trading. You press **R
 
 ## Try it yourself
 
-You need Python 3.11 or newer ([python.org/downloads](https://www.python.org/downloads/)) and Node.js 22 ([nodejs.org](https://nodejs.org/)). Git is the usual install from [git-scm.com](https://git-scm.com/downloads).
+Python 3.11, 3.12, and 3.13 all work ([python.org/downloads](https://www.python.org/downloads/)). Node.js 22 or newer works ([nodejs.org](https://nodejs.org/)); this was checked with Node 24.13. Git is the usual install from [git-scm.com](https://git-scm.com/downloads).
 
 Clone the repo, then install the Python package with the ML extra and build the editor. One command starts the API and the built page.
 
@@ -15,7 +15,7 @@ Clone the repo, then install the Python package with the ML extra and build the 
 ```bat
 git clone https://github.com/JasonMichalas/uniswap-wash-detector.git
 cd uniswap-wash-detector
-py -3.11 -m venv .venv
+py -3.12 -m venv .venv
 .venv\Scripts\activate
 pip install -e ".[ml]"
 cd frontend
@@ -40,7 +40,9 @@ cd ..
 washdetect serve
 ```
 
-Open [http://127.0.0.1:8742](http://127.0.0.1:8742). `washdetect` is on the PATH only while the virtualenv is active. `python -m washdetect.cli serve` is the same command if the script is not found (`py -3.11 -m washdetect.cli serve` on Windows).
+Open [http://127.0.0.1:8742](http://127.0.0.1:8742). `washdetect` is on the PATH only while the virtualenv is active. `python -m washdetect.cli serve` is the same command if the script is not found (`py -3.12 -m washdetect.cli serve` on Windows).
+
+On Windows, `py --list` shows which Pythons are installed. Use whichever of 3.11, 3.12, or 3.13 you have (`py -3.12 -m venv .venv` is the example above). If PowerShell refuses `.venv\Scripts\activate`, run `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned` once, then activate again.
 
 On Debian or Ubuntu, `python3 -m venv` needs the distro package: `sudo apt install python3-venv` (or `python3.12-venv`). macOS and the python.org Windows installer already include it.
 
