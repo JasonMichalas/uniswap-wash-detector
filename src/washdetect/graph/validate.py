@@ -238,6 +238,7 @@ def _produce(
         return {"out": (type_name, field_map(type_name))}
 
     if ntype == "detect_cycles":
+        _check_detector_params(data, node_id, label, errors)
         return {
             "out_swaps": ("swaps_flagged", field_map("swaps_flagged")),
             "out_wallets": ("wash_wallets", field_map("wash_wallets")),
@@ -321,6 +322,39 @@ def _produce(
     if ntype in {"output_table", "output_chart"}:
         return {}
     return {}
+
+
+def _check_detector_params(data: dict[str, Any], node_id: str, label: str, errors: list[GraphErrorItem]) -> None:
+    tolerance = data.get("tolerance")
+    if tolerance not in (None, ""):
+        if not _positive_number(tolerance) or float(tolerance) > 0.5:
+            errors.append(
+                GraphErrorItem(
+                    f"{label} tolerance must be greater than 0 and at most 0.5.",
+                    node_id,
+                    code="param",
+                )
+            )
+    window = data.get("window_blocks")
+    if window not in (None, ""):
+        if isinstance(window, bool) or not isinstance(window, (int, float)) or int(window) != window or not 1 <= int(window) <= 50_000:
+            errors.append(
+                GraphErrorItem(
+                    f"{label} window must be a whole number of blocks from 1 to 50000.",
+                    node_id,
+                    code="param",
+                )
+            )
+    size = data.get("max_group_size")
+    if size not in (None, ""):
+        if isinstance(size, bool) or not isinstance(size, (int, float)) or int(size) != size or not 2 <= int(size) <= 64:
+            errors.append(
+                GraphErrorItem(
+                    f"{label} max group size must be a whole number from 2 to 64.",
+                    node_id,
+                    code="param",
+                )
+            )
 
 
 def _check_params(

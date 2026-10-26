@@ -56,9 +56,19 @@ class Source:
 class Detect:
     swaps: str
     transfers: str
+    # None means "use HeuristicConfig defaults" and prints the 2-argument form.
+    net_ratio: float | None = None
+    max_block_gap: int | None = None
+    max_group_size: int | None = None
 
     def to_text(self) -> str:
-        return f"detect_cycles({self.swaps}, {self.transfers})"
+        head = f"detect_cycles({self.swaps}, {self.transfers}"
+        if self.net_ratio is None and self.max_block_gap is None and self.max_group_size is None:
+            return head + ")"
+        tolerance = 0.05 if self.net_ratio is None else self.net_ratio
+        window = 200 if self.max_block_gap is None else int(self.max_block_gap)
+        group = 16 if self.max_group_size is None else int(self.max_group_size)
+        return f"{head}, {render_value(tolerance)}, {window}, {group})"
 
 
 @dataclass

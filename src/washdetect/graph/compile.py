@@ -90,7 +90,18 @@ def _lower(graph: dict[str, Any]) -> Program:
             names[(node_id, "out")] = name
         elif ntype == "detect_cycles":
             name = uname(node_id)
-            statements.append(Assign(name, Detect(upstream(node_id, "in_swaps"), upstream(node_id, "in_transfers"))))
+            statements.append(
+                Assign(
+                    name,
+                    Detect(
+                        upstream(node_id, "in_swaps"),
+                        upstream(node_id, "in_transfers"),
+                        net_ratio=_optional_float(data.get("tolerance")),
+                        max_block_gap=_optional_int(data.get("window_blocks")),
+                        max_group_size=_optional_int(data.get("max_group_size")),
+                    ),
+                )
+            )
             for kind, handle in (("swaps", "out_swaps"), ("wallets", "out_wallets"), ("cycles", "out_cycles")):
                 projected = uname(node_id, kind)
                 statements.append(Assign(projected, Project(name, kind)))
@@ -155,6 +166,18 @@ def _lower(graph: dict[str, Any]) -> Program:
         else:
             raise GraphCompileError([GraphErrorItem(f"Cannot lower box type {ntype}.", node_id)])
     return Program(statements)
+
+
+def _optional_float(value: Any) -> float | None:
+    if value is None or value == "":
+        return None
+    return float(value)
+
+
+def _optional_int(value: Any) -> int | None:
+    if value is None or value == "":
+        return None
+    return int(value)
 
 
 def _condition(data: dict[str, Any]) -> Condition:

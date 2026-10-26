@@ -97,7 +97,19 @@ def _expr(tree: Tree):
     if kind == "source":
         return Source(str(tree.children[0]))
     if kind == "detect":
-        return Detect(str(tree.children[0]), str(tree.children[1]))
+        swaps = str(tree.children[0])
+        transfers = str(tree.children[1])
+        if len(tree.children) == 2:
+            return Detect(swaps, transfers)
+        if len(tree.children) != 5:
+            raise QueryError(
+                "detect_cycles takes swaps and transfers, optionally followed by "
+                "tolerance, window blocks, and max group size."
+            )
+        tolerance = _number(tree.children[2])
+        window = _int(tree.children[3], "detect_cycles window")
+        group = _int(tree.children[4], "detect_cycles max group size")
+        return Detect(swaps, transfers, net_ratio=float(tolerance), max_block_gap=window, max_group_size=group)
     if kind == "project":
         return Project(str(tree.children[0]), str(tree.children[1]))
     if kind == "filter":

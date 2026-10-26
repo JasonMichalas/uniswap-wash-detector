@@ -18,7 +18,7 @@ from typing import Any
 import duckdb
 import pandas as pd
 
-from washdetect.config import MAX_WINDOW_DAYS, ROUTERS
+from washdetect.config import MAX_WINDOW_DAYS, ROUTERS, HeuristicConfig
 from washdetect.detector import Detection, SwapEvent, TransferEvent, detect
 from washdetect.features import WALLET_COLUMNS, build_wallet_table
 from washdetect.graph.catalog import TYPES, field_map
@@ -296,7 +296,14 @@ def _eval(
             )
         if transfers_stream.type_name != "transfers":
             raise QueryError("detect_cycles wants a transfers stream as its second input.")
-        detection = _run_detect(con, swaps_stream.view, transfers_stream.view, excluded, warnings)
+        detection = _run_detect(
+            con,
+            swaps_stream.view,
+            transfers_stream.view,
+            excluded,
+            warnings,
+            config=_detector_config(expr),
+        )
         bundle = _register_detection(con, swaps_stream.view, detection, fresh)
         sql_lines.append(
             f"-- {comment}\n-- heuristic round-trip / cycle detector "
@@ -414,12 +421,32 @@ def _eval(
     raise QueryError(f"Cannot run expression {type(expr).__name__}.")
 
 
+def _detector_config(expr: Detect) -> HeuristicConfig:
+    kwargs: dict[str, float | int] = {}
+    if expr.net_ratio is not None:
+        if not 0 < float(expr.net_ratio) <= 0.5:
+            raise QueryError("detect_cycles tolerance must be greater than 0 and at most 0.5.")
+        kwargs["net_ratio"] = float(expr.net_ratio)
+    if expr.max_block_gap is not None:
+        gap = int(expr.max_block_gap)
+        if not 1 <= gap <= 50_000:
+            raise QueryError("detect_cycles window must be a whole number of blocks from 1 to 50000.")
+        kwargs["max_block_gap"] = gap
+    if expr.max_group_size is not None:
+        size = int(expr.max_group_size)
+        if not 2 <= size <= 64:
+            raise QueryError("detect_cycles max group size must be a whole number from 2 to 64.")
+        kwargs["max_group_size"] = size
+    return HeuristicConfig(**kwargs)
+
+
 def _run_detect(
     con: duckdb.DuckDBPyConnection,
     swaps_view: str,
     transfers_view: str,
     excluded: set[str],
     warnings: list[str],
+    config: HeuristicConfig | None = None,
 ) -> Detection:
     swap_rows = con.execute(
         f"""
@@ -467,7 +494,7 @@ def _run_detect(
         for src, dst, block, amount, tx_hash, log_index in transfer_rows
         if src and dst
     ]
-    return detect(events, transfers, excluded=excluded)
+    return detect(events, transfers, excluded=excluded, config=config)
 
 
 def _register_detection(
@@ -505,6 +532,10 @@ def _register_detection(
                 "cycle_id": row.cycle_id,
                 "size": row.size,
                 "kind": row.kind,
+                "pattern_type": row.pattern_type,
+                "n_buyers": row.n_buyers,
+                "n_sellers": row.n_sellers,
+                "n_wallets": row.n_wallets,
                 "wallets": ",".join(row.wallets),
                 "volume_usd": row.volume_usd,
                 "confidence": row.confidence,

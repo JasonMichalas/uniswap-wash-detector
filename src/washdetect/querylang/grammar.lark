@@ -33,7 +33,7 @@ expr: source
     | ml
 
 source: "source" SOURCE_KIND
-detect: "detect_cycles" "(" NAME "," NAME ")"
+detect: "detect_cycles" "(" NAME "," NAME ("," NUMBER "," NUMBER "," NUMBER)? ")"
 project: "project" NAME PROJ_KIND
 filter: "filter" NAME "where" cond ("and" cond)*
 timewin: "window" NAME "last" NUMBER UNIT

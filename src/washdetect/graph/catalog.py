@@ -55,6 +55,10 @@ TYPES: dict[str, list[tuple[str, str]]] = {
         ("cycle_id", "string"),
         ("size", "number"),
         ("kind", "string"),
+        ("pattern_type", "string"),
+        ("n_buyers", "number"),
+        ("n_sellers", "number"),
+        ("n_wallets", "number"),
         ("wallets", "string"),
         ("volume_usd", "number"),
         ("confidence", "number"),
@@ -185,9 +189,17 @@ NODE_DEFS: list[dict[str, Any]] = [
         "label": "Cycle detector",
         "category": "detector",
         "description": (
-            "Gan et al. 2024 style heuristic. Flags a wallet's own round-trips and "
-            "rings across linked wallets. Nothing runs until you press Run."
+            "Flags round-trips and connected flow groups whose pooled buys and sells "
+            "cancel: one-to-many, many-to-one, many-to-many, and rings. "
+            "Filter the cycles output on pattern_type, n_buyers, n_sellers, or n_wallets. "
+            "Tolerance is the allowed |buys-sells|/max gap, the window is in blocks, "
+            "and max group size caps how many wallets one group may contain."
         ),
+        "params": [
+            {"name": "tolerance", "label": "Amount tolerance (0–0.5)", "kind": "number"},
+            {"name": "window_blocks", "label": "Time window (blocks)", "kind": "number"},
+            {"name": "max_group_size", "label": "Max wallets in a group", "kind": "number"},
+        ],
         "inputs": [
             {"id": "in_swaps", "label": "swaps", "type": "swaps"},
             {"id": "in_transfers", "label": "transfers", "type": "transfers"},
@@ -197,7 +209,6 @@ NODE_DEFS: list[dict[str, Any]] = [
             {"id": "out_wallets", "label": "wallets", "type": "wash_wallets"},
             {"id": "out_cycles", "label": "cycles", "type": "cycles"},
         ],
-        "params": [],
     },
     {
         "type": "ml_score",
@@ -358,8 +369,8 @@ PALETTE: list[dict[str, Any]] = [
         "node_type": "detect_cycles",
         "label": "Cycle detector",
         "category": "detector",
-        "blurb": "Round-trips and multi-wallet rings.",
-        "data": {},
+        "blurb": "Round-trips, rings, and M:N flow groups.",
+        "data": {"tolerance": 0.05, "window_blocks": 200, "max_group_size": 16},
     },
     {
         "node_type": "ml_score",

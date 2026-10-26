@@ -67,7 +67,12 @@ export function summary(nodeType: string, params: Record<string, unknown>): stri
     return `${field} ${op} ${formatValue(params.value)}`;
   }
   if (nodeType === "time_window") return `last ${params.days ?? "?"}d of the load`;
-  if (nodeType === "detect_cycles") return "round-trips and rings";
+  if (nodeType === "detect_cycles") {
+    const tolerance = params.tolerance ?? 0.05;
+    const windowBlocks = params.window_blocks ?? 200;
+    const group = params.max_group_size ?? 16;
+    return `tol ${tolerance}, ${windowBlocks} blocks, ≤${group} wallets`;
+  }
   if (nodeType === "ml_score") return "not trained";
   if (nodeType === "group_by") return `by ${params.by ?? "?"}`;
   if (nodeType === "aggregate") {

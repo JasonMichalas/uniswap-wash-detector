@@ -67,6 +67,32 @@ export function Inspector({
       {node.data.nodeType === "condition" && (
         <ConditionFields node={node} fields={fields} onUpdate={update} />
       )}
+      {node.data.nodeType === "detect_cycles" && (
+        <>
+          <NumberField
+            label="Amount tolerance (0–0.5)"
+            value={node.data.params.tolerance ?? 0.05}
+            min={0.001}
+            max={0.5}
+            step={0.01}
+            onChange={(value) => update("tolerance", value)}
+          />
+          <NumberField
+            label="Time window (blocks)"
+            value={node.data.params.window_blocks ?? 200}
+            min={1}
+            max={50000}
+            onChange={(value) => update("window_blocks", value)}
+          />
+          <NumberField
+            label="Max wallets in a group"
+            value={node.data.params.max_group_size ?? 16}
+            min={2}
+            max={64}
+            onChange={(value) => update("max_group_size", value)}
+          />
+        </>
+      )}
       {node.data.nodeType === "time_window" && (
         <NumberField
           label="Last N days of the loaded window"
@@ -318,12 +344,14 @@ function NumberField({
   value,
   min,
   max,
+  step,
   onChange,
 }: {
   label: string;
   value: unknown;
   min: number;
   max: number;
+  step?: number;
   onChange: (value: number) => void;
 }) {
   return (
@@ -333,6 +361,7 @@ function NumberField({
         type="number"
         min={min}
         max={max}
+        step={step}
         value={typeof value === "number" ? value : ""}
         onChange={(event) => {
           const next = Number(event.target.value);

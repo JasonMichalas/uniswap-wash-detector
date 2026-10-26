@@ -53,6 +53,13 @@ def test_bad_queries_explain_themselves():
     assert "wash_percent" in str(decorated.value)
 
 
+def test_detect_cycles_accepts_tolerance_window_and_group_size():
+    program = parse("s = source swaps\nt = source transfers\nd = detect_cycles(s, t, 0.05, 200, 12)\noutput table d as \"x\"\n")
+    text = program.to_text()
+    assert "detect_cycles(s, t, 0.05, 200, 12)" in text
+    assert parse(text).to_text() == text
+
+
 def test_comments_and_hours():
     program = parse("wallets where not sold_in(12h) # quiet wallets\n")
     assert "sold_in(12h)" in program.to_text()
