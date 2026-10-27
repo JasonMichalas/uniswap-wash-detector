@@ -1,9 +1,3 @@
-"""Attach model columns to a frame the query engine already filtered.
-
-Features are computed from the full loaded window, then joined back onto
-the rows the graph kept. The rule's decision is not an input.
-"""
-
 from __future__ import annotations
 
 import pandas as pd
@@ -15,6 +9,8 @@ from washdetect.models import ModelBundle, ModelNotTrained, WashModel
 
 
 class ScoreCache:
+    """Scores use the full loaded window, then join onto the rows the graph kept."""
+
     def __init__(self) -> None:
         self.bundle: ModelBundle | None = None
         self.trades: pd.DataFrame | None = None
@@ -67,7 +63,6 @@ def _wallet_lookup(wallets: pd.DataFrame) -> dict[str, tuple[float, float]]:
 
 
 def score_rows(frame: pd.DataFrame, cache: ScoreCache, mode: str) -> pd.DataFrame:
-    """Add ml_score and/or anomaly_score. Swap rows also gain ml_weighted_usd."""
     out = frame.copy()
     trade_keys = _trade_lookup(cache.trades if cache.trades is not None else pd.DataFrame())
     wallet_keys = _wallet_lookup(cache.wallets if cache.wallets is not None else pd.DataFrame())
@@ -106,7 +101,6 @@ def score_rows(frame: pd.DataFrame, cache: ScoreCache, mode: str) -> pd.DataFram
 
 
 def explain_wallets(wallets: list[str], cache: ScoreCache, *, limit: int = 25, k: int = 5) -> tuple[pd.DataFrame, bool]:
-    """Top SHAP reasons. Returns the table and whether the wallet list was truncated."""
     if cache.bundle is None or cache.wallets is None:
         raise ModelNotTrained("Explain needs a loaded model.")
     chosen = []

@@ -1,11 +1,3 @@
-"""Held-out metrics, plots, and the markdown evaluation report.
-
-The split is by token. Precision, recall, F1, and PR-AUC below are computed
-on planted swaps in the test tokens. A predicted positive that is real wash
-rather than a plant counts against precision on that task; agreement with
-the rule is reported separately so that is visible.
-"""
-
 from __future__ import annotations
 
 from pathlib import Path
@@ -48,7 +40,6 @@ def binary_metrics(labels, scores, *, threshold: float = 0.5) -> dict[str, float
 
 
 def recall_table(frame: pd.DataFrame, keys: list[str], *, score: str = "ml_score") -> pd.DataFrame:
-    """Recall among planted rows, grouped by pattern or by buyer/seller counts."""
     planted = frame[frame["injected"] == 1]
     if planted.empty:
         return pd.DataFrame(columns=[*keys, "n", "recall"])
@@ -66,7 +57,6 @@ def recall_table(frame: pd.DataFrame, keys: list[str], *, score: str = "ml_score
 
 
 def group_recall(trades: pd.DataFrame, *, score: str = "ml_score") -> pd.DataFrame:
-    """A planted group is caught when at least half of its swaps score >= 0.5."""
     planted = trades[trades["injected"] == 1]
     if planted.empty:
         return pd.DataFrame(columns=["pattern_type", "n_buyers", "n_sellers", "n_wallets", "n_groups", "recall"])
@@ -184,6 +174,7 @@ def render_report(
     feature_note: str,
     window_note: str,
 ) -> str:
+    """Planted-task precision counts real wash as a false positive; rule agreement is separate."""
     lines = [
         "# Evaluation: wash models",
         "",

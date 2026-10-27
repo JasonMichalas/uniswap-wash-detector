@@ -1,16 +1,3 @@
-"""Isolation Forest, calibrated XGBoost, and TreeSHAP explanations.
-
-The base install does not import scikit-learn or XGBoost until a model is
-fit or loaded. ``MODEL_FEATURE_COLUMNS`` and ``TRADE_FEATURE_COLUMNS`` are
-the only inputs. Rule outputs (round-trip counts, wash volume, heuristic
-labels) are rejected so the classifier cannot recite the detector.
-
-Probabilities are Platt-scaled on a token-held-out slice: logistic
-regression on the logit of the raw XGBoost probability. SHAP values come
-from XGBoost's ``pred_contribs`` (TreeSHAP on the margin). They explain the
-raw model; calibration is monotone, so the sign of a reason is unchanged.
-"""
-
 from __future__ import annotations
 
 import json
@@ -26,7 +13,7 @@ ARTIFACT_DIR = Path(__file__).resolve().parent / "artifacts"
 
 
 class ModelNotTrained(NotImplementedError):
-    """Raised when a model file is missing or fit() has not been called."""
+    pass
 
 
 def _require_ml():
@@ -49,7 +36,6 @@ def _logit(values):
 
 
 class PlattCalibrator:
-    """Maps a raw probability through a fitted logistic on its logit."""
 
     def __init__(self, coef: float = 1.0, intercept: float = 0.0, enabled: bool = False) -> None:
         self.coef = float(coef)
@@ -79,7 +65,7 @@ class PlattCalibrator:
 
 
 def fit_platt(raw, labels) -> PlattCalibrator:
-    """Platt scaling. Returns a disabled calibrator if the slice has one class."""
+    """A one-class slice cannot be calibrated, so the calibrator stays off."""
     import numpy as np
     from sklearn.linear_model import LogisticRegression
 
@@ -93,7 +79,6 @@ def fit_platt(raw, labels) -> PlattCalibrator:
 
 
 class IsolationForestDetector:
-    """Unsupervised anomaly scores. 1 is the most anomalous (wash-like)."""
 
     def __init__(self) -> None:
         self.model = None
@@ -123,7 +108,6 @@ class IsolationForestDetector:
         self.quantiles = np.quantile(raw, np.linspace(0, 1, 101)).astype(float).tolist()
 
     def score(self, features: pd.DataFrame) -> pd.Series:
-        """One anomaly score per row, in [0, 1], higher = more wash-like."""
         if self.model is None or not self.quantiles:
             raise ModelNotTrained(
                 "Isolation Forest is not trained. Run `washdetect train` or ship artifacts/."
@@ -138,12 +122,11 @@ class IsolationForestDetector:
 
 
 def _anomaly_raw(model, matrix):
-    # decision_function is higher for normal points. Negate so high = anomalous.
+    # decision_function is higher for inliers. Negate so high means anomalous.
     return -model.decision_function(matrix)
 
 
 class WashXGBoost:
-    """Supervised wash probability for one row type (wallet or swap)."""
 
     def __init__(self) -> None:
         self.model = None
@@ -196,7 +179,6 @@ class WashXGBoost:
         return probabilities[:, classes.index(1)]
 
     def predict_proba(self, features: pd.DataFrame) -> pd.Series:
-        """Return P(wash) in [0, 1] for each row, after Platt scaling when fitted."""
         calibrated = self.calibrator.transform(self.raw_proba(features))
         return pd.Series(calibrated, index=features.index, name="ml_score")
 
@@ -205,7 +187,6 @@ class WashXGBoost:
 
 
 class ShapExplainer:
-    """TreeSHAP values for a fitted WashXGBoost, one row per wallet or swap."""
 
     def explain(self, model: WashXGBoost, features: pd.DataFrame) -> pd.DataFrame:
         if model.model is None:
@@ -219,12 +200,10 @@ class ShapExplainer:
             xgb.DMatrix(matrix, feature_names=list(matrix.columns)),
             pred_contribs=True,
         )
-        # The last column is the bias term, not a feature.
-        values = np.asarray(contribs)[:, : len(model.columns)]
+        values = np.asarray(contribs)[:, : len(model.columns)]  # last column is the bias term
         return pd.DataFrame(values, index=features.index, columns=list(model.columns))
 
     def top_reasons(self, model: WashXGBoost, features: pd.DataFrame, k: int = 5) -> pd.DataFrame:
-        """Long table: the k features that move each row's score the most."""
         wide = self.explain(model, features)
         matrix = model_matrix(features, model.columns)
         rows: list[dict[str, object]] = []
@@ -253,7 +232,6 @@ class ShapExplainer:
 
 
 class ModelBundle:
-    """Wallet and swap models, saved as a few small files."""
 
     def __init__(self) -> None:
         self.wallet_xgb = WashXGBoost()
@@ -336,7 +314,7 @@ def load_bundle(directory: str | Path | None = None) -> ModelBundle:
 
 
 class WashModel:
-    """Isolation Forest and calibrated XGBoost, for wallets and for swaps."""
+    """Platt scaling uses a held-out token. SHAP stays on the raw margin; calibration is monotone."""
 
     def __init__(self, bundle: ModelBundle | None = None) -> None:
         self.bundle = bundle or ModelBundle()
@@ -350,7 +328,6 @@ class WashModel:
         wallet_calib: pd.DataFrame | None = None,
         trade_calib: pd.DataFrame | None = None,
     ) -> None:
-        """Fit both classifiers, optional Platt scaling, then both forests."""
         self.bundle.wallet_xgb.fit(wallet_fit, wallet_fit["label"].tolist(), columns=MODEL_FEATURE_COLUMNS)
         self.bundle.trade_xgb.fit(trade_fit, trade_fit["label"].tolist(), columns=TRADE_FEATURE_COLUMNS)
         if wallet_calib is not None and not wallet_calib.empty:
@@ -365,7 +342,6 @@ class WashModel:
         self.bundle.trade_iforest.fit(trade_normal, columns=TRADE_FEATURE_COLUMNS)
 
     def score(self, features: pd.DataFrame, *, kind: str) -> pd.DataFrame:
-        """Copy `features` and add ml_score and anomaly_score. kind is wallet or trade."""
         if kind not in {"wallet", "trade"}:
             raise ValueError("kind must be 'wallet' or 'trade'.")
         out = features.copy()
@@ -378,7 +354,6 @@ class WashModel:
         return out
 
     def explain(self, features: pd.DataFrame, *, kind: str = "wallet", k: int = 5) -> pd.DataFrame:
-        """Top SHAP reasons for a wallet frame or a swap frame."""
         model = self.bundle.wallet_xgb if kind == "wallet" else self.bundle.trade_xgb
         return ShapExplainer().top_reasons(model, features, k=k)
 
@@ -409,13 +384,7 @@ def probability_weighted_wash_percent(
     seed: int = 0,
     alpha: float = 0.05,
 ) -> dict[str, float | int]:
-    """Wash percent = 100 * sum(p_i * v_i) / sum(v_i), plus a percentile bootstrap CI.
-
-    Hard labels are the special case p_i in {0, 1}: the estimate is then the
-    rule-based wash percentage, and the interval is the resampling uncertainty
-    of that ratio, not a statement about model calibration. Swaps with a
-    missing or non-positive USD value are left out of both sums.
-    """
+    """100 * sum(p*v) / sum(v). The bootstrap resamples this window only."""
     if len(usd_values) != len(probabilities):
         raise ValueError("usd_values and probabilities must be the same length")
     if not 0 < alpha < 1:

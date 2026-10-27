@@ -1,10 +1,3 @@
-"""Fit the shipped models and write docs/evaluation.md.
-
-`train_tables` is pure: it never touches the network. The CLI loads each
-token from the DuckDB cache (fetching the missing window first) and then
-calls it. Train, calibration, and test are disjoint sets of tokens.
-"""
-
 from __future__ import annotations
 
 import random
@@ -48,7 +41,6 @@ FEATURE_NOTE = (
 
 
 def split_token_ids(token_ids: list[str], seed: int = 0) -> dict[str, list[str]]:
-    """Shuffle tokens, then hold out ~30% as test and one calibration token."""
     ordered = sorted({token.lower() for token in token_ids})
     if len(ordered) < 3:
         raise ValueError(
@@ -95,7 +87,7 @@ def train_tables(
     figure_dir: str | Path | None = None,
     window_note: str = "",
 ) -> tuple[ModelBundle, str]:
-    """Fit, evaluate, and optionally write the model and the markdown report."""
+    """Does not touch the network. Train, calibration, and test are disjoint tokens."""
     by_id = {table.token.lower(): table for table in tables}
     split = split_token_ids(list(by_id), seed)
     train = [by_id[token] for token in split["train"]]
@@ -104,8 +96,6 @@ def train_tables(
 
     wallet_fit = _downsample(_concat(train, "wallets"), MAX_NEGATIVE_WALLETS * max(1, len(train)), seed)
     trade_fit = _downsample(_concat(train, "trades"), MAX_NEGATIVE_TRADES * max(1, len(train)), seed + 1)
-    # The cap above is per the whole train pool. Apply a second, tighter
-    # draw so one busy token cannot crowd the trees.
     wallet_fit = _downsample(wallet_fit, MAX_NEGATIVE_WALLETS * max(1, len(train)), seed)
     trade_fit = _downsample(trade_fit, MAX_NEGATIVE_TRADES * max(1, len(train)), seed + 1)
 
