@@ -16,9 +16,8 @@ from washdetect.config import DEFAULT_DB, MAX_WINDOW_DAYS
 from washdetect.features import build_feature_frame
 from washdetect.models import probability_weighted_wash_percent
 from washdetect.pipeline import LoadReport, load_token
-from washdetect.querylang.engine import execute_frames
+from washdetect.querylang.engine import QueryEngine
 from washdetect.querylang.errors import QueryError
-from washdetect.querylang.parser import parse
 from washdetect.store import Store
 from washdetect.token import TokenData
 
@@ -137,8 +136,9 @@ def _detect(args: argparse.Namespace) -> int:
     report = _load(args)
     store, frames, start_ts, end_ts = _open(args, report)
     try:
-        result = execute_frames(
-            parse("wash_percent"),
+        engine = QueryEngine()
+        result = engine.run(
+            engine.compile("wash_percent"),
             end_ts=end_ts,
             window_start=start_ts,
             window_end=end_ts,
@@ -226,8 +226,9 @@ def _query(args: argparse.Namespace) -> int:
     report = _load(args)
     store, frames, start_ts, end_ts = _open(args, report)
     try:
-        result = execute_frames(
-            parse(args.query),
+        engine = QueryEngine()
+        result = engine.run(
+            engine.compile(args.query),
             end_ts=end_ts,
             window_start=start_ts,
             window_end=end_ts,

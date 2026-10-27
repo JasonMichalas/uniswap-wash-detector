@@ -42,6 +42,7 @@ from washdetect.querylang.ast import (
     TimeWindow,
 )
 from washdetect.querylang.errors import QueryError
+from washdetect.querylang.parser import parse
 from washdetect.scoring import ScoreCache, explain_wallets, score_rows
 
 _IDENT = re.compile(r"^[a-z_][a-z0-9_]*$")
@@ -276,6 +277,42 @@ def execute_frames(
         warnings=warnings,
         detection=detection,
     )
+
+
+class QueryEngine:
+    """Compile query text and run it on a loaded window."""
+
+    def compile(self, text: str) -> Program:
+        """Parse a short query or a full program into one AST."""
+        return parse(text)
+
+    def run(
+        self,
+        program: Program,
+        *,
+        swaps: pd.DataFrame | None = None,
+        transfers: pd.DataFrame | None = None,
+        wallets: pd.DataFrame | None = None,
+        pools: pd.DataFrame | None = None,
+        pool_addresses: set[str] | None = None,
+        end_ts: datetime | None = None,
+        window_start: datetime | None = None,
+        window_end: datetime | None = None,
+        model_dir: str | None = None,
+    ) -> ExecResult:
+        """Execute a compiled program. Same path as `execute_frames`."""
+        return execute_frames(
+            program,
+            swaps=swaps,
+            transfers=transfers,
+            wallets=wallets,
+            pools=pools,
+            pool_addresses=pool_addresses,
+            end_ts=end_ts,
+            window_start=window_start,
+            window_end=window_end,
+            model_dir=model_dir,
+        )
 
 
 def _eval(

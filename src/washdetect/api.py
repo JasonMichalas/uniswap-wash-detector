@@ -26,7 +26,7 @@ from washdetect.graph.catalog import catalog_payload
 from washdetect.graph.compile import GraphCompileError, compile_graph
 from washdetect.graph.validate import validate_graph
 from washdetect.pipeline import load_token
-from washdetect.querylang.engine import execute_frames
+from washdetect.querylang.engine import QueryEngine
 from washdetect.querylang.errors import QueryError
 from washdetect.snapshot import window_ready
 from washdetect.store import Store
@@ -237,7 +237,7 @@ def run(body: RunRequest) -> dict[str, Any]:
         raise HTTPException(400, detail="start_time and end_time must be ISO timestamps.") from exc
     loaded = TokenData.load(store, body.token.lower(), body.start_block, body.end_block, start_ts, end_ts)
     try:
-        result = execute_frames(
+        result = QueryEngine().run(
             program,
             swaps=loaded.swaps,
             transfers=loaded.transfers,
