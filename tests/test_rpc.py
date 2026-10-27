@@ -1,8 +1,9 @@
 import time
 
 import httpx
+import pytest
 
-from washdetect.rpc import RpcClient, RpcRangeError, RpcRateError, fetch_logs_adaptive
+from washdetect.rpc import RpcClient, RpcError, RpcRangeError, RpcRateError, fetch_logs_adaptive
 
 
 def test_adaptive_splits_until_the_range_fits():
@@ -114,6 +115,32 @@ def test_empty_log_page_from_a_pruned_endpoint_is_not_the_answer():
         init_span=100,
     )
     assert logs == [{"blockNumber": "0x10"}]
+
+
+def test_an_empty_page_from_a_pruned_endpoint_is_not_saved_when_archive_is_down():
+    def transport(url: str, payload: dict) -> dict:
+        if "flashbots" in url:
+            return {"jsonrpc": "2.0", "id": payload["id"], "result": []}
+        raise RpcRateError("503 unavailable")
+
+    client = RpcClient(
+        [
+            "https://rpc.mevblocker.io",
+            "https://eth.drpc.org",
+            "https://rpc.flashbots.net",
+        ],
+        transport=transport,
+        sleep=lambda _seconds: None,
+        max_attempts=8,
+    )
+    with pytest.raises(RpcError):
+        client.get_logs(
+            address="0x" + "33" * 20,
+            topics=[],
+            start_block=1,
+            end_block=100,
+            init_span=100,
+        )
 
 
 def test_log_chunks_rotate_across_endpoints():

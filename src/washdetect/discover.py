@@ -299,7 +299,7 @@ def _v4_pools(
     progress: Callable[[str], None],
     cancel: Callable[[], bool] | None,
 ) -> None:
-    # currency0 and currency1 are indexed. Two filtered queries, not every Initialize since launch.
+    # Initialize(id, currency0, currency1) indexes the pool id first, then the two currencies.
     padded = pad_address(token)
     _topic_scan(
         client,
@@ -316,6 +316,7 @@ def _v4_pools(
         topic0=INITIALIZE_V4,
         start_block=V4_START_BLOCK,
         datasets=("v4-currency0", "v4-currency1"),
+        positions=(2, 3),
         parse=parse_v4_initialize,
         token_topic=padded,
     )
@@ -363,6 +364,7 @@ def _odd_quote_pools(
             topic0=topic,
             start_block=start,
             datasets=datasets,
+            positions=(1, 2),
             parse=parse,
             token_topic=padded,
         )
@@ -384,16 +386,17 @@ def _topic_scan(
     topic0: str,
     start_block: int,
     datasets: tuple[str, str],
+    positions: tuple[int, int],
     parse: Callable[[dict[str, Any]], tuple | None],
     token_topic: str,
 ) -> None:
     if head < start_block:
         return
-    # Position 1 is token0/currency0. Position 2 is token1/currency1. Both are indexed.
-    filters = (
-        (datasets[0], [topic0, token_topic]),
-        (datasets[1], [topic0, None, token_topic]),
-    )
+    filters = []
+    for dataset, position in zip(datasets, positions, strict=True):
+        topics: list[Any] = [topic0, *([None] * position)]
+        topics[position] = token_topic
+        filters.append((dataset, topics))
     lock = threading.Lock()
     for dataset, topics in filters:
         gaps = [(start_block, head)]
@@ -431,7 +434,7 @@ def _topic_scan(
                 start_block=gap_start,
                 end_block=gap_end,
                 init_span=_FILTERED_SPAN,
-                workers=4,
+                workers=2,
                 on_chunk=on_chunk,
                 on_progress=on_progress,
                 cancel=cancel,

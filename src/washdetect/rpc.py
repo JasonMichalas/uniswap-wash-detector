@@ -149,7 +149,10 @@ def fetch_logs_adaptive(
     span = max(min_span, init_span)
     block = start
     steps = 0
+    trouble = 0
     guard = max(100, (end - start + 1) * 8)
+    # A wide empty page is not saved. One pruned endpoint answers [] for history it does not store.
+    empty_limit = 50_000
 
     while block <= end:
         steps += 1
@@ -170,11 +173,32 @@ def fetch_logs_adaptive(
                     f"eth_getLogs refused even {width} block(s) at {block}: {exc}"
                 ) from exc
             span = max(min_span, span // 2)
+            trouble = 0
             if on_note:
                 on_note(f"narrowed eth_getLogs chunk to {span} blocks ({exc})")
             continue
+        except RpcError as exc:
+            trouble += 1
+            if trouble <= 2:
+                if on_note:
+                    on_note(f"eth_getLogs failed at block {block}; retrying ({exc})")
+                continue
+            width = to - block + 1
+            if width <= min_span:
+                raise
+            span = max(min_span, span // 2)
+            trouble = 0
+            if on_note:
+                on_note(f"narrowed eth_getLogs chunk to {span} blocks after errors ({exc})")
+            continue
 
         width = to - block + 1
+        if len(batch) == 0 and width > empty_limit:
+            span = max(min_span, min(span // 2, empty_limit))
+            if on_note:
+                on_note(f"empty eth_getLogs page of {width} blocks; confirming in chunks of {span}")
+            continue
+
         if len(batch) >= max_logs and width > min_span:
             span = max(min_span, width // 2)
             if on_note:
@@ -355,12 +379,17 @@ class RpcClient:
         last_other: Exception | None = None
         untrusted_empty: list[Any] | None = None
         tried: set[str] = set()
+        archive_tries: dict[str, int] = {}
         attempts = 0
         while attempts < self._max_attempts:
             url = self._pick_log_endpoint(width, tried)
             if url is None:
                 break
-            tried.add(url)
+            # One extra try on the archive endpoint. A single 503 should not shrink the chunk.
+            if _trusts_empty(url) and archive_tries.get(url, 0) < 1:
+                archive_tries[url] = 1
+            else:
+                tried.add(url)
             attempts += 1
             if self._transport is None:
                 self.spans.wait_turn(url)
@@ -404,12 +433,16 @@ class RpcClient:
                 self.note(f"eth_getLogs on {url} returned no logs; asking an archive endpoint")
                 continue
             return result
-        if untrusted_empty is not None and last_range is None and last_other is None:
-            return untrusted_empty
+        # An empty page is only an answer from an endpoint that stores the history.
+        # Flashbots returns [] for ranges it does not keep; saving that would hide pools.
+        if last_other is not None and last_range is None:
+            raise last_other
         if last_range is not None:
             raise last_range
+        if last_other is not None:
+            raise last_other
         if untrusted_empty is not None:
-            return untrusted_empty
+            raise RpcError("eth_getLogs returned no logs from an endpoint that does not keep this history")
         raise RpcError(f"eth_getLogs failed after {attempts} attempts: {last_other}")
 
     def block_number(self) -> int:

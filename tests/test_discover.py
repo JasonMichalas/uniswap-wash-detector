@@ -47,8 +47,8 @@ def test_one_token_does_not_scan_the_whole_factory():
     padded = pad_address(TOKEN)
     v4 = [item for item in logs if item["address"] == POOL_MANAGER]
     assert {tuple(item["topics"]) for item in v4} == {
-        (INITIALIZE_V4, padded),
         (INITIALIZE_V4, None, padded),
+        (INITIALIZE_V4, None, None, padded),
     }
     for item in logs:
         topics = item["topics"]
