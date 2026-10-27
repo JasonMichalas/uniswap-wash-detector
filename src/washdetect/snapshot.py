@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from washdetect.store import Store
+from washdetect.store import Store, pool_log_gaps
 from washdetect.token import TokenData
 
 
@@ -13,9 +13,9 @@ def window_ready(store: Store, token: str, start: int, end: int) -> str | None:
         return "No pools are cached for this token. Load it before running a graph."
     if not store.range_covered(token, "transfers", start, end):
         return "Transfers for this window are not fully cached. Load the token for this range first."
+    have = store.coverage_by_dataset(token)
     for pool in pools:
-        dataset = f"swaps:{pool['pool_address']}"
-        if not store.range_covered(token, dataset, start, end):
+        if pool_log_gaps(have, str(pool["pool_address"]), start, end):
             return (
                 f"Swaps for pool {pool['pool_address']} are not fully cached. "
                 "Load the token for this range first."

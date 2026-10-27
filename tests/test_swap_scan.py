@@ -101,6 +101,37 @@ def test_a_handful_of_v4_pools_filters_by_pool_id(tmp_path):
     store.close()
 
 
+def test_same_window_fetches_a_pool_discovered_later(tmp_path):
+    store = Store(tmp_path / "scan.duckdb")
+    first = _pool(1, "v3")
+    second = _pool(2, "v3")
+    store.add_coverage(TOKEN, "swaps", 100, 399)
+    store.add_coverage(TOKEN, f"swaps:{first.pool_address}", 100, 399)
+    store.add_coverage(TOKEN, f"liquidity:{first.pool_address}", 100, 399)
+    client = _Logs()
+    _fetch_swap_groups(
+        store,
+        client,  # type: ignore[arg-type]
+        TOKEN,
+        [first, second],
+        100,
+        399,
+        300,
+        datetime(2026, 10, 27),
+        lambda _message: None,
+        lambda: False,
+    )
+    asked: list[str] = []
+    for call in client.calls:
+        address = call["address"]
+        asked.extend(address if isinstance(address, list) else [address])
+    assert second.pool_address in asked
+    assert first.pool_address not in asked
+    assert store.range_covered(TOKEN, f"swaps:{second.pool_address}", 100, 399)
+    assert store.range_covered(TOKEN, f"liquidity:{second.pool_address}", 100, 399)
+    store.close()
+
+
 def test_many_pools_read_cached_ranges_once(tmp_path):
     store = Store(tmp_path / "scan.duckdb")
     pools = [_pool(i, "v4") for i in range(1, 31)]

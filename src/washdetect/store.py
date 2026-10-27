@@ -9,9 +9,27 @@ from typing import Any
 import duckdb
 import pandas as pd
 
-from washdetect.ranges import covers, merge_intervals, missing_intervals
+from washdetect.ranges import covers, intersect_intervals, merge_intervals, missing_intervals
 
 CHAIN = "__chain__"
+
+
+def pool_log_gaps(
+    have: dict[str, list[tuple[int, int]]], pool_address: str, start: int, end: int
+) -> list[tuple[int, int]]:
+    """Block ranges this pool has not had its swap and liquidity logs read for.
+
+    Coverage is per pool. A row for another pool, or a token-wide ``swaps`` row,
+    does not cover this one. Caches from before liquidity had its own key stored
+    both event types on the swap key, so a pool with no liquidity row still
+    counts that scan.
+    """
+    swaps = have.get(f"swaps:{pool_address}", [])
+    liquidity_key = f"liquidity:{pool_address}"
+    if liquidity_key not in have:
+        return missing_intervals(swaps, start, end)
+    covered = intersect_intervals(swaps, have[liquidity_key])
+    return missing_intervals(covered, start, end)
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS tokens (

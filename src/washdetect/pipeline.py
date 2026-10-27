@@ -42,9 +42,8 @@ from washdetect.logs import (
     fetch_timestamps,
 )
 from washdetect.prices import eth_usd_from_usdc_weth_sqrt, price_is_plausible, swap_usd
-from washdetect.ranges import missing_intervals
 from washdetect.rpc import RpcClient, RpcError
-from washdetect.store import Store
+from washdetect.store import Store, pool_log_gaps
 from washdetect.subgraph import SubgraphError, api_key, fetch_swaps, map_subgraph_swap
 from washdetect.window import _naive, _unix, resolve_window
 
@@ -470,7 +469,7 @@ def _fetch_swap_groups(
     cached = 0
     have = store.coverage_by_dataset(token)
     for pool in pools:
-        gaps = tuple(missing_intervals(have.get(f"swaps:{pool.pool_address}", []), start_block, end_block))
+        gaps = tuple(pool_log_gaps(have, pool.pool_address, start_block, end_block))
         cached += span_blocks - _gap_blocks(list(gaps))
         if gaps:
             pending.append((pool, gaps))
@@ -565,7 +564,10 @@ def _fetch_one_gap(
             _store_pool_logs(
                 store, client, token, by_addr[address], rows, end_block, head_ts, allow_rpc=False
             )
-        spans = [(token, f"swaps:{pool.pool_address}", frm, to) for pool in pools_in_call]
+        spans = []
+        for pool in pools_in_call:
+            spans.append((token, f"swaps:{pool.pool_address}", frm, to))
+            spans.append((token, f"liquidity:{pool.pool_address}", frm, to))
         if len(spans) > 16:
             store.add_coverage_many(spans)
         else:

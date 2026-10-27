@@ -119,10 +119,12 @@ def read_pool(
 # Filtered factory logs are sparse, so the first chunk is wide and shrinks only if an endpoint refuses it.
 _FILTERED_SPAN = 200_000
 
+# v4-currency0/v4-currency1 were written when 32-byte pool ids were dropped, so a
+# covered range did not mean those pools were saved. New names force one rescan.
 _DIRECT_DATASETS = (
     "direct-quotes",
-    "v4-currency0",
-    "v4-currency1",
+    "v4-init-currency0",
+    "v4-init-currency1",
     "v2-token0",
     "v2-token1",
     "v3-token0",
@@ -315,7 +317,7 @@ def _v4_pools(
         address=POOL_MANAGER,
         topic0=INITIALIZE_V4,
         start_block=V4_START_BLOCK,
-        datasets=("v4-currency0", "v4-currency1"),
+        datasets=("v4-init-currency0", "v4-init-currency1"),
         positions=(2, 3),
         parse=parse_v4_initialize,
         token_topic=padded,

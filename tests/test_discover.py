@@ -77,6 +77,102 @@ def test_one_token_does_not_scan_the_whole_factory():
     store.close()
 
 
+def test_a_stale_v4_scan_does_not_hide_a_new_pool():
+    """An earlier scan recorded the v4 range while dropping pool ids. The same
+    swap window must still read logs for a pool that scan missed."""
+    from datetime import datetime
+
+    from eth_abi import encode
+
+    from washdetect.pipeline import _fetch_swap_groups
+
+    head = V4_START_BLOCK + 20
+    pool_id = "0x" + "cd" * 32
+    quote = "0x" + "11" * 20
+    data = "0x" + encode(
+        ["uint24", "int24", "address", "uint160", "int24"],
+        [3000, 60, "0x" + "00" * 20, 1, 60],
+    ).hex()
+    init_log = {
+        "address": POOL_MANAGER,
+        "topics": [INITIALIZE_V4, pool_id, pad_address(TOKEN), pad_address(quote)],
+        "data": data,
+    }
+    logs: list = []
+
+    def transport(_url: str, payload: dict | list):
+        items = payload if isinstance(payload, list) else [payload]
+        bodies = []
+        for item in items:
+            if item["method"] == "eth_getLogs":
+                logs.append(item["params"][0])
+                result = [init_log]
+            else:
+                result = ZERO
+            bodies.append({"jsonrpc": "2.0", "id": item["id"], "result": result})
+        return bodies if isinstance(payload, list) else bodies[0]
+
+    client = RpcClient(
+        ["https://rpc.mevblocker.io"],
+        transport=transport,
+        sleep=lambda _seconds: None,
+        max_attempts=2,
+    )
+    store = Store(":memory:")
+    pair = "0x" + "22" * 20
+    store.save_pools(
+        [(TOKEN, pair, "v3", TOKEN, quote, 3000, 18, 18, "TOK", "WETH")]
+    )
+    store.add_coverage(TOKEN, "direct-quotes", 0, 0)
+    store.add_coverage(TOKEN, "v4-currency0", V4_START_BLOCK, head)
+    store.add_coverage(TOKEN, "v4-currency1", V4_START_BLOCK, head)
+    store.add_coverage(TOKEN, f"swaps:{pair}", 100, 399)
+    store.add_coverage(TOKEN, f"liquidity:{pair}", 100, 399)
+    found = discover_pools(client, TOKEN, store=store, head=head)
+    assert pool_id in {pool.pool_address for pool in found}
+    assert logs, "the old v4 coverage was treated as a finished scan"
+
+    class _Logs:
+        def __init__(self) -> None:
+            self.calls: list[dict] = []
+            self._transport = object()
+            self.notes: list[str] = []
+
+        def get_logs(self, **kwargs):
+            self.calls.append(kwargs)
+            on_chunk = kwargs.get("on_chunk")
+            if on_chunk:
+                on_chunk(kwargs["start_block"], kwargs["end_block"], [])
+            return []
+
+        def spawn(self):
+            return self
+
+        def close(self) -> None:
+            return None
+
+    reader = _Logs()
+    _fetch_swap_groups(
+        store,
+        reader,  # type: ignore[arg-type]
+        TOKEN,
+        found,
+        100,
+        399,
+        300,
+        datetime(2026, 10, 6),
+        lambda _message: None,
+        lambda: False,
+    )
+    assert reader.calls
+    assert all(call["address"] != pair for call in reader.calls)
+    asked = reader.calls[0]["topics"][1]
+    assert pool_id in asked
+    assert store.range_covered(TOKEN, f"swaps:{pool_id}", 100, 399)
+    assert store.range_covered(TOKEN, f"liquidity:{pool_id}", 100, 399)
+    store.close()
+
+
 def test_a_quote_pool_skips_the_factory_log_walk():
     from washdetect.abi import calldata
 
