@@ -1,6 +1,6 @@
 from washdetect.abi import INITIALIZE_V4, PAIR_CREATED, POOL_CREATED, pad_address
 from washdetect.config import POOL_BASES, POOL_MANAGER, V2_FACTORY, V3_FACTORY, V4_START_BLOCK
-from washdetect.discover import discover_pools
+from washdetect.discover import _PoolScan, discover_pools
 from washdetect.rpc import RpcClient
 from washdetect.store import Store
 
@@ -74,6 +74,32 @@ def test_one_token_does_not_scan_the_whole_factory():
     again: list = []
     discover_pools(_client(again, []), TOKEN, store=store, head=head)
     assert again == []
+    store.close()
+
+
+def test_both_initialize_filters_share_one_scale():
+    notes: list[str] = []
+    scan = _PoolScan(V4_START_BLOCK, V4_START_BLOCK + 99, 2, notes.append)
+    scan.advance(0, V4_START_BLOCK)
+    assert notes[-1].startswith("Finding pools · blocks 1 of 200")
+    scan.advance(1, V4_START_BLOCK + 99)
+    assert "blocks 101 of 200" in notes[-1]
+    scan.advance(0, V4_START_BLOCK + 99)
+    assert "blocks 200 of 200" in notes[-1]
+
+
+def test_a_fresh_initialize_scan_keeps_one_wide_empty_page_per_filter():
+    logs: list = []
+    notes: list[str] = []
+    head = V4_START_BLOCK + 100_000
+    store = Store(":memory:")
+    discover_pools(_client(logs, []), TOKEN, store=store, head=head, progress=notes.append)
+    v4 = [item for item in logs if item["address"] == POOL_MANAGER]
+    assert len(v4) == 2
+    for item in v4:
+        assert int(item["fromBlock"], 16) == V4_START_BLOCK
+        assert int(item["toBlock"], 16) == head
+    assert any(note.startswith("Finding pools · blocks 0 of ") for note in notes)
     store.close()
 
 

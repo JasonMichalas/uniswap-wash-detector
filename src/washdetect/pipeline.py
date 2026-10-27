@@ -176,9 +176,18 @@ def _gap_blocks(gaps: list[tuple[int, int]]) -> int:
 
 
 _BLOCK_OF = re.compile(r"blocks? ([\d,]+) of ([\d,]+)")
+_CHAIN_AT = re.compile(r"\bchain ([\d,]+)")
 _PHASE_NOISE = re.compile(r":?\s*blocks? [\d,]+ of [\d,]+(?:\s*\(\d+%\))?")
 _EMBEDDED_PCT = re.compile(r"\s*\(\d+%\)")
 _SWAP_TOPICS = {topic.lower() for topic in (SWAP_V2, SWAP_V3, SWAP_V4)}
+
+
+def _eta(seconds: float) -> str:
+    if seconds < 90:
+        return f"{seconds:.0f}s"
+    if seconds < 90 * 60:
+        return f"{seconds / 60:.0f}m"
+    return f"{seconds / 3600:.1f}h"
 
 
 def format_load_line(
@@ -194,6 +203,7 @@ def format_load_line(
     show_blocks: bool = True,
     swaps_started: bool = False,
     transfers_started: bool = False,
+    chain: int | None = None,
 ) -> str:
     """One status line. The phase does not carry its own percentage."""
     swap_bit = f"{swaps:,} swaps found" if swaps_started else "swaps not started yet"
@@ -204,7 +214,11 @@ def format_load_line(
         return f"{phase} · {counts} · {tail}"
     width = max(1, end)
     pct = min(100, max(0, int(100 * at / width)))
-    return f"{phase} · block {at:,} of {end:,} ({pct}%) · {counts} · {tail}"
+    extra = f" · chain {chain:,}" if chain else ""
+    eta = ""
+    if phase.startswith("Finding pools") and elapsed >= 4 and 1 <= pct <= 99:
+        eta = f" · about {_eta(elapsed * (100 - pct) / pct)} left"
+    return f"{phase} · block {at:,} of {end:,} ({pct}%){extra}{eta} · {counts} · {tail}"
 
 
 def render_progress(
@@ -217,6 +231,7 @@ def render_progress(
 ) -> str:
     """Turn a loader note into one phase and, when the note has a range, one percentage."""
     found = _BLOCK_OF.search(message)
+    chain_at = _CHAIN_AT.search(message)
     if found:
         stats["at"] = int(found.group(1).replace(",", ""))
         stats["end"] = int(found.group(2).replace(",", ""))
@@ -237,6 +252,7 @@ def render_progress(
         show_blocks=found is not None,
         swaps_started=bool(stats.get("swaps_started")),
         transfers_started=bool(stats.get("transfers_started")),
+        chain=int(chain_at.group(1).replace(",", "")) if chain_at else None,
     )
 
 

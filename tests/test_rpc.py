@@ -37,6 +37,27 @@ def test_adaptive_shrinks_when_a_page_hits_the_cap():
     assert [row["i"] for row in logs] == list(range(31))
 
 
+def test_a_wide_empty_page_is_kept_only_when_the_caller_trusts_it():
+    wide: list[tuple[int, int]] = []
+
+    def fetch(start: int, end: int) -> list[dict]:
+        wide.append((start, end))
+        return []
+
+    fetch_logs_adaptive(0, 199_999, fetch, init_span=200_000, empty_limit=200_000)
+    assert wide == [(0, 199_999)]
+
+    split: list[tuple[int, int]] = []
+
+    def fetch_split(start: int, end: int) -> list[dict]:
+        split.append((start, end))
+        return []
+
+    fetch_logs_adaptive(0, 199_999, fetch_split, init_span=200_000)
+    assert split[0] == (0, 199_999)
+    assert split[1][1] - split[1][0] + 1 <= 50_000
+
+
 def test_client_rotates_after_a_rate_limit(monkeypatch):
     monkeypatch.setattr("washdetect.rpc.random.random", lambda: 0.0)
     seen: list[str] = []

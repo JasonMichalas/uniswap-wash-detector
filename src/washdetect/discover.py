@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import threading
 from collections.abc import Callable
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from typing import Any
 
@@ -116,8 +117,10 @@ def read_pool(
     )
 
 
-# Filtered factory logs are sparse, so the first chunk is wide and shrinks only if an endpoint refuses it.
-_FILTERED_SPAN = 200_000
+# One token's Initialize logs are sparse. The archive endpoint accepts a wide page,
+# and an empty page from that endpoint is the answer. Smaller pages are what made
+# a fresh token sit on "Finding pools" for several minutes.
+_FILTERED_SPAN = 500_000
 
 # v4-currency0/v4-currency1 were written when 32-byte pool ids were dropped, so a
 # covered range did not mean those pools were saved. New names force one rescan.
@@ -395,6 +398,32 @@ def _odd_quote_pools(
         )
 
 
+class _PoolScan:
+    """Progress across every filter of one token, from the first block to the last."""
+
+    def __init__(self, start: int, head: int, parts: int, say: Callable[[str], None]) -> None:
+        self.start = start
+        self.head = head
+        self.parts = max(1, parts)
+        self.say = say
+        self.width = max(1, head - start + 1)
+        self.done = [0] * self.parts
+        self.lock = threading.Lock()
+
+    def seed(self, index: int, blocks: int) -> None:
+        self._set(index, blocks, self.start)
+
+    def advance(self, index: int, at: int) -> None:
+        self._set(index, at - self.start + 1, at)
+
+    def _set(self, index: int, blocks: int, chain: int) -> None:
+        with self.lock:
+            self.done[index] = max(0, min(self.width, max(self.done[index], blocks)))
+            scanned = sum(self.done)
+        total = self.width * self.parts
+        self.say(f"Finding pools · blocks {scanned:,} of {total:,} · chain {chain:,}")
+
+
 def _topic_scan(
     client: RpcClient,
     meta: RpcClient,
@@ -422,11 +451,19 @@ def _topic_scan(
         topics: list[Any] = [topic0, *([None] * position)]
         topics[position] = token_topic
         filters.append((dataset, topics))
-    lock = threading.Lock()
-    for dataset, topics in filters:
+    scan = _PoolScan(start_block, head, len(filters), progress)
+    # Two currency filters at once. Each one still reads one chunk at a time on the
+    # archive endpoint: several chunks on that endpoint have come back empty for
+    # ranges that do contain logs. Other public RPCs cap the width or omit history.
+    parallel = len(filters) > 1 and getattr(client, "_transport", None) is None
+
+    def run(index: int, dataset: str, topics: list[Any]) -> list[tuple]:
         gaps = [(start_block, head)]
         if store is not None:
             gaps = store.missing(token, dataset, start_block, head)
+        width = head - start_block + 1
+        missing = sum(end - begin + 1 for begin, end in gaps)
+        scan.seed(index, width - missing)
         rows: list[tuple] = []
         for gap_start, gap_end in gaps:
 
@@ -444,19 +481,14 @@ def _topic_scan(
                     row = parse(log)
                     if row:
                         parsed.append(row)
-                with lock:
+                with scan.lock:
                     rows.extend(parsed)
                 if store is not None:
                     store.add_coverage(token, dataset, frm, to)
 
-            def on_progress(at: int, _range_end: int, _count: int, *, end: int = head) -> None:
-                progress(f"Finding pools · blocks {at:,} of {end:,}")
+            def on_progress(at: int, _range_end: int, _count: int, *, index: int = index) -> None:
+                scan.advance(index, at)
 
-            progress(f"Finding pools · blocks {gap_start:,} of {head:,}")
-            # mevblocker answers a filtered 200k-block page. One worker: parallel
-            # chunks made that endpoint answer [] for ranges that do have logs.
-            # The other public RPCs cap out at a handful of blocks or return an
-            # empty page for history they do not store.
             logs_client = client.spawn()
             archive = [url for url in client.endpoints if "mevblocker" in url]
             if archive:
@@ -472,9 +504,23 @@ def _topic_scan(
                     on_chunk=on_chunk,
                     on_progress=on_progress,
                     cancel=cancel,
+                    empty_limit=_FILTERED_SPAN,
                 )
             finally:
                 logs_client.close()
+        return rows
+
+    def run_one(item: tuple[int, tuple[str, list[Any]]]) -> list[tuple]:
+        index, pair = item
+        dataset, topics = pair
+        return run(index, dataset, topics)
+
+    if parallel:
+        with ThreadPoolExecutor(max_workers=len(filters)) as pool:
+            batches = list(pool.map(run_one, list(enumerate(filters))))
+    else:
+        batches = [run_one(item) for item in enumerate(filters)]
+    for rows in batches:
         _add_rows(meta, rows, found, seen, cache)
 
 

@@ -138,6 +138,7 @@ def fetch_logs_adaptive(
     on_chunk: Callable[[int, int, list[dict[str, Any]]], None] | None = None,
     on_progress: Callable[[int, int, int], None] | None = None,
     cancel: Callable[[], bool] | None = None,
+    empty_limit: int = 50_000,
 ) -> list[dict[str, Any]]:
     """A full page may be a silent truncation, so a chunk at the cap is retried smaller."""
     if start > end:
@@ -151,8 +152,8 @@ def fetch_logs_adaptive(
     steps = 0
     trouble = 0
     guard = max(100, (end - start + 1) * 8)
-    # A wide empty page is not saved. One pruned endpoint answers [] for history it does not store.
-    empty_limit = 50_000
+    # Default: a wide empty page is not saved. Callers that already asked an archive
+    # endpoint can raise empty_limit to the chunk they requested.
 
     while block <= end:
         steps += 1
@@ -473,6 +474,7 @@ class RpcClient:
         on_chunk: Callable[[int, int, list[dict[str, Any]]], None] | None = None,
         on_progress: Callable[[int, int, int], None] | None = None,
         cancel: Callable[[], bool] | None = None,
+        empty_limit: int = 50_000,
     ) -> list[dict[str, Any]]:
         if start_block > end_block:
             return []
@@ -480,7 +482,15 @@ class RpcClient:
         use_workers = 1 if self._transport is not None else max(1, workers)
         if use_workers <= 1 or width < init_span * 2:
             return self._logs_span(
-                address, topics, start_block, end_block, init_span, on_chunk, on_progress, cancel
+                address,
+                topics,
+                start_block,
+                end_block,
+                init_span,
+                on_chunk,
+                on_progress,
+                cancel,
+                empty_limit,
             )
         parts = _split_range(start_block, end_block, min(use_workers, 4, max(1, width // init_span)))
         found: list[dict[str, Any]] = []
@@ -490,7 +500,15 @@ class RpcClient:
         def run(span: tuple[int, int], client: RpcClient) -> None:
             try:
                 rows = client._logs_span(
-                    address, topics, span[0], span[1], init_span, on_chunk, on_progress, cancel
+                    address,
+                    topics,
+                    span[0],
+                    span[1],
+                    init_span,
+                    on_chunk,
+                    on_progress,
+                    cancel,
+                    empty_limit,
                 )
                 with lock:
                     found.extend(rows)
@@ -531,6 +549,7 @@ class RpcClient:
         on_chunk: Callable[[int, int, list[dict[str, Any]]], None] | None,
         on_progress: Callable[[int, int, int], None] | None,
         cancel: Callable[[], bool] | None,
+        empty_limit: int,
     ) -> list[dict[str, Any]]:
         def fetch(frm: int, to: int) -> list[dict[str, Any]]:
             params = {
@@ -551,6 +570,7 @@ class RpcClient:
             init_span=init_span,
             on_note=self.note,
             on_chunk=on_chunk,
+            empty_limit=empty_limit,
             on_progress=on_progress,
             cancel=cancel,
         )

@@ -62,6 +62,39 @@ def test_a_phase_that_already_has_a_percentage_keeps_only_one():
     assert "(0%)" not in line
 
 
+def test_pool_discovery_starts_at_zero_across_both_filters():
+    stats = {"at": 0, "end": 0, "swaps": 0, "transfers": 0}
+    opening = render_progress(
+        "Finding pools · blocks 0 of 8,882,572 · chain 21,688,329",
+        stats,
+        elapsed=8,
+        network=0,
+        cached=0,
+    )
+    assert "(0%)" in opening
+    assert "83%" not in opening
+    assert "chain 21,688,329" in opening
+    assert "left" not in opening
+    halfway = render_progress(
+        "Finding pools · blocks 4,441,286 of 8,882,572 · chain 26,129,614",
+        stats,
+        elapsed=120,
+        network=0,
+        cached=0,
+    )
+    assert "(50%)" in halfway
+    assert "about 2m left" in halfway
+    done = render_progress(
+        "Finding pools · blocks 8,882,572 of 8,882,572 · chain 26,129,614",
+        {"at": 0, "end": 0, "swaps": 0, "transfers": 0},
+        elapsed=240,
+        network=0,
+        cached=0,
+    )
+    assert "(100%)" in done
+    assert "left" not in done
+
+
 def test_a_note_without_a_block_range_has_no_percentage():
     stats = {"at": 0, "end": 0, "swaps": 0, "transfers": 0}
     line = render_progress("Resolving the block window", stats, elapsed=0, network=0, cached=0)
