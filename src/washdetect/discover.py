@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import threading
 from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
@@ -16,10 +17,12 @@ from washdetect.abi import (
     decode_uint,
     is_zero,
     normalize_address,
+    pad_address,
     topic_address,
 )
 from washdetect.config import (
     FORK_VENUES,
+    POOL_BASES,
     POOL_MANAGER,
     QUOTE_TOKENS,
     V2_FACTORY,
@@ -113,6 +116,20 @@ def read_pool(
     )
 
 
+# Filtered factory logs are sparse, so the first chunk is wide and shrinks only if an endpoint refuses it.
+_FILTERED_SPAN = 200_000
+
+_DIRECT_DATASETS = (
+    "direct-quotes",
+    "v4-currency0",
+    "v4-currency1",
+    "v2-token0",
+    "v2-token1",
+    "v3-token0",
+    "v3-token1",
+)
+
+
 def discover_pools(
     client: RpcClient,
     token: str,
@@ -122,14 +139,16 @@ def discover_pools(
     progress: Callable[[str], None] | None = None,
     include_forks: bool = False,
     cancel: Callable[[], bool] | None = None,
+    rediscover: bool = False,
 ) -> list[PoolMeta]:
-    """Quote pairs plus every v2/v3 factory pair and every v4 pool touching the token."""
+    """Pools for this one token. A full-chain factory index is not part of a load."""
     token = normalize_address(token)
     say = progress or (lambda _message: None)
-    if store is not None:
-        if head is None:
-            head = client.block_number()
-        index_chain(client, store, head, say, include_forks=include_forks, cancel=cancel)
+    if head is None:
+        head = client.block_number()
+    if store is not None and rediscover:
+        for dataset in _direct_datasets(include_forks):
+            store.clear_coverage(token, dataset)
     found: list[PoolMeta] = []
     seen: set[str] = set()
     cache: dict[str, Any] = {}
@@ -137,9 +156,317 @@ def discover_pools(
     meta._timeout = 10
     meta._max_attempts = 3
     try:
-        return _assemble_pools(meta, client, token, store, cache, found, seen, include_forks)
+        say("Finding pools")
+        if store is not None and not rediscover and store.range_covered(token, "direct-quotes", 0, 0):
+            _take_saved(store, token, found, seen)
+        else:
+            _quote_pairs(meta, token, include_forks, found, seen, cache)
+            if store is not None:
+                _save_found(store, token, found)
+                store.add_coverage(token, "direct-quotes", 0, 0)
+        _v4_pools(client, meta, token, head, store, found, seen, cache, say, cancel)
+        _odd_quote_pools(client, meta, token, head, store, include_forks, found, seen, cache, say, cancel)
+        if store is not None:
+            _save_found(store, token, found)
+        say(f"Found {len(found)} pools")
+        return found
     finally:
         meta.close()
+
+
+def _direct_datasets(include_forks: bool) -> tuple[str, ...]:
+    names = list(_DIRECT_DATASETS)
+    if include_forks:
+        for dex, family, _factory, _start in FORK_VENUES:
+            names.append(f"{dex}-{family}-token0")
+            names.append(f"{dex}-{family}-token1")
+    return tuple(names)
+
+
+def _take_saved(store: Store, token: str, found: list[PoolMeta], seen: set[str]) -> None:
+    for row in store.pools_for(token):
+        pool = str(row["pool_address"])
+        if pool in seen:
+            continue
+        seen.add(pool)
+        found.append(_meta_from_saved(row))
+
+
+def _meta_from_saved(row: dict[str, Any]) -> PoolMeta:
+    protocol = str(row["protocol"])
+    return PoolMeta(
+        pool_address=str(row["pool_address"]),
+        protocol=protocol,
+        token0=str(row["token0"]),
+        token1=str(row["token1"]),
+        fee=_fit_fee(int(row["fee"] or 0)),
+        token0_decimals=int(row["token0_decimals"] or 18),
+        token1_decimals=int(row["token1_decimals"] or 18),
+        token0_symbol=str(row["token0_symbol"] or ""),
+        token1_symbol=str(row["token1_symbol"] or ""),
+        dex=str(row.get("dex") or "") or _dex_of(protocol),
+    )
+
+
+def _dex_of(protocol: str) -> str:
+    if protocol in {"v2", "v3", "v4"}:
+        return "uniswap"
+    return protocol.split("-", 1)[0] or "uniswap"
+
+
+def _save_found(store: Store, token: str, found: list[PoolMeta]) -> None:
+    if not found:
+        return
+    store.save_pools(
+        [
+            (
+                token,
+                pool.pool_address,
+                pool.protocol,
+                pool.token0,
+                pool.token1,
+                pool.fee,
+                pool.token0_decimals,
+                pool.token1_decimals,
+                pool.token0_symbol,
+                pool.token1_symbol,
+            )
+            for pool in found
+        ]
+    )
+
+
+def _quote_venues(include_forks: bool) -> list[tuple[str, str, str]]:
+    venues = [("uniswap", "v2", V2_FACTORY), ("uniswap", "v3", V3_FACTORY)]
+    if include_forks:
+        venues.extend((dex, family, factory) for dex, family, factory, _start in FORK_VENUES)
+    return venues
+
+
+def _quote_pairs(
+    client: RpcClient,
+    token: str,
+    include_forks: bool,
+    found: list[PoolMeta],
+    seen: set[str],
+    cache: dict[str, Any],
+) -> None:
+    pending: list[tuple[str, str, int, str, str]] = []
+    calls: list[tuple[str, list[Any]]] = []
+    for dex, family, factory in _quote_venues(include_forks):
+        for base in POOL_BASES:
+            if base == token:
+                continue
+            if family == "v2":
+                data = calldata("get_pair", ["address", "address"], [token, base])
+                protocol = "v2" if dex == "uniswap" else f"{dex}-v2"
+                pending.append((dex, protocol, 3000, factory, data))
+                calls.append(("eth_call", [{"to": factory, "data": data}, "latest"]))
+            else:
+                for fee in V3_FEES:
+                    data = calldata("get_pool", ["address", "address", "uint24"], [token, base, fee])
+                    protocol = "v3" if dex == "uniswap" else f"{dex}-v3"
+                    pending.append((dex, protocol, fee, factory, data))
+                    calls.append(("eth_call", [{"to": factory, "data": data}, "latest"]))
+    results = client.batch(calls, batch_size=25) if calls else []
+    for (dex, protocol, fee, _factory, _data), raw in zip(pending, results, strict=False):
+        if not isinstance(raw, str):
+            continue
+        pool = decode_address_word(raw)
+        if is_zero(pool) or pool in seen:
+            continue
+        try:
+            meta = read_pool(client, pool, protocol, fee, cache, dex)
+        except Exception:
+            continue
+        seen.add(pool)
+        found.append(meta)
+
+
+def _v4_pools(
+    client: RpcClient,
+    meta: RpcClient,
+    token: str,
+    head: int,
+    store: Store | None,
+    found: list[PoolMeta],
+    seen: set[str],
+    cache: dict[str, Any],
+    progress: Callable[[str], None],
+    cancel: Callable[[], bool] | None,
+) -> None:
+    # currency0 and currency1 are indexed. Two filtered queries, not every Initialize since launch.
+    padded = pad_address(token)
+    _topic_scan(
+        client,
+        meta,
+        token,
+        head,
+        store,
+        found,
+        seen,
+        cache,
+        progress,
+        cancel,
+        address=POOL_MANAGER,
+        topic0=INITIALIZE_V4,
+        start_block=V4_START_BLOCK,
+        datasets=("v4-currency0", "v4-currency1"),
+        parse=parse_v4_initialize,
+        token_topic=padded,
+    )
+
+
+def _odd_quote_pools(
+    client: RpcClient,
+    meta: RpcClient,
+    token: str,
+    head: int,
+    store: Store | None,
+    include_forks: bool,
+    found: list[PoolMeta],
+    seen: set[str],
+    cache: dict[str, Any],
+    progress: Callable[[str], None],
+    cancel: Callable[[], bool] | None,
+) -> None:
+    """PairCreated/PoolCreated filtered by this token, for a quote that is not in the base list."""
+    padded = pad_address(token)
+    jobs: list[tuple] = [
+        (V2_FACTORY, PAIR_CREATED, V2_FACTORY_BLOCK, ("v2-token0", "v2-token1"), parse_v2_pair),
+        (V3_FACTORY, POOL_CREATED, V3_FACTORY_BLOCK, ("v3-token0", "v3-token1"), parse_v3_pool),
+    ]
+    if include_forks:
+        for dex, family, factory, start in FORK_VENUES:
+            names = (f"{dex}-{family}-token0", f"{dex}-{family}-token1")
+            if family == "v2":
+                jobs.append((factory, PAIR_CREATED, start, names, _fork_v2(dex)))
+            else:
+                jobs.append((factory, POOL_CREATED, start, names, _fork_v3(dex)))
+    for address, topic, start, datasets, parse in jobs:
+        _topic_scan(
+            client,
+            meta,
+            token,
+            head,
+            store,
+            found,
+            seen,
+            cache,
+            progress,
+            cancel,
+            address=address,
+            topic0=topic,
+            start_block=start,
+            datasets=datasets,
+            parse=parse,
+            token_topic=padded,
+        )
+
+
+def _topic_scan(
+    client: RpcClient,
+    meta: RpcClient,
+    token: str,
+    head: int,
+    store: Store | None,
+    found: list[PoolMeta],
+    seen: set[str],
+    cache: dict[str, Any],
+    progress: Callable[[str], None],
+    cancel: Callable[[], bool] | None,
+    *,
+    address: str,
+    topic0: str,
+    start_block: int,
+    datasets: tuple[str, str],
+    parse: Callable[[dict[str, Any]], tuple | None],
+    token_topic: str,
+) -> None:
+    if head < start_block:
+        return
+    # Position 1 is token0/currency0. Position 2 is token1/currency1. Both are indexed.
+    filters = (
+        (datasets[0], [topic0, token_topic]),
+        (datasets[1], [topic0, None, token_topic]),
+    )
+    lock = threading.Lock()
+    for dataset, topics in filters:
+        gaps = [(start_block, head)]
+        if store is not None:
+            gaps = store.missing(token, dataset, start_block, head)
+        rows: list[tuple] = []
+        for gap_start, gap_end in gaps:
+
+            def on_chunk(
+                frm: int,
+                to: int,
+                logs: list[dict[str, Any]],
+                *,
+                parse: Callable[[dict[str, Any]], tuple | None] = parse,
+                dataset: str = dataset,
+                rows: list[tuple] = rows,
+            ) -> None:
+                parsed = []
+                for log in logs:
+                    row = parse(log)
+                    if row:
+                        parsed.append(row)
+                with lock:
+                    rows.extend(parsed)
+                if store is not None:
+                    store.add_coverage(token, dataset, frm, to)
+
+            def on_progress(at: int, _range_end: int, _count: int, *, end: int = head) -> None:
+                progress(f"Finding pools · blocks {at:,} of {end:,}")
+
+            progress(f"Finding pools · blocks {gap_start:,} of {head:,}")
+            client.get_logs(
+                address=address,
+                topics=topics,
+                start_block=gap_start,
+                end_block=gap_end,
+                init_span=_FILTERED_SPAN,
+                workers=4,
+                on_chunk=on_chunk,
+                on_progress=on_progress,
+                cancel=cancel,
+            )
+        _add_rows(meta, rows, found, seen, cache)
+
+
+def _add_rows(
+    client: RpcClient,
+    rows: list[tuple],
+    found: list[PoolMeta],
+    seen: set[str],
+    cache: dict[str, Any],
+) -> None:
+    fresh = []
+    for row in rows:
+        pool = str(row[0])
+        if is_zero(pool) or pool in seen:
+            continue
+        seen.add(pool)
+        fresh.append(row)
+    if not fresh:
+        return
+    _prefetch_meta(client, [str(row[3]) for row in fresh] + [str(row[4]) for row in fresh], cache)
+    for row in fresh:
+        found.append(
+            _meta_from_chain(
+                client,
+                {
+                    "pool_address": str(row[0]),
+                    "protocol": str(row[1]),
+                    "dex": str(row[2]),
+                    "token0": str(row[3]),
+                    "token1": str(row[4]),
+                    "fee": row[5],
+                },
+                cache,
+            )
+        )
 
 
 def _assemble_pools(
@@ -198,6 +525,7 @@ def index_chain(
     include_forks: bool,
     cancel: Callable[[], bool] | None = None,
 ) -> None:
+    """Optional chain-wide index. A single-token load does not call this."""
     jobs: list[tuple[str, str, str, list[Any], int, Callable[[dict[str, Any]], tuple | None], int]] = [
         ("Uniswap v4 pools", "v4-initialize", POOL_MANAGER, [INITIALIZE_V4], V4_START_BLOCK, parse_v4_initialize, 8_000),
         ("Uniswap v3 pools", "v3-pools", V3_FACTORY, [POOL_CREATED], V3_FACTORY_BLOCK, parse_v3_pool, 8_000),

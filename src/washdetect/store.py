@@ -243,6 +243,13 @@ class Store:
     def range_covered(self, token: str, dataset: str, start: int, end: int) -> bool:
         return covers(self.coverage(token, dataset), start, end)
 
+    def clear_coverage(self, token: str, dataset: str) -> None:
+        with self.lock:
+            self.con.execute(
+                "DELETE FROM coverage WHERE token = ? AND dataset = ?",
+                [token, dataset],
+            )
+
     def add_coverage(self, token: str, dataset: str, start: int, end: int) -> None:
         if start > end:
             return

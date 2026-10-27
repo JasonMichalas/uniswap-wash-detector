@@ -286,7 +286,6 @@ def load_token(
         store.upsert_token(token, symbol, decimals)
         say(f"Token {symbol} ({decimals} decimals)")
 
-        say("Discovering Uniswap v2, v3, and v4 pools")
         pools = discover_pools(
             client,
             token,
@@ -295,9 +294,8 @@ def load_token(
             progress=say,
             include_forks=include_forks,
             cancel=stop,
+            rediscover=rediscover,
         )
-        if rediscover:
-            client.note("rediscover re-read factory logs and quote pairs")
         if not pools:
             raise RpcError(
                 "No Uniswap v2, v3, or v4 pool was found for this token, "
