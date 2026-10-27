@@ -335,6 +335,61 @@ def load_bundle(directory: str | Path | None = None) -> ModelBundle:
     return ModelBundle.load(directory)
 
 
+class WashModel:
+    """Isolation Forest and calibrated XGBoost, for wallets and for swaps."""
+
+    def __init__(self, bundle: ModelBundle | None = None) -> None:
+        self.bundle = bundle or ModelBundle()
+
+    def train(
+        self,
+        wallet_fit: pd.DataFrame,
+        trade_fit: pd.DataFrame,
+        wallet_normal: pd.DataFrame,
+        trade_normal: pd.DataFrame,
+        wallet_calib: pd.DataFrame | None = None,
+        trade_calib: pd.DataFrame | None = None,
+    ) -> None:
+        """Fit both classifiers, optional Platt scaling, then both forests."""
+        self.bundle.wallet_xgb.fit(wallet_fit, wallet_fit["label"].tolist(), columns=MODEL_FEATURE_COLUMNS)
+        self.bundle.trade_xgb.fit(trade_fit, trade_fit["label"].tolist(), columns=TRADE_FEATURE_COLUMNS)
+        if wallet_calib is not None and not wallet_calib.empty:
+            self.bundle.wallet_xgb.set_calibrator(
+                fit_platt(self.bundle.wallet_xgb.raw_proba(wallet_calib), wallet_calib["label"].tolist())
+            )
+        if trade_calib is not None and not trade_calib.empty:
+            self.bundle.trade_xgb.set_calibrator(
+                fit_platt(self.bundle.trade_xgb.raw_proba(trade_calib), trade_calib["label"].tolist())
+            )
+        self.bundle.wallet_iforest.fit(wallet_normal, columns=MODEL_FEATURE_COLUMNS)
+        self.bundle.trade_iforest.fit(trade_normal, columns=TRADE_FEATURE_COLUMNS)
+
+    def score(self, features: pd.DataFrame, *, kind: str) -> pd.DataFrame:
+        """Copy `features` and add ml_score and anomaly_score. kind is wallet or trade."""
+        if kind not in {"wallet", "trade"}:
+            raise ValueError("kind must be 'wallet' or 'trade'.")
+        out = features.copy()
+        if out.empty:
+            return out
+        xgb = self.bundle.wallet_xgb if kind == "wallet" else self.bundle.trade_xgb
+        forest = self.bundle.wallet_iforest if kind == "wallet" else self.bundle.trade_iforest
+        out["ml_score"] = xgb.predict_proba(out).to_numpy()
+        out["anomaly_score"] = forest.score(out).to_numpy()
+        return out
+
+    def explain(self, features: pd.DataFrame, *, kind: str = "wallet", k: int = 5) -> pd.DataFrame:
+        """Top SHAP reasons for a wallet frame or a swap frame."""
+        model = self.bundle.wallet_xgb if kind == "wallet" else self.bundle.trade_xgb
+        return ShapExplainer().top_reasons(model, features, k=k)
+
+    def save(self, directory: str | Path) -> Path:
+        return self.bundle.save(directory)
+
+    @classmethod
+    def load(cls, directory: str | Path | None = None) -> WashModel:
+        return cls(ModelBundle.load(directory))
+
+
 def _infer_columns(features: pd.DataFrame) -> list[str]:
     if set(TRADE_FEATURE_COLUMNS) <= set(features.columns):
         return list(TRADE_FEATURE_COLUMNS)

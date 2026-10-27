@@ -27,7 +27,7 @@ from washdetect.features import (
     TRADE_FEATURE_COLUMNS,
     build_trade_frame,
 )
-from washdetect.models import ModelBundle, fit_platt
+from washdetect.models import ModelBundle, WashModel
 
 MAX_NEGATIVE_WALLETS = 1_500
 MAX_NEGATIVE_TRADES = 2_500
@@ -109,22 +109,6 @@ def train_tables(
     wallet_fit = _downsample(wallet_fit, MAX_NEGATIVE_WALLETS * max(1, len(train)), seed)
     trade_fit = _downsample(trade_fit, MAX_NEGATIVE_TRADES * max(1, len(train)), seed + 1)
 
-    bundle = ModelBundle()
-    bundle.wallet_xgb.fit(wallet_fit, wallet_fit["label"].tolist(), columns=MODEL_FEATURE_COLUMNS)
-    bundle.trade_xgb.fit(trade_fit, trade_fit["label"].tolist(), columns=TRADE_FEATURE_COLUMNS)
-
-    if calib:
-        wallet_cal = _concat(calib, "wallets")
-        trade_cal = _concat(calib, "trades")
-        if not wallet_cal.empty:
-            bundle.wallet_xgb.set_calibrator(
-                fit_platt(bundle.wallet_xgb.raw_proba(wallet_cal), wallet_cal["label"].tolist())
-            )
-        if not trade_cal.empty:
-            bundle.trade_xgb.set_calibrator(
-                fit_platt(bundle.trade_xgb.raw_proba(trade_cal), trade_cal["label"].tolist())
-            )
-
     wallet_normal = _concat(train, "wallets")
     wallet_normal = wallet_normal[wallet_normal["injected"] == 0]
     trade_normal = _concat(train, "trades")
@@ -133,17 +117,19 @@ def train_tables(
         wallet_normal = wallet_fit
     if len(trade_normal) < 8:
         trade_normal = trade_fit
-    bundle.wallet_iforest.fit(wallet_normal, columns=MODEL_FEATURE_COLUMNS)
-    bundle.trade_iforest.fit(trade_normal, columns=TRADE_FEATURE_COLUMNS)
+    model = WashModel()
+    model.train(
+        wallet_fit,
+        trade_fit,
+        wallet_normal,
+        trade_normal,
+        wallet_calib=_concat(calib, "wallets") if calib else None,
+        trade_calib=_concat(calib, "trades") if calib else None,
+    )
+    bundle = model.bundle
 
-    test_trades = _concat(test, "trades")
-    test_wallets = _concat(test, "wallets")
-    test_trades = test_trades.copy()
-    test_wallets = test_wallets.copy()
-    test_trades["ml_score"] = bundle.trade_xgb.predict_proba(test_trades).to_numpy()
-    test_wallets["ml_score"] = bundle.wallet_xgb.predict_proba(test_wallets).to_numpy()
-    test_trades["anomaly_score"] = bundle.trade_iforest.score(test_trades).to_numpy()
-    test_wallets["anomaly_score"] = bundle.wallet_iforest.score(test_wallets).to_numpy()
+    test_trades = model.score(_concat(test, "trades"), kind="trade")
+    test_wallets = model.score(_concat(test, "wallets"), kind="wallet")
 
     headline = binary_metrics(test_trades["injected"], test_trades["ml_score"])
     wallet_headline = binary_metrics(test_wallets["injected"], test_wallets["ml_score"])

@@ -11,7 +11,7 @@ import pandas as pd
 from washdetect.dataset import events_from_frames
 from washdetect.detector import Detection
 from washdetect.features import build_feature_frame, build_trade_frame
-from washdetect.models import ModelBundle, ModelNotTrained, ShapExplainer, load_bundle
+from washdetect.models import ModelBundle, ModelNotTrained, WashModel
 
 
 class ScoreCache:
@@ -30,21 +30,18 @@ class ScoreCache:
         if self.bundle is not None and self.trades is not None and self.wallets is not None:
             return self.bundle
         try:
-            self.bundle = load_bundle(model_dir)
+            model = WashModel.load(model_dir)
         except ModelNotTrained as exc:
             raise ModelNotTrained(str(exc)) from exc
+        self.bundle = model.bundle
         swap_events, transfer_events = events_from_frames(swaps, transfers)
         empty = Detection(cycles=[], wallets=[], flagged={})
         self.wallets = build_feature_frame(swap_events, transfer_events, empty, excluded=excluded)
         self.trades = build_trade_frame(swap_events, transfer_events, excluded=excluded, detection=empty)
         if not self.wallets.empty:
-            self.wallets = self.wallets.copy()
-            self.wallets["ml_score"] = self.bundle.wallet_xgb.predict_proba(self.wallets).to_numpy()
-            self.wallets["anomaly_score"] = self.bundle.wallet_iforest.score(self.wallets).to_numpy()
+            self.wallets = model.score(self.wallets, kind="wallet")
         if not self.trades.empty:
-            self.trades = self.trades.copy()
-            self.trades["ml_score"] = self.bundle.trade_xgb.predict_proba(self.trades).to_numpy()
-            self.trades["anomaly_score"] = self.bundle.trade_iforest.score(self.trades).to_numpy()
+            self.trades = model.score(self.trades, kind="trade")
         return self.bundle
 
 
@@ -127,7 +124,7 @@ def explain_wallets(wallets: list[str], cache: ScoreCache, *, limit: int = 25, k
             pd.DataFrame(columns=["wallet", "rank", "feature", "feature_value", "shap_value", "direction"]),
             truncated,
         )
-    reasons = ShapExplainer().top_reasons(cache.bundle.wallet_xgb, features, k=k)
+    reasons = WashModel(cache.bundle).explain(features, kind="wallet", k=k)
     order = {wallet: index for index, wallet in enumerate(chosen)}
     reasons["_order"] = reasons["wallet"].map(lambda wallet: order.get(str(wallet), 10**6))
     reasons = reasons.sort_values(["_order", "rank"]).drop(columns=["_order"])
