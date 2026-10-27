@@ -303,6 +303,7 @@ button.theme { flex: none; border: 1px solid var(--line); background: var(--pane
 }
 
 .banner.slim { margin: 0 16px 8px; }
+.banner.load-progress { white-space: normal; line-height: 1.45; }
 
 .token-menu {
   position: absolute;
@@ -708,7 +709,16 @@ button.theme { flex: none; border: 1px solid var(--line); background: var(--pane
 
 .number-card p { margin: 0; font-size: 40px; letter-spacing: -0.04em; }
 
-.table-scroll { overflow: auto; max-height: 160px; }
+.table-scroll { overflow: auto; max-height: 280px; }
+.table-scroll th.wrap, .table-scroll td.wrap {
+  white-space: normal;
+  min-width: 220px;
+  max-width: 420px;
+  vertical-align: top;
+}
+.rule-kinds { border: 0; margin: 0 0 12px; padding: 0; display: grid; gap: 6px; }
+.rule-kinds legend { font-size: 13px; margin-bottom: 4px; }
+.rule-kinds label { display: flex; gap: 8px; align-items: flex-start; }
 table { border-collapse: collapse; width: 100%; font-size: 13px; }
 th, td { text-align: left; padding: 4px 8px; border-bottom: 1px solid var(--line); white-space: nowrap; }
 th { color: var(--muted); font-weight: 600; }

@@ -167,14 +167,24 @@ export const TOLERANCE_MAX = 0.2;
 export const TOLERANCE_STEP = 0.01;
 
 export const WINDOW_PRESETS: { blocks: number; label: string }[] = [
-  { blocks: 50, label: "about 10 minutes" },
-  { blocks: 200, label: "about 40 minutes" },
-  { blocks: 600, label: "about 2 hours" },
-  { blocks: 3600, label: "about 12 hours" },
+  { blocks: 300, label: "about 1 hour" },
+  { blocks: 1800, label: "about 6 hours" },
   { blocks: 7200, label: "about 1 day" },
+  { blocks: 21600, label: "about 3 days" },
+  { blocks: 50400, label: "about 7 days" },
+  { blocks: 100000, label: "the whole loaded window" },
 ];
 
-export const GROUP_SIZE_PRESETS = [2, 4, 8, 16, 32, 64];
+export const GROUP_SIZE_PRESETS = [2, 4, 8, 16, 24, 32, 64];
+
+export const WASH_RULES: { id: string; name: string }[] = [
+  { id: "R1", name: "Same wallet buys and sells" },
+  { id: "R2", name: "Tokens passed along, then sold" },
+  { id: "R3", name: "Wallets funded or paid together" },
+  { id: "R4", name: "A circle of wallets" },
+  { id: "R5", name: "Many trades, nothing left" },
+  { id: "R6", name: "Buy and sell in one transaction" },
+];
 
 export function boxTitle(nodeType: string, params: Record<string, unknown>): string {
   if (nodeType === "source") return SOURCE_TITLE[String(params.source ?? "")] ?? "Table";
@@ -199,7 +209,7 @@ export function howToUse(nodeType: string): string {
     condition: "Connect any table to rows. Connect kept rows onward, for example to a table or a count.",
     time_window: "Connect swaps or transfers in. This only shortens the range you already loaded.",
     detect_cycles:
-      "Connect Swaps to swaps and Transfers to transfers. Use wash swaps, wallets, or groups depending on what you want to see.",
+      "Connect Swaps to swaps and Transfers to transfers. Tick which kinds of wash trading to look for, then use wash swaps, wallets, or groups.",
     ml_score:
       "Connect swaps or wallets in. To turn the scores into a share of volume, connect scored to the part input of Percent of.",
     anomaly_score: "Connect swaps or wallets in. The scored output adds an unusual-activity score.",
@@ -246,8 +256,9 @@ export function settingLabel(nodeType: string, name: string): string {
     time_window: { days: "How many days to keep" },
     detect_cycles: {
       tolerance: "How close buys and sells must be",
-      window_blocks: "How far apart the trades can be",
-      max_group_size: "Largest group to look for",
+      window_blocks: "Longest time between buy and sell",
+      max_group_size: "Most wallets in a chain",
+      rules: "Which kinds of wash trading",
     },
     group_by: { by: "One row per" },
     aggregate: { fn: "What to calculate", field: "Column" },
@@ -266,11 +277,14 @@ export function settingHint(nodeType: string, name: string, params: Record<strin
     return `How close buys and sells must be to count as wash. 5% means 4 bought vs 4.01 sold counts. This box uses ${percentText(numberParam(params.tolerance, 0.05))}.`;
   }
   if (nodeType === "detect_cycles" && name === "window_blocks") {
-    const blocks = numberParam(params.window_blocks, 200);
-    return `${blocks} blocks, ${windowPhrase(blocks)}. A new block lands about every 12 seconds.`;
+    const blocks = numberParam(params.window_blocks, 7200);
+    return `Longest time between a buy and the sell that uses those tokens: ${blocks} blocks, ${windowPhrase(blocks)}. A new block lands about every 12 seconds.`;
   }
   if (nodeType === "detect_cycles" && name === "max_group_size") {
-    return "Largest group size to look for. Bigger groups take longer and mix more easily with real trading.";
+    return "Most wallets in one chain. A 20-hop pass needs room for 21 wallets. Bigger chains take longer.";
+  }
+  if (nodeType === "detect_cycles" && name === "rules") {
+    return `Which kinds of wash trading this box looks for: ${rulePhrase(params.rules)}.`;
   }
   const hints: Record<string, Record<string, string>> = {
     condition: {
@@ -425,11 +439,29 @@ function conditionLine(params: Record<string, unknown>): string {
 
 function cycleLine(params: Record<string, unknown>, full: boolean): string {
   const pct = percentText(numberParam(params.tolerance, 0.05));
-  const when = windowPhrase(numberParam(params.window_blocks, 200));
-  const group = numberParam(params.max_group_size, 16);
-  const face = `Finds groups of wallets whose buys and sells cancel out (within ${pct}) inside ${when}, up to ${group} wallets.`;
+  const when = windowPhrase(numberParam(params.window_blocks, 7200));
+  const group = numberParam(params.max_group_size, 24);
+  const kinds = rulePhrase(params.rules);
+  const face = `Looks for ${kinds}. Buys and sells must match within ${pct}, no more than ${when} apart, in a chain of at most ${group} wallets.`;
   if (!full) return face;
-  return `${face} A group can be two wallets trading back and forth, a ring, or several wallets buying and selling into each other.`;
+  return `${face} A match can be one wallet, tokens passed along, wallets funded together, a circle, a flat burst of trades, or a buy and a sell in one transaction.`;
+}
+
+export function selectedRules(value: unknown): string[] {
+  const text = typeof value === "string" ? value : "";
+  const chosen = text
+    .split(",")
+    .map((part) => part.trim())
+    .filter((part) => WASH_RULES.some((rule) => rule.id === part));
+  return chosen.length ? chosen : WASH_RULES.map((rule) => rule.id);
+}
+
+function rulePhrase(value: unknown): string {
+  const chosen = selectedRules(value);
+  if (chosen.length === WASH_RULES.length) return "every kind of wash trading";
+  const names = WASH_RULES.filter((rule) => chosen.includes(rule.id)).map((rule) => rule.name);
+  if (names.length === 1) return names[0].toLowerCase();
+  return `${names.slice(0, -1).join(", ")} and ${names[names.length - 1].toLowerCase()}`;
 }
 
 function aggregateLine(params: Record<string, unknown>): string {

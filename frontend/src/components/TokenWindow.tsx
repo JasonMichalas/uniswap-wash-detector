@@ -1,10 +1,10 @@
 import { PRESETS, shortAddress } from "../editor/ui";
 
 function loadLabel(progress: string): string {
+  const phase = progress.split(" · ")[0]?.trim() || "Loading";
   const match = progress.match(/\((\d+)%\)/);
-  if (match) return `Loading ${match[1]}%`;
-  if (!progress) return "Loading…";
-  return progress.length > 48 ? `${progress.slice(0, 48)}…` : progress;
+  const text = match ? `${phase} ${match[1]}%` : phase;
+  return text.length > 52 ? `${text.slice(0, 52)}…` : text;
 }
 import type { TokenSuggestion } from "../types";
 import { TokenPicker } from "./TokenPicker";

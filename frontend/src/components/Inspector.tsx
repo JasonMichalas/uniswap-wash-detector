@@ -11,7 +11,9 @@ import {
   TOLERANCE_MAX,
   TOLERANCE_MIN,
   TOLERANCE_STEP,
+  WASH_RULES,
   WINDOW_PRESETS,
+  selectedRules,
   boxTitle,
   fieldWords,
   howToUse,
@@ -245,12 +247,30 @@ function CycleSettings({
   params: Record<string, unknown>;
   onUpdate: (key: string, value: unknown) => void;
 }) {
-  const blocks = finite(params.window_blocks, 200);
-  const group = finite(params.max_group_size, 16);
+  const blocks = finite(params.window_blocks, 7200);
+  const group = finite(params.max_group_size, 24);
   const windows = windowChoices(blocks);
   const groups = groupChoices(group);
+  const chosen = new Set(selectedRules(params.rules));
+  function toggleRule(id: string) {
+    const next = new Set(chosen);
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
+    const ordered = WASH_RULES.filter((rule) => next.has(rule.id)).map((rule) => rule.id);
+    onUpdate("rules", ordered.join(","));
+  }
   return (
     <>
+      <fieldset className="rule-kinds">
+        <legend>{settingLabel("detect_cycles", "rules")}</legend>
+        {WASH_RULES.map((rule) => (
+          <label key={rule.id}>
+            <input type="checkbox" checked={chosen.has(rule.id)} onChange={() => toggleRule(rule.id)} />
+            {rule.name}
+          </label>
+        ))}
+        <span className="hint">{settingHint("detect_cycles", "rules", params)}</span>
+      </fieldset>
       <label>
         {settingLabel("detect_cycles", "tolerance")}
         <input

@@ -27,7 +27,7 @@ export function LoadStatus({
           {typedAddressProblem && <p className="banner error">{typedAddressProblem}</p>}
           {showCustomProblem && customProblem && <p className="banner error">{customProblem}</p>}
           {loadError && <p className="banner error">{loadError}</p>}
-          {loading && <p className="banner">{progress}</p>}
+          {loading && <p className="banner load-progress">{progress || "Starting"}</p>}
         </div>
       )}
 

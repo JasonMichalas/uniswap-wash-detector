@@ -154,6 +154,25 @@ function NumberCard({ output }: { output: OutputResult }) {
   );
 }
 
+const COLUMN_LABELS: Record<string, string> = {
+  why: "Why",
+  path: "Path",
+  rules: "Rules",
+  is_wash: "Wash",
+  cycle_id: "Group",
+  tx_hash: "Transaction",
+  wallet: "Wallet",
+  confidence: "Confidence",
+};
+
+function columnLabel(column: string): string {
+  return COLUMN_LABELS[column] ?? column.replaceAll("_", " ");
+}
+
+function wraps(column: string): boolean {
+  return column === "why" || column === "path" || column === "rules";
+}
+
 function TableCard({ output, noSwaps }: { output: OutputResult; noSwaps: boolean }) {
   return (
     <article className="table-card">
@@ -168,7 +187,9 @@ function TableCard({ output, noSwaps }: { output: OutputResult; noSwaps: boolean
             <thead>
               <tr>
                 {output.columns.map((column) => (
-                  <th key={column}>{column}</th>
+                  <th key={column} className={wraps(column) ? "wrap" : undefined}>
+                    {columnLabel(column)}
+                  </th>
                 ))}
               </tr>
             </thead>
@@ -176,7 +197,9 @@ function TableCard({ output, noSwaps }: { output: OutputResult; noSwaps: boolean
               {output.rows.map((row, index) => (
                 <tr key={index}>
                   {output.columns.map((column) => (
-                    <td key={column}>{cell(row[column])}</td>
+                    <td key={column} className={wraps(column) ? "wrap" : undefined}>
+                      {cell(row[column])}
+                    </td>
                   ))}
                 </tr>
               ))}
