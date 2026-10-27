@@ -471,7 +471,11 @@ button.theme { flex: none; border: 1px solid var(--line); background: var(--pane
   min-height: 0;
 }
 
-.inspector h2 { margin: 0 0 8px; font-size: 16px; letter-spacing: -0.02em; }
+.inspector h2 { margin: 0 0 2px; font-size: 16px; letter-spacing: -0.02em; }
+.inspector h3 { margin: 12px 0 4px; font-size: 12px; font-weight: 650; letter-spacing: 0.01em; }
+.inspector p { margin: 0 0 8px; font-size: 14px; line-height: 1.45; }
+.inspector .tech-name { margin: 0 0 4px; color: var(--muted); font-size: 12px; }
+.inspector input[type="range"] { width: 100%; padding: 0; accent-color: var(--accent); }
 .inspector label { margin-bottom: 10px; }
 .inspector .check {
   flex-direction: row;

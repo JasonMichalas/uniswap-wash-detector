@@ -2,11 +2,26 @@ import {
   groupKeysFor,
   inferOutputs,
   inputOnHandle,
-  nodeDef,
   singleInput,
   sourceLabel,
   type BoxNode,
 } from "../flow";
+import {
+  GROUP_SIZE_PRESETS,
+  TOLERANCE_MAX,
+  TOLERANCE_MIN,
+  TOLERANCE_STEP,
+  WINDOW_PRESETS,
+  boxTitle,
+  fieldWords,
+  howToUse,
+  opWords,
+  settingHint,
+  settingLabel,
+  technicalName,
+  whatItDoes,
+  windowPhrase,
+} from "../editor/boxCopy";
 import type { Catalog, FieldDef } from "../types";
 import type { Edge } from "@xyflow/react";
 
@@ -33,12 +48,13 @@ export function Inspector({
       </aside>
     );
   }
-  const def = nodeDef(catalog, node.data.nodeType);
   const outputs = inferOutputs(nodes, edges, catalog);
   const input = singleInput(node, edges, outputs, catalog);
   const part = inputOnHandle(node, "in_part", edges, outputs);
   const whole = inputOnHandle(node, "in_whole", edges, outputs);
   const fields = fieldsFor(node.data.nodeType, input, part);
+  const title = boxTitle(node.data.nodeType, node.data.params);
+  const technical = technicalName(node.data.nodeType);
 
   function update(key: string, value: unknown) {
     const params = { ...node!.data.params, [key]: value };
@@ -47,13 +63,21 @@ export function Inspector({
     onChange(node!.id, params, label);
   }
 
+  function hint(name: string): string {
+    return settingHint(node!.data.nodeType, name, node!.data.params);
+  }
+
   return (
     <aside className="inspector">
-      <h2>{node.data.label}</h2>
-      <p className="muted">{def?.description}</p>
+      <h2>{title}</h2>
+      {technical && <p className="tech-name">{technical}</p>}
+      <h3>What this box does</h3>
+      <p>{whatItDoes(node.data.nodeType, node.data.params)}</p>
+      <h3>How to use it</h3>
+      <p className="muted">{howToUse(node.data.nodeType)}</p>
       {node.data.nodeType === "source" && (
         <label>
-          Table
+          Which table
           <select value={String(node.data.params.source ?? "")} onChange={(event) => update("source", event.target.value)}>
             {catalog.palette
               .filter((item) => item.node_type === "source")
@@ -63,40 +87,19 @@ export function Inspector({
                 </option>
               ))}
           </select>
+          <span className="hint">This is the data the rest of the boxes read.</span>
         </label>
       )}
       {node.data.nodeType === "condition" && (
         <ConditionFields node={node} fields={fields} onUpdate={update} />
       )}
       {node.data.nodeType === "detect_cycles" && (
-        <>
-          <NumberField
-            label="Amount tolerance (0–0.5)"
-            value={node.data.params.tolerance ?? 0.05}
-            min={0.001}
-            max={0.5}
-            step={0.01}
-            onChange={(value) => update("tolerance", value)}
-          />
-          <NumberField
-            label="Time window (blocks)"
-            value={node.data.params.window_blocks ?? 200}
-            min={1}
-            max={50000}
-            onChange={(value) => update("window_blocks", value)}
-          />
-          <NumberField
-            label="Max wallets in a group"
-            value={node.data.params.max_group_size ?? 16}
-            min={2}
-            max={64}
-            onChange={(value) => update("max_group_size", value)}
-          />
-        </>
+        <CycleSettings params={node.data.params} onUpdate={update} />
       )}
       {node.data.nodeType === "time_window" && (
         <NumberField
-          label="Last N days of the loaded window"
+          label={settingLabel("time_window", "days")}
+          hint={hint("days")}
           value={node.data.params.days}
           min={1}
           max={90}
@@ -105,32 +108,36 @@ export function Inspector({
       )}
       {node.data.nodeType === "group_by" && (
         <label>
-          Group by
+          {settingLabel("group_by", "by")}
           <select value={String(node.data.params.by ?? "")} onChange={(event) => update("by", event.target.value)}>
             {groupKeysFor(input?.type).map((key) => (
               <option key={key} value={key}>
-                {key}
+                {groupWord(key)}
               </option>
             ))}
           </select>
-          {input && groupKeysFor(input.type).length === 0 && (
-            <span className="hint">This stream cannot be grouped. Use swaps, transfers, or wash wallets.</span>
-          )}
+          <span className="hint">
+            {input && groupKeysFor(input.type).length === 0
+              ? "This stream cannot be grouped. Use swaps, transfers, or wash wallets."
+              : hint("by")}
+          </span>
         </label>
       )}
       {node.data.nodeType === "aggregate" && (
         <>
           <label>
-            Function
+            {settingLabel("aggregate", "fn")}
             <select value={String(node.data.params.fn ?? "count")} onChange={(event) => update("fn", event.target.value)}>
-              <option value="count">count</option>
-              <option value="sum">sum</option>
-              <option value="avg">avg</option>
+              <option value="count">Count the rows</option>
+              <option value="sum">Add up a column</option>
+              <option value="avg">Average a column</option>
             </select>
+            <span className="hint">{hint("fn")}</span>
           </label>
           {node.data.params.fn !== "count" && (
             <FieldSelect
-              label="Field"
+              label={settingLabel("aggregate", "field")}
+              hint={hint("field")}
               fields={fields.filter((field) => field.kind === "number")}
               value={String(node.data.params.field ?? "")}
               onChange={(value) => update("field", value)}
@@ -141,14 +148,16 @@ export function Inspector({
       {node.data.nodeType === "ratio" && (
         <>
           <FieldSelect
-            label="Field"
+            label={settingLabel("ratio", "field")}
+            hint={hint("field")}
             fields={(part?.fields ?? fields).filter((field) => field.kind === "number")}
             value={String(node.data.params.field ?? "")}
             onChange={(value) => update("field", value)}
             allowFree
           />
           <FieldSelect
-            label="Divide by (blank = same field)"
+            label={settingLabel("ratio", "over")}
+            hint={hint("over")}
             fields={(whole?.fields ?? []).filter((field) => field.kind === "number")}
             value={String(node.data.params.over ?? "")}
             onChange={(value) => update("over", value)}
@@ -158,44 +167,64 @@ export function Inspector({
       {node.data.nodeType === "sort" && (
         <>
           <FieldSelect
-            label="Field"
+            label={settingLabel("sort", "field")}
+            hint={hint("field")}
             fields={fields}
             value={String(node.data.params.field ?? "")}
             onChange={(value) => update("field", value)}
           />
           <label>
-            Direction
+            {settingLabel("sort", "direction")}
             <select
               value={String(node.data.params.direction ?? "desc")}
               onChange={(event) => update("direction", event.target.value)}
             >
-              <option value="desc">desc</option>
-              <option value="asc">asc</option>
+              <option value="desc">Largest first</option>
+              <option value="asc">Smallest first</option>
             </select>
+            <span className="hint">{hint("direction")}</span>
           </label>
         </>
       )}
       {node.data.nodeType === "limit" && (
-        <NumberField label="N" value={node.data.params.n} min={1} max={1000} onChange={(value) => update("n", value)} />
+        <NumberField
+          label={settingLabel("limit", "n")}
+          hint={hint("n")}
+          value={node.data.params.n}
+          min={1}
+          max={1000}
+          onChange={(value) => update("n", value)}
+        />
       )}
       {node.data.nodeType === "output_number" && (
         <>
-          <TextField label="Title" value={node.data.params.title} onChange={(value) => update("title", value)} />
+          <TextField
+            label={settingLabel("output_number", "title")}
+            hint={hint("title")}
+            value={node.data.params.title}
+            onChange={(value) => update("title", value)}
+          />
           <label>
-            Format
+            {settingLabel("output_number", "format")}
             <select
               value={String(node.data.params.format ?? "number")}
               onChange={(event) => update("format", event.target.value)}
             >
-              <option value="number">number</option>
-              <option value="percent">percent</option>
-              <option value="integer">integer</option>
+              <option value="number">Plain number</option>
+              <option value="percent">Percent</option>
+              <option value="integer">Whole number</option>
             </select>
+            <span className="hint">{hint("format")}</span>
           </label>
         </>
       )}
       {(node.data.nodeType === "output_table" || node.data.nodeType === "output_chart") && (
-        <TextField label="Title" value={node.data.params.title} onChange={(value) => update("title", value)} />
+        <TextField
+          label={settingLabel(node.data.nodeType, "title")}
+          hint={hint("title")}
+          value={node.data.params.title}
+          onChange={(value) => update("title", value)}
+        />
       )}
       <button type="button" className="ghost danger" onClick={() => onDelete(node.id)}>
         Remove box
@@ -207,6 +236,78 @@ export function Inspector({
 function fieldsFor(nodeType: string, input: { fields: FieldDef[] } | null, part: { fields: FieldDef[] } | null): FieldDef[] {
   if (nodeType === "ratio") return part?.fields ?? [];
   return input?.fields ?? [];
+}
+
+function CycleSettings({
+  params,
+  onUpdate,
+}: {
+  params: Record<string, unknown>;
+  onUpdate: (key: string, value: unknown) => void;
+}) {
+  const blocks = finite(params.window_blocks, 200);
+  const group = finite(params.max_group_size, 16);
+  const windows = windowChoices(blocks);
+  const groups = groupChoices(group);
+  return (
+    <>
+      <label>
+        {settingLabel("detect_cycles", "tolerance")}
+        <input
+          type="range"
+          min={TOLERANCE_MIN}
+          max={TOLERANCE_MAX}
+          step={TOLERANCE_STEP}
+          value={finite(params.tolerance, 0.05)}
+          onChange={(event) => onUpdate("tolerance", Number(event.target.value))}
+        />
+        <span className="hint">{settingHint("detect_cycles", "tolerance", params)}</span>
+      </label>
+      <label>
+        {settingLabel("detect_cycles", "window_blocks")}
+        <select value={String(blocks)} onChange={(event) => onUpdate("window_blocks", Number(event.target.value))}>
+          {windows.map((option) => (
+            <option key={option.blocks} value={option.blocks}>
+              {option.label} ({option.blocks} blocks)
+            </option>
+          ))}
+        </select>
+        <span className="hint">{settingHint("detect_cycles", "window_blocks", params)}</span>
+      </label>
+      <label>
+        {settingLabel("detect_cycles", "max_group_size")}
+        <select value={String(group)} onChange={(event) => onUpdate("max_group_size", Number(event.target.value))}>
+          {groups.map((size) => (
+            <option key={size} value={size}>
+              {size} wallets
+            </option>
+          ))}
+        </select>
+        <span className="hint">{settingHint("detect_cycles", "max_group_size", params)}</span>
+      </label>
+    </>
+  );
+}
+
+function windowChoices(current: number): { blocks: number; label: string }[] {
+  const presets = WINDOW_PRESETS.map((item) => ({ ...item }));
+  if (!presets.some((item) => item.blocks === current)) {
+    presets.unshift({ blocks: current, label: windowPhrase(current) });
+  }
+  return presets;
+}
+
+function groupChoices(current: number): number[] {
+  const values = new Set(GROUP_SIZE_PRESETS);
+  values.add(current);
+  return [...values].sort((a, b) => a - b);
+}
+
+function groupWord(key: string): string {
+  if (key === "day") return "each day";
+  if (key === "wallet") return "each wallet";
+  if (key === "pool") return "each pool";
+  return key;
 }
 
 function ConditionFields({
@@ -221,46 +322,63 @@ function ConditionFields({
   const mode = String(node.data.params.mode ?? "compare");
   const field = fields.find((item) => item.name === node.data.params.field);
   const ops = field?.kind === "number" ? [">", ">=", "<", "<=", "=", "!="] : ["=", "!="];
+  const hint = (name: string) => settingHint("condition", name, node.data.params);
   return (
     <>
       <label>
-        Mode
+        {settingLabel("condition", "mode")}
         <select value={mode} onChange={(event) => onUpdate("mode", event.target.value)}>
-          <option value="compare">compare a field</option>
-          <option value="sold_in">sold in the last N days</option>
+          <option value="compare">Compare a column</option>
+          <option value="sold_in">Sold recently</option>
         </select>
+        <span className="hint">{hint("mode")}</span>
       </label>
       {mode === "sold_in" ? (
         <>
-          <NumberField label="Days" value={node.data.params.days} min={1} max={365} onChange={(value) => onUpdate("days", value)} />
+          <NumberField
+            label={settingLabel("condition", "days")}
+            hint={hint("days")}
+            value={node.data.params.days}
+            min={1}
+            max={365}
+            onChange={(value) => onUpdate("days", value)}
+          />
           <label className="check">
             <input
               type="checkbox"
               checked={Boolean(node.data.params.negate)}
               onChange={(event) => onUpdate("negate", event.target.checked)}
             />
-            Has not sold
+            {settingLabel("condition", "negate")}
           </label>
+          <span className="hint">{hint("negate")}</span>
         </>
       ) : (
         <>
           <FieldSelect
-            label="Field"
+            label={settingLabel("condition", "field")}
+            hint={hint("field")}
             fields={fields}
             value={String(node.data.params.field ?? "")}
             onChange={(value) => onUpdate("field", value)}
           />
           <label>
-            Operator
+            {settingLabel("condition", "op")}
             <select value={String(node.data.params.op ?? "=")} onChange={(event) => onUpdate("op", event.target.value)}>
               {ops.map((op) => (
                 <option key={op} value={op}>
-                  {op}
+                  {opWords(op)}
                 </option>
               ))}
             </select>
+            <span className="hint">{hint("op")}</span>
           </label>
-          <ValueField kind={field?.kind} value={node.data.params.value} onChange={(value) => onUpdate("value", value)} />
+          <ValueField
+            kind={field?.kind}
+            hint={hint("value")}
+            value={node.data.params.value}
+            onChange={(value) => onUpdate("value", value)}
+          />
         </>
       )}
     </>
@@ -269,12 +387,14 @@ function ConditionFields({
 
 function FieldSelect({
   label,
+  hint,
   fields,
   value,
   onChange,
   allowFree = false,
 }: {
   label: string;
+  hint?: string;
   fields: FieldDef[];
   value: string;
   onChange: (value: string) => void;
@@ -285,10 +405,11 @@ function FieldSelect({
       <label>
         {label}
         {allowFree ? (
-          <input value={value} onChange={(event) => onChange(event.target.value)} placeholder="usd_value" />
+          <input value={value} onChange={(event) => onChange(event.target.value)} placeholder="dollar size" />
         ) : (
           <span className="hint">Connect an input first.</span>
         )}
+        {hint && fields.length === 0 && allowFree ? <span className="hint">{hint}</span> : null}
       </label>
     );
   }
@@ -296,23 +417,26 @@ function FieldSelect({
     <label>
       {label}
       <select value={value} onChange={(event) => onChange(event.target.value)}>
-        <option value="">Choose a field</option>
+        <option value="">Choose a column</option>
         {fields.map((field) => (
           <option key={field.name} value={field.name}>
-            {field.name}
+            {fieldWords(field.name)}
           </option>
         ))}
       </select>
+      {hint && <span className="hint">{hint}</span>}
     </label>
   );
 }
 
 function ValueField({
   kind,
+  hint,
   value,
   onChange,
 }: {
   kind: FieldDef["kind"] | undefined;
+  hint?: string;
   value: unknown;
   onChange: (value: unknown) => void;
 }) {
@@ -320,36 +444,40 @@ function ValueField({
     const current = value === true || value === "true" ? "true" : "false";
     return (
       <label>
-        Value
+        {settingLabel("condition", "value")}
         <select value={current} onChange={(event) => onChange(event.target.value === "true")}>
-          <option value="true">true</option>
-          <option value="false">false</option>
+          <option value="true">yes</option>
+          <option value="false">no</option>
         </select>
+        {hint && <span className="hint">{hint}</span>}
       </label>
     );
   }
   if (kind === "number") {
     return (
       <label>
-        Value
+        {settingLabel("condition", "value")}
         <input
           type="number"
           value={typeof value === "number" ? value : ""}
           onChange={(event) => onChange(event.target.value === "" ? "" : Number(event.target.value))}
         />
+        {hint && <span className="hint">{hint}</span>}
       </label>
     );
   }
   return (
     <label>
-      Value
+      {settingLabel("condition", "value")}
       <input value={value === undefined || value === null ? "" : String(value)} onChange={(event) => onChange(event.target.value)} />
+      {hint && <span className="hint">{hint}</span>}
     </label>
   );
 }
 
 function NumberField({
   label,
+  hint,
   value,
   min,
   max,
@@ -357,6 +485,7 @@ function NumberField({
   onChange,
 }: {
   label: string;
+  hint?: string;
   value: unknown;
   min: number;
   max: number;
@@ -377,16 +506,19 @@ function NumberField({
           if (Number.isFinite(next)) onChange(next);
         }}
       />
+      {hint && <span className="hint">{hint}</span>}
     </label>
   );
 }
 
 function TextField({
   label,
+  hint,
   value,
   onChange,
 }: {
   label: string;
+  hint?: string;
   value: unknown;
   onChange: (value: string) => void;
 }) {
@@ -394,6 +526,12 @@ function TextField({
     <label>
       {label}
       <input value={typeof value === "string" ? value : ""} onChange={(event) => onChange(event.target.value)} />
+      {hint && <span className="hint">{hint}</span>}
     </label>
   );
+}
+
+function finite(value: unknown, fallback: number): number {
+  const n = typeof value === "number" ? value : Number(value);
+  return Number.isFinite(n) ? n : fallback;
 }
