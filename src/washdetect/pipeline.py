@@ -386,7 +386,7 @@ def _fetch_swap_groups(
 # One PoolManager eth_getLogs for a short window is a few thousand logs. Past this
 # many pools, filtering eight ids at a time costs more round trips than reading them all.
 _V4_BULK_AT = 8
-_ADDRESS_BATCH = 48
+_ADDRESS_BATCH = 400
 
 
 def _use_v4_bulk(pool_count: int, width: int) -> bool:
