@@ -178,6 +178,7 @@ def _register_detection(
             s.side,
             s.amount_token,
             s.usd_value,
+            s.price_source,
             s.tx_hash,
             s.log_index,
             COALESCE(f.is_wash, FALSE) AS is_wash,

@@ -41,7 +41,16 @@ from washdetect.logs import (
     decode_pool_log,
     fetch_timestamps,
 )
-from washdetect.prices import eth_usd_from_usdc_weth_sqrt, price_is_plausible, swap_usd
+from washdetect.prices import (
+    QuoteOracle,
+    apply_token_implied,
+    direct_source,
+    eth_usd_from_usdc_weth_sqrt,
+    nearest_value,
+    price_is_plausible,
+    pricing_note,
+    swap_usd,
+)
 from washdetect.rpc import RpcClient, RpcError
 from washdetect.store import Store, pool_log_gaps
 from washdetect.subgraph import SubgraphError, api_key, fetch_swaps, map_subgraph_swap
@@ -1087,20 +1096,70 @@ def _price_swaps(
         client.detail(f"could not read ETH/USD ({exc})")
         say("Could not read an ETH/USD price. Stable-quoted swaps are still priced.")
     pending = store.swaps_missing_price(token, start, end)
-    updates: list[tuple[float, str, int]] = []
+    rows: list[dict[str, object]] = []
     if not pending.empty:
         for row in pending.itertuples(index=False):
-            usd = swap_usd(
-                token,
-                float(row.amount_token or 0),
-                str(row.quote_token),
-                float(row.amount_quote or 0),
+            amount_token = float(row.amount_token or 0)
+            amount_quote = float(row.amount_quote or 0)
+            quote = str(row.quote_token or "")
+            usd = swap_usd(token, amount_token, quote, amount_quote, eth_usd)
+            source = direct_source(token, quote) if usd is not None else None
+            rows.append(
+                {
+                    "tx": str(row.tx_hash),
+                    "log": int(row.log_index),
+                    "block": int(row.block_number),
+                    "amount_token": amount_token,
+                    "amount_quote": amount_quote,
+                    "quote": quote.lower(),
+                    "usd": usd,
+                    "source": source,
+                }
+            )
+        oracle = QuoteOracle(client)
+        quotes = sorted({str(row["quote"]) for row in rows if row["usd"] is None and row["quote"]})
+        samples = {
+            quote: oracle.samples(
+                quote,
+                [int(row["block"]) for row in rows if row["quote"] == quote and row["usd"] is None],
                 eth_usd,
             )
-            if usd is None:
+            for quote in quotes
+        }
+        for row in rows:
+            if row["usd"] is not None:
                 continue
-            updates.append((usd, str(row.tx_hash), int(row.log_index)))
+            sample = samples.get(str(row["quote"]), [])
+            price = nearest_value(int(row["block"]), sample)
+            amount_quote = row["amount_quote"]
+            if price is None or not isinstance(amount_quote, (int, float)) or amount_quote <= 0:
+                continue
+            row["usd"] = abs(float(amount_quote)) * price
+            row["source"] = "quote-pool"
+        apply_token_implied(rows)
+    updates = [
+        (float(row["usd"]), str(row["source"]), str(row["tx"]), int(row["log"]))
+        for row in rows
+        if isinstance(row["usd"], (int, float)) and isinstance(row["source"], str)
+    ]
     store.apply_prices(token, updates)
+    frame = store.read_swaps(token, start, end)
+    sources: list[str | None] = []
+    if not frame.empty:
+        source_col = (
+            frame["price_source"].tolist()
+            if "price_source" in frame.columns
+            else [None] * len(frame)
+        )
+        for usd, source in zip(frame["usd_value"].tolist(), source_col, strict=True):
+            if usd is None or (isinstance(usd, float) and usd != usd):
+                sources.append(None)
+            else:
+                sources.append(str(source) if isinstance(source, str) and source else "stable")
+    note = pricing_note(len(sources), sources)
+    if note:
+        say(note)
+        client.note(note)
     return eth_usd
 
 

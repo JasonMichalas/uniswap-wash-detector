@@ -39,10 +39,14 @@ def _group_sql(stream: _Stream, key: str, view: str) -> tuple[str, dict[str, str
             if "usd_value" in stream.fields
             else "0 AS sum_usd_value"
         )
+        amount = ""
+        if "amount_token" in stream.fields:
+            amount = ", COALESCE(SUM(amount_token), 0) AS sum_amount_token"
+            fields["sum_amount_token"] = "number"
         sql = (
             f"CREATE VIEW {view} AS SELECT "
             f"strftime(CAST(block_timestamp AS TIMESTAMP), '%Y-%m-%d') AS day, "
-            f"COUNT(*) AS count, {value}{wash} "
+            f"COUNT(*) AS count, {value}{amount}{wash} "
             f"FROM {stream.view} GROUP BY 1 ORDER BY 1"
         )
         return sql, fields
@@ -58,6 +62,9 @@ def _group_sql(stream: _Stream, key: str, view: str) -> tuple[str, dict[str, str
         if "usd_value" in stream.fields:
             extra = ", COALESCE(SUM(usd_value), 0) AS sum_usd_value"
             fields["sum_usd_value"] = "number"
+        if "amount_token" in stream.fields:
+            extra += ", COALESCE(SUM(amount_token), 0) AS sum_amount_token"
+            fields["sum_amount_token"] = "number"
         elif "wash_volume_usd" in stream.fields:
             extra = ", COALESCE(SUM(wash_volume_usd), 0) AS sum_usd_value"
             fields["sum_usd_value"] = "number"
@@ -73,9 +80,13 @@ def _group_sql(stream: _Stream, key: str, view: str) -> tuple[str, dict[str, str
         value = (
             "COALESCE(SUM(usd_value), 0)" if "usd_value" in stream.fields else "0"
         )
+        amount = ""
+        if "amount_token" in stream.fields:
+            amount = ", COALESCE(SUM(amount_token), 0) AS sum_amount_token"
+            fields["sum_amount_token"] = "number"
         sql = (
             f"CREATE VIEW {view} AS SELECT pool_address, COUNT(*) AS count, "
-            f"{value} AS sum_usd_value FROM {stream.view} GROUP BY 1 ORDER BY sum_usd_value DESC"
+            f"{value} AS sum_usd_value{amount} FROM {stream.view} GROUP BY 1 ORDER BY sum_usd_value DESC"
         )
         return sql, fields
     raise QueryError("group by must be day, wallet, or pool.")

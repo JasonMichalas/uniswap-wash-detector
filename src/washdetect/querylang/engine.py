@@ -10,6 +10,7 @@ from washdetect.config import ROUTERS
 from washdetect.detector import Detection
 from washdetect.features import WALLET_COLUMNS, build_wallet_table
 from washdetect.graph.catalog import TYPES, field_map
+from washdetect.prices import pricing_note
 from washdetect.querylang.ast import (
     Aggregate,
     AnomalyScore,
@@ -130,12 +131,20 @@ def execute_frames(
     excluded = {addr.lower() for addr in (pool_addresses or set())} | set(ROUTERS)
     warnings: list[str] = []
     if not swaps_df.empty and "usd_value" in swaps_df.columns:
-        missing_price = int(swaps_df["usd_value"].isna().sum())
-        if missing_price:
-            warnings.append(
-                f"{missing_price} swaps have no USD price and are left out of USD totals. "
-                "Stablecoin-quoted pools price cleanly; other quotes need an ETH price."
-            )
+        sources: list[str | None] = []
+        source_col = (
+            swaps_df["price_source"].tolist()
+            if "price_source" in swaps_df.columns
+            else [None] * len(swaps_df)
+        )
+        for usd, source in zip(swaps_df["usd_value"].tolist(), source_col, strict=True):
+            if usd is None or (isinstance(usd, float) and usd != usd):
+                sources.append(None)
+            else:
+                sources.append(str(source) if isinstance(source, str) and source else "stable")
+        note = pricing_note(len(sources), sources)
+        if note:
+            warnings.append(note)
     env: dict[str, _Stream | _Bundle] = {}
     sql_lines: list[str] = []
     outputs: list[OutputResult] = []

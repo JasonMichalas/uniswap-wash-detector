@@ -11,6 +11,7 @@ TYPES: dict[str, list[tuple[str, str]]] = {
         ("protocol", "string"),
         ("usd_value", "number"),
         ("amount_token", "number"),
+        ("price_source", "string"),
         ("tx_hash", "string"),
     ],
     "transfers": [
@@ -83,6 +84,7 @@ TYPES: dict[str, list[tuple[str, str]]] = {
         ("pool_address", "string"),
         ("count", "number"),
         ("sum_usd_value", "number"),
+        ("sum_amount_token", "number"),
         ("sum_wash_usd", "number"),
     ],
 }

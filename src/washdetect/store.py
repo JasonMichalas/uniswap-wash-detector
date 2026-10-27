@@ -73,6 +73,7 @@ CREATE TABLE IF NOT EXISTS swaps (
     amount_quote DOUBLE,
     quote_token VARCHAR,
     usd_value DOUBLE,
+    price_source VARCHAR,
     amount0_raw VARCHAR,
     amount1_raw VARCHAR,
     PRIMARY KEY (token, tx_hash, log_index)
@@ -208,11 +209,20 @@ class Store:
         self.con = duckdb.connect(self.path)
         self.lock = threading.RLock()
         self.con.execute(SCHEMA)
+        self._ensure_swap_price_source()
         self.con.execute(
             "CREATE INDEX IF NOT EXISTS coverage_token_dataset ON coverage(token, dataset)"
         )
         self.con.execute("CREATE INDEX IF NOT EXISTS chain_pools_token0 ON chain_pools(token0)")
         self.con.execute("CREATE INDEX IF NOT EXISTS chain_pools_token1 ON chain_pools(token1)")
+
+    def _ensure_swap_price_source(self) -> None:
+        rows = self.con.execute(
+            "SELECT column_name FROM information_schema.columns WHERE table_name = 'swaps'"
+        ).fetchall()
+        names = {str(row[0]) for row in rows}
+        if "price_source" not in names:
+            self.con.execute("ALTER TABLE swaps ADD COLUMN price_source VARCHAR")
 
     def close(self) -> None:
         with self.lock:
@@ -317,8 +327,14 @@ class Store:
             return
         with self.lock:
             self.con.executemany(
-                "INSERT OR REPLACE INTO swaps VALUES "
-                "(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                """
+                INSERT OR REPLACE INTO swaps (
+                    token, tx_hash, log_index, block_number, block_timestamp,
+                    pool_address, protocol, sender, recipient, trader, side,
+                    amount_token, amount_quote, quote_token, usd_value,
+                    amount0_raw, amount1_raw
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
                 rows,
             )
 
@@ -386,13 +402,16 @@ class Store:
                 [(sender, token, tx) for tx, sender in rows],
             )
 
-    def apply_prices(self, token: str, rows: list[tuple[float, str, int]]) -> None:
+    def apply_prices(self, token: str, rows: list[tuple[float, str, str, int]]) -> None:
         if not rows:
             return
         with self.lock:
             self.con.executemany(
-                "UPDATE swaps SET usd_value = ? WHERE token = ? AND tx_hash = ? AND log_index = ?",
-                [(usd, token, tx, log_index) for usd, tx, log_index in rows],
+                """
+                UPDATE swaps SET usd_value = ?, price_source = ?
+                WHERE token = ? AND tx_hash = ? AND log_index = ?
+                """,
+                [(usd, source, token, tx, log_index) for usd, source, tx, log_index in rows],
             )
 
     def swaps_missing_trader(self, token: str, start: int, end: int) -> list[str]:
@@ -410,7 +429,7 @@ class Store:
         with self.lock:
             return self._df(
                 """
-                SELECT tx_hash, log_index, amount_token, amount_quote, quote_token, side
+                SELECT tx_hash, log_index, block_number, amount_token, amount_quote, quote_token, side
                 FROM swaps
                 WHERE token = ? AND block_number BETWEEN ? AND ? AND usd_value IS NULL
                 """,

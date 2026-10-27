@@ -49,6 +49,7 @@ SIG_DECIMALS = "decimals()"
 SIG_SYMBOL = "symbol()"
 SIG_FEE = "fee()"
 SIG_SLOT0 = "slot0()"
+SIG_GET_RESERVES = "getReserves()"
 SIG_BALANCE_OF = "balanceOf(address)"
 SIG_AGGREGATE3 = "aggregate3((address,bool,bytes)[])"
 
@@ -74,6 +75,7 @@ _SEL = {
     "symbol": selector(SIG_SYMBOL),
     "fee": selector(SIG_FEE),
     "slot0": selector(SIG_SLOT0),
+    "get_reserves": selector(SIG_GET_RESERVES),
     "balance_of": selector(SIG_BALANCE_OF),
     "aggregate3": selector(SIG_AGGREGATE3),
 }
@@ -120,6 +122,11 @@ def decode_symbol(data: str) -> str:
         if len(raw) >= 32:
             return raw[:32].decode("utf-8", errors="replace").strip("\x00").strip()
         return ""
+
+
+def decode_reserves(data: str) -> tuple[int, int]:
+    reserve0, reserve1, _stamp = decode(["uint112", "uint112", "uint32"], _bytes(data))
+    return int(reserve0), int(reserve1)
 
 
 def decode_slot0_sqrt(data: str) -> int:
