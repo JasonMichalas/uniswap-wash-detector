@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import random
+import re
 import threading
 import time
 from collections.abc import Callable
@@ -50,6 +51,44 @@ _RANGE_HINTS = (
 )
 
 
+_SUGGESTED_RANGE = re.compile(
+    r"try with this block range\s*\[\s*(0x[0-9a-f]+|\d+)\s*,\s*(0x[0-9a-f]+|\d+)\s*\]",
+    re.IGNORECASE,
+)
+
+
+def _parse_block(text: str) -> int:
+    return int(text, 16) if text.lower().startswith("0x") else int(text)
+
+
+def suggested_span(message: str) -> int | None:
+    """Width an endpoint offered after -32005, or nothing if the hint is missing."""
+    found = _SUGGESTED_RANGE.search(message)
+    if not found:
+        return None
+    start = _parse_block(found.group(1))
+    end = _parse_block(found.group(2))
+    if end < start:
+        return None
+    return max(1, end - start + 1)
+
+
+def _drpc_cap(url: str) -> int | None:
+    # The free plan refuses eth_getLogs wider than 10,000 blocks.
+    if "drpc.org" in url.lower():
+        return 10_001
+    return None
+
+
+def _keeps_history(url: str, end_block: int | None, head: int | None) -> bool:
+    """publicnode answers recent blocks and refuses archive history."""
+    if "publicnode" not in url.lower():
+        return True
+    if head is None or end_block is None:
+        return False
+    return end_block >= head - 128
+
+
 def _trusts_empty(url: str) -> bool:
     """Flashbots answers eth_getLogs with [] for ranges it does not store. These two do not."""
     host = url.lower()
@@ -87,7 +126,10 @@ class SpanBook:
             return True
         with self.lock:
             cap = self.reject.get(url)
-            return cap is None or width < cap
+        static = _drpc_cap(url)
+        if static is not None:
+            cap = static if cap is None else min(cap, static)
+        return cap is None or width < cap
 
     def mark_reject(self, url: str, width: int) -> None:
         with self.lock:
@@ -173,7 +215,11 @@ def fetch_logs_adaptive(
                 raise RpcError(
                     f"eth_getLogs refused even {width} block(s) at {block}: {exc}"
                 ) from exc
-            span = max(min_span, span // 2)
+            hint = suggested_span(str(exc))
+            if hint is not None and hint < width:
+                span = max(min_span, hint)
+            else:
+                span = max(min_span, span // 2)
             trouble = 0
             if on_note:
                 on_note(f"narrowed eth_getLogs chunk to {span} blocks ({exc})")
@@ -244,6 +290,8 @@ class RpcClient:
         self._timeout = timeout
         self._max_attempts = max_attempts
         self.notes: list[str] = []
+        self.details: list[str] = []
+        self._head: int | None = None
         self._id = 1
         self._http: httpx.Client | None = None
         self._lock = threading.Lock()
@@ -252,6 +300,13 @@ class RpcClient:
     def note(self, message: str) -> None:
         with self._lock:
             self.notes.append(message)
+
+    def detail(self, message: str) -> None:
+        """A refusal the loader recovered from. Kept for the details disclosure, not the banner."""
+        with self._lock:
+            if message in self.details or len(self.details) >= 8:
+                return
+            self.details.append(message)
 
     def spawn(self) -> RpcClient:
         child = RpcClient(
@@ -262,6 +317,7 @@ class RpcClient:
             max_attempts=self._max_attempts,
         )
         child.spans = self.spans
+        child._head = self._head
         return child
 
     def _next_id(self) -> int:
@@ -303,7 +359,7 @@ class RpcClient:
                 raise
             except (RpcRateError, RpcError, httpx.HTTPError) as exc:
                 last = exc
-                self.note(f"{method} failed on {url}: {exc}")
+                self.detail(f"{method} failed on {url}: {exc}")
                 self._rotate()
                 self._sleep(self._backoff(attempt))
                 continue
@@ -312,7 +368,7 @@ class RpcClient:
                 if isinstance(err, RpcRangeError):
                     raise err
                 last = err
-                self.note(f"{method} error on {url}: {err}")
+                self.detail(f"{method} error on {url}: {err}")
                 self._rotate()
                 self._sleep(self._backoff(attempt))
                 continue
@@ -357,7 +413,7 @@ class RpcClient:
     def _backoff(attempt: int) -> float:
         return min(8.0, 0.4 * (2**attempt)) + random.random() * 0.2
 
-    def _pick_log_endpoint(self, width: int | None, tried: set[str]) -> str | None:
+    def _pick_log_endpoint(self, width: int | None, tried: set[str], end_block: int | None) -> str | None:
         archive = [url for url in self.endpoints if _trusts_empty(url)]
         others = [url for url in self.endpoints if not _trusts_empty(url)]
         ordered = archive + others
@@ -370,12 +426,20 @@ class RpcClient:
         for url in rotated:
             if url in tried or not self.spans.allows(url, width):
                 continue
+            if not _keeps_history(url, end_block, self._head):
+                continue
             return url
         return None
 
     def _call_logs(self, params: list[Any]) -> Any:
         """Try the next endpoint when one refuses a wide eth_getLogs, then shrink only if all refuse."""
         width = _logs_width(params)
+        end_block = None
+        if params and isinstance(params[0], dict) and "toBlock" in params[0]:
+            try:
+                end_block = int(str(params[0]["toBlock"]), 16)
+            except (TypeError, ValueError):
+                end_block = None
         last_range: Exception | None = None
         last_other: Exception | None = None
         untrusted_empty: list[Any] | None = None
@@ -383,7 +447,7 @@ class RpcClient:
         archive_tries: dict[str, int] = {}
         attempts = 0
         while attempts < self._max_attempts:
-            url = self._pick_log_endpoint(width, tried)
+            url = self._pick_log_endpoint(width, tried, end_block)
             if url is None:
                 break
             # One extra try on the archive endpoint. A single 503 should not shrink the chunk.
@@ -406,11 +470,11 @@ class RpcClient:
                 last_range = exc
                 if width is not None and _hard_cap(str(exc)):
                     self.spans.mark_reject(url, width)
-                self.note(f"eth_getLogs refused on {url}: {exc}")
+                self.detail(f"eth_getLogs refused on {url}: {exc}")
                 continue
             except (RpcRateError, RpcError, httpx.HTTPError) as exc:
                 last_other = exc
-                self.note(f"eth_getLogs failed on {url}: {exc}")
+                self.detail(f"eth_getLogs failed on {url}: {exc}")
                 self._sleep(self._backoff(attempts))
                 continue
             if isinstance(body, dict) and body.get("error"):
@@ -419,10 +483,10 @@ class RpcClient:
                     last_range = err
                     if width is not None and _hard_cap(str(err)):
                         self.spans.mark_reject(url, width)
-                    self.note(f"eth_getLogs refused on {url}: {err}")
+                    self.detail(f"eth_getLogs refused on {url}: {err}")
                     continue
                 last_other = err
-                self.note(f"eth_getLogs error on {url}: {err}")
+                self.detail(f"eth_getLogs error on {url}: {err}")
                 self._sleep(self._backoff(attempts))
                 continue
             if not isinstance(body, dict) or "result" not in body:
@@ -431,7 +495,7 @@ class RpcClient:
             result = body["result"]
             if isinstance(result, list) and len(result) == 0 and not _trusts_empty(url):
                 untrusted_empty = result
-                self.note(f"eth_getLogs on {url} returned no logs; asking an archive endpoint")
+                self.detail(f"eth_getLogs on {url} returned no logs; asking an archive endpoint")
                 continue
             return result
         # An empty page is only an answer from an endpoint that stores the history.
@@ -447,7 +511,9 @@ class RpcClient:
         raise RpcError(f"eth_getLogs failed after {attempts} attempts: {last_other}")
 
     def block_number(self) -> int:
-        return int(self.call("eth_blockNumber", []), 16)
+        number = int(self.call("eth_blockNumber", []), 16)
+        self._head = number
+        return number
 
     def get_block(self, number: int) -> dict[str, Any]:
         block = self.call("eth_getBlockByNumber", [hex(number), False])
@@ -568,7 +634,7 @@ class RpcClient:
             end_block,
             fetch,
             init_span=init_span,
-            on_note=self.note,
+            on_note=self.detail,
             on_chunk=on_chunk,
             empty_limit=empty_limit,
             on_progress=on_progress,

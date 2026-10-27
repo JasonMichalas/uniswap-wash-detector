@@ -3,7 +3,14 @@ import time
 import httpx
 import pytest
 
-from washdetect.rpc import RpcClient, RpcError, RpcRangeError, RpcRateError, fetch_logs_adaptive
+from washdetect.rpc import (
+    RpcClient,
+    RpcError,
+    RpcRangeError,
+    RpcRateError,
+    fetch_logs_adaptive,
+    suggested_span,
+)
 
 
 def test_adaptive_splits_until_the_range_fits():
@@ -128,6 +135,7 @@ def test_empty_log_page_from_a_pruned_endpoint_is_not_the_answer():
         sleep=lambda _seconds: None,
         max_attempts=6,
     )
+    client._head = 100
     logs = client.get_logs(
         address="0x" + "22" * 20,
         topics=[],
@@ -170,9 +178,9 @@ def test_log_chunks_rotate_across_endpoints():
         transport=lambda _url, payload: payload,
         sleep=lambda _seconds: None,
     )
-    assert client._pick_log_endpoint(100, set()).endswith("one.example")
+    assert client._pick_log_endpoint(100, set(), 100).endswith("one.example")
     client._cursor = 1
-    assert client._pick_log_endpoint(100, set()).endswith("two.example")
+    assert client._pick_log_endpoint(100, set(), 100).endswith("two.example")
 
 
 def test_adaptive_regrows_the_chunk_after_a_small_page():
@@ -210,6 +218,103 @@ def test_batched_transaction_lookups_are_faster_than_one_by_one():
         client.call(method, params)
     serial = time.perf_counter() - started
     assert batched < serial / 4, f"batch {batched:.3f}s vs one-by-one {serial:.3f}s"
+
+
+def test_suggested_span_uses_the_range_the_server_offered():
+    message = "query returned more than 10000 results. try with this block range [0x10, 0x20]"
+    assert suggested_span(message) == 17
+    assert suggested_span("no hint here") is None
+
+
+def test_drpc_is_not_asked_for_a_range_over_10000_blocks():
+    seen: list[str] = []
+
+    def transport(url: str, payload: dict) -> dict:
+        seen.append(url)
+        return {"jsonrpc": "2.0", "id": payload["id"], "result": []}
+
+    client = RpcClient(
+        ["https://eth.drpc.org", "https://rpc.mevblocker.io"],
+        transport=transport,
+        sleep=lambda _seconds: None,
+    )
+    client.get_logs(
+        address="0x" + "11" * 20,
+        topics=[],
+        start_block=1,
+        end_block=20_000,
+        init_span=20_000,
+        empty_limit=20_000,
+    )
+    assert seen
+    assert all("drpc.org" not in url for url in seen)
+    assert client.notes == []
+
+
+def test_publicnode_is_skipped_for_archive_blocks():
+    seen: list[str] = []
+
+    def transport(url: str, payload: dict) -> dict:
+        seen.append(url)
+        return {"jsonrpc": "2.0", "id": payload["id"], "result": [{"blockNumber": "0x2"}]}
+
+    client = RpcClient(
+        ["https://ethereum-rpc.publicnode.com"],
+        transport=transport,
+        sleep=lambda _seconds: None,
+        max_attempts=2,
+    )
+    client._head = 1_000_000
+    with pytest.raises(RpcError):
+        client.get_logs(
+            address="0x" + "11" * 20,
+            topics=[],
+            start_block=1,
+            end_block=10,
+            init_span=10,
+        )
+    assert seen == []
+    client._head = 20
+    logs = client.get_logs(
+        address="0x" + "11" * 20,
+        topics=[],
+        start_block=1,
+        end_block=10,
+        init_span=10,
+    )
+    assert logs
+    assert seen
+
+
+def test_recovered_refusals_stay_out_of_the_banner():
+    def transport(url: str, payload: dict) -> dict:
+        if "narrow" in url:
+            return {
+                "jsonrpc": "2.0",
+                "id": payload["id"],
+                "error": {
+                    "code": -32005,
+                    "message": "query returned more than 10000 results. try with this block range [0x1, 0xa]",
+                },
+            }
+        return {"jsonrpc": "2.0", "id": payload["id"], "result": [{"blockNumber": "0x2"}]}
+
+    client = RpcClient(
+        ["https://narrow.example", "https://wide.example"],
+        transport=transport,
+        sleep=lambda _seconds: None,
+    )
+    logs = client.get_logs(
+        address="0x" + "11" * 20,
+        topics=[],
+        start_block=1,
+        end_block=30,
+        init_span=30,
+    )
+    assert logs
+    assert client.notes == []
+    assert client.details
+    assert "narrow.example" in client.details[0]
 
 
 def test_http_status_is_classified_without_a_network():
