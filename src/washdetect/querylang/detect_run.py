@@ -1,5 +1,3 @@
-"""Turn a swaps view and a transfers view into flagged streams."""
-
 from __future__ import annotations
 
 from typing import Any
@@ -147,9 +145,7 @@ def _register_detection(
     swap_view = fresh()
     wallet_view = fresh()
     cycle_view = fresh()
-    # The flagged stream keeps every swap. is_wash is false when the heuristic
-    # did not claim it, so a ratio of the filtered stream over this one is the
-    # wash percentage, and a daily group still has the clean volume.
+    # Unflagged swaps stay, with is_wash false, so wash % is a filter over this stream.
     _run(
         con,
         f"""
@@ -180,4 +176,3 @@ def _register_detection(
         wallets=_Stream(wallet_view, "wash_wallets", field_map("wash_wallets")),
         cycles=_Stream(cycle_view, "cycles", field_map("cycles")),
     )
-

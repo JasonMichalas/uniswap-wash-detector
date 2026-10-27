@@ -1,10 +1,3 @@
-"""Quote identifiers and literals, and refuse SQL this compiler did not build.
-
-String literals are quoted here. A keyword scan skips those literals and
-line comments, so a wallet address that happens to contain "drop" is not a
-statement.
-"""
-
 from __future__ import annotations
 
 import math
@@ -76,7 +69,7 @@ def sql_number(value: float) -> str:
 
 
 def sql_literal(value: object, kind: str) -> str:
-    """A SQL literal we built. Strings are quoted; they are never spliced raw."""
+    """Quoted here. Filter text is never spliced into the SQL raw."""
     if kind == "bool":
         if value is True or value == "true":
             return "TRUE"
@@ -106,8 +99,7 @@ def _ensure(frame: pd.DataFrame | None, columns: list[str]) -> pd.DataFrame:
 
 
 def _run(con: duckdb.DuckDBPyConnection, sql: str) -> None:
-    # Our SQL is a single statement. Reject anything that grew a second one
-    # outside of a string literal — a cheap extra belt on top of the quoting.
+    # One statement. A second one that grew outside a string literal is refused.
     if _suspicious(sql):
         raise QueryError("Refusing to run a statement the compiler did not expect.")
     con.execute(sql)
@@ -120,12 +112,7 @@ def _suspicious(sql: str) -> bool:
 
 
 def _strip_strings(sql: str) -> str:
-    """Hide string literals and line comments so a keyword scan sees code only.
-
-    A wallet address is allowed to contain the letters "drop". Doubled quotes
-    stay inside the literal, and `--` comments (the compiled query text) are
-    not statements.
-    """
+    """A wallet address may contain 'drop'. Literals and line comments are hidden from that scan."""
     out: list[str] = []
     index = 0
     length = len(sql)

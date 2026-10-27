@@ -1,5 +1,3 @@
-"""Attach model scores and SHAP rows to a stream."""
-
 from __future__ import annotations
 
 from typing import Any
@@ -152,4 +150,3 @@ def _bootstrap_note(con: duckdb.DuckDBPyConnection, view: str) -> str:
         f"on {int(stats['n'])} priced swaps. "
         "The interval resamples this window; it is not a guarantee about other tokens."
     )
-

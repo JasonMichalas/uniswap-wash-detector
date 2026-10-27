@@ -1,12 +1,3 @@
-"""Run a Program against in-memory frames.
-
-The SQL is built by this module, never by pasting the user's text in. Field
-names have to be on the whitelist for that stream, and string values are
-quoted as SQL literals. The only statements issued are CREATE VIEW and a
-final SELECT, on a throwaway DuckDB connection, so a query cannot touch the
-cache file.
-"""
-
 from __future__ import annotations
 
 from datetime import datetime
@@ -65,11 +56,11 @@ from washdetect.querylang.sqlutil import (
 )
 from washdetect.scoring import ScoreCache
 
-# Re-exported for tests that scan compiled SQL.
+# SQL is built here, never pasted from the query. Only CREATE VIEW and SELECT
+# run, on a throwaway connection, so a query cannot touch the cache.
 __all__ = ["ExecResult", "OutputResult", "QueryEngine", "_strip_strings", "execute_frames"]
 
-# A missing catalog entry should fail when the engine is imported, not mid-query.
-_ = TYPES
+_ = TYPES  # fail at import if a catalog stream is missing, not mid-query
 
 
 def execute_frames(
@@ -85,7 +76,6 @@ def execute_frames(
     window_end: datetime | None = None,
     model_dir: str | None = None,
 ) -> ExecResult:
-    """Frames are the loaded window, already filtered to it."""
     end_ts = end_ts or datetime(2026, 1, 1)
     window_start = window_start or end_ts
     window_end = window_end or end_ts
@@ -103,7 +93,7 @@ def execute_frames(
             frame["block_timestamp"] = pd.to_datetime(frame["block_timestamp"])
 
     con = duckdb.connect()
-    # Keep frames alive for the life of the connection. DuckDB may view them.
+    # DuckDB may read these frames lazily, so they have to stay referenced.
     con.register("swaps_df", swaps_df)
     con.register("transfers_df", transfers_df)
     con.register("wallets_df", wallets_df)
@@ -151,7 +141,6 @@ def execute_frames(
     outputs: list[OutputResult] = []
     detection: Detection | None = None
     counter = 0
-    # Registered frames have to outlive the views that read them.
     kept: list[pd.DataFrame] = []
     cache = ScoreCache()
 
@@ -209,10 +198,8 @@ def execute_frames(
 
 
 class QueryEngine:
-    """Compile query text and run it on a loaded window."""
 
     def compile(self, text: str) -> Program:
-        """Short queries and full programs share one AST."""
         return parse(text)
 
     def run(
@@ -229,7 +216,6 @@ class QueryEngine:
         window_end: datetime | None = None,
         model_dir: str | None = None,
     ) -> ExecResult:
-        """Same path as `execute_frames`."""
         return execute_frames(
             program,
             swaps=swaps,
@@ -463,4 +449,3 @@ def _eval(
             kept=kept,
         ), None
     raise QueryError(f"Cannot run expression {type(expr).__name__}.")
-

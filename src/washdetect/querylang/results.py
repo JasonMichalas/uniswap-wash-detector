@@ -1,5 +1,3 @@
-"""Result rows and the named streams a program binds."""
-
 from __future__ import annotations
 
 from dataclasses import dataclass, field

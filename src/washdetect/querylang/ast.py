@@ -1,12 +1,3 @@
-"""The query language's abstract syntax.
-
-A program is a list of assignments and one or more `output` statements.
-The node editor lowers a graph to this form, and the short queries
-(`wash_percent`, `holders where held_days > 90`, ...) desugar into it.
-Rendering is deterministic so the text under the graph is the program that
-actually runs.
-"""
-
 from __future__ import annotations
 
 import json
@@ -27,7 +18,7 @@ def render_value(value: object) -> str:
 
 @dataclass
 class Condition:
-    kind: str  # "compare" or "sold_in"
+    kind: str
     negate: bool = False
     field: str | None = None
     op: str | None = None
@@ -56,7 +47,6 @@ class Source:
 class Detect:
     swaps: str
     transfers: str
-    # None means "use HeuristicConfig defaults" and prints the 2-argument form.
     net_ratio: float | None = None
     max_block_gap: int | None = None
     max_group_size: int | None = None

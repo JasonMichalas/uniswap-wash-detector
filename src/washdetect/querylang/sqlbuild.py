@@ -1,5 +1,3 @@
-"""Lower filters, groups, and outputs to CREATE VIEW statements."""
-
 from __future__ import annotations
 
 import math
@@ -235,4 +233,3 @@ def _numeric(name: str, fields: dict[str, str], owner: str) -> str:
     if fields[name] != "number":
         raise QueryError(f"{name} is {fields[name]}, not a number, so it cannot be summed.")
     return _ident(name)
-

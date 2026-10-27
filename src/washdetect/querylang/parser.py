@@ -1,9 +1,3 @@
-"""Parse query text into a Program.
-
-Short queries desugar into the same assignments the node editor emits, so
-there is one execution path. Parse errors name the line and offer an example.
-"""
-
 from __future__ import annotations
 
 import json
@@ -56,7 +50,7 @@ def _parser() -> Lark:
 
 
 def parse(text: str) -> Program:
-    """Parse a short query or a program. Blank input is an error, not an empty plan."""
+    """Blank input is an error, not an empty plan."""
     if text is None or not str(text).strip():
         raise QueryError("The query is empty. " + _EXAMPLE)
     try:
