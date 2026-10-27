@@ -25,12 +25,12 @@ BURN_ADDRESS = "0x" + "00" * 19 + "dead"
 # them would glue every user of a router into one wallet.
 ROUTERS = frozenset(
     {
-        "0x7a250d5630b4cf539739df2c5dacb4c659f2488d",  # UniswapV2Router02
-        "0xe592427a0aece92de3edee1f18e0157c05861564",  # SwapRouter
-        "0x68b3465833fb72a70ecdf485e0e4c7bd8665fc45",  # SwapRouter02
-        "0xef1c6e67703c7bd7107eed8303fbe6ec2554bf6b",  # Universal Router (old)
-        "0x3fc91a3afd70395cd496c647d5a6cc9d4b2b7fad",  # Universal Router
-        "0x000000000022d473030f116ddee9f6b43ac78ba3",  # Permit2
+        "0x7a250d5630b4cf539739df2c5dacb4c659f2488d",
+        "0xe592427a0aece92de3edee1f18e0157c05861564",
+        "0x68b3465833fb72a70ecdf485e0e4c7bd8665fc45",
+        "0xef1c6e67703c7bd7107eed8303fbe6ec2554bf6b",
+        "0x3fc91a3afd70395cd496c647d5a6cc9d4b2b7fad",
+        "0x000000000022d473030f116ddee9f6b43ac78ba3",
         ZERO_ADDRESS,
         BURN_ADDRESS,
     }
