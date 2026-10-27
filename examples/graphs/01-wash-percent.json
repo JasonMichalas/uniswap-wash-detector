@@ -1,6 +1,6 @@
 {
   "name": "Wash volume percent",
-  "description": "Share of swap USD volume that the cycle detector flags. Built from Swaps, Transfers, the detector, a condition, and Percent of — not a single wash-percent box.",
+  "description": "Share of swap USD volume that Find wash groups flags. Built from Swaps, Transfers, that box, a condition, and Percent of — not a single wash-percent box.",
   "nodes": [
     {"id": "swaps1", "type": "source", "position": {"x": 40, "y": 160}, "data": {"source": "swaps"}},
     {"id": "transfers1", "type": "source", "position": {"x": 40, "y": 340}, "data": {"source": "transfers"}},
