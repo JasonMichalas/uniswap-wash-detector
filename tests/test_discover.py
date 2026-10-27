@@ -173,6 +173,21 @@ def test_a_stale_v4_scan_does_not_hide_a_new_pool():
     store.close()
 
 
+def test_a_short_index_tip_does_not_force_another_full_scan():
+    from washdetect.discover import _index_covers
+    from washdetect.store import CHAIN
+
+    store = Store(":memory:")
+    head = V4_START_BLOCK + 100_000
+    store.add_coverage(CHAIN, "v4-initialize", V4_START_BLOCK, head - 10)
+    assert _index_covers(store, "v4-initialize", V4_START_BLOCK, head)
+    bare = Store(":memory:")
+    bare.add_coverage(CHAIN, "v4-initialize", V4_START_BLOCK, V4_START_BLOCK + 5)
+    assert _index_covers(bare, "v4-initialize", V4_START_BLOCK, head) is False
+    store.close()
+    bare.close()
+
+
 def test_batch_reads_v4_pools_from_the_shared_index():
     from washdetect.config import V2_FACTORY_BLOCK, V3_FACTORY_BLOCK
     from washdetect.store import CHAIN

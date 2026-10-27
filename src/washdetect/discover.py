@@ -161,13 +161,13 @@ def discover_pools(
     indexed_v4 = bool(
         use_v4_index
         and store is not None
-        and store.range_covered(CHAIN, "v4-initialize", V4_START_BLOCK, head)
+        and _index_covers(store, "v4-initialize", V4_START_BLOCK, head)
     )
     indexed_factories = bool(
         use_v4_index
         and store is not None
-        and store.range_covered(CHAIN, "v2-pairs", V2_FACTORY_BLOCK, head)
-        and store.range_covered(CHAIN, "v3-pools", V3_FACTORY_BLOCK, head)
+        and _index_covers(store, "v2-pairs", V2_FACTORY_BLOCK, head)
+        and _index_covers(store, "v3-pools", V3_FACTORY_BLOCK, head)
     )
     try:
         say("Finding pools")
@@ -559,6 +559,21 @@ def _assemble_pools(
                         seen.add(pool)
                         found.append(read_pool(meta, pool, protocol, fee, cache, dex))
     return found
+
+
+def _index_covers(store: Store, dataset: str, start: int, head: int) -> bool:
+    """True when the shared index reaches head, or only a short tip is still open.
+
+    Head moves while a token loads. A gap of a few thousand blocks must not
+    send the next token back through a full Initialize scan.
+    """
+    if store.range_covered(CHAIN, dataset, start, head):
+        return True
+    gaps = store.missing(CHAIN, dataset, start, head)
+    if len(gaps) != 1:
+        return False
+    gap_start, _gap_end = gaps[0]
+    return gap_start > start and head - gap_start + 1 <= 8_000
 
 
 def _take_indexed(

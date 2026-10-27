@@ -67,7 +67,10 @@ class BatchScrape:
                     return time.perf_counter() >= deadline
 
                 try:
-                    report = (load or self._load)(token, cancel)
+                    if load is None:
+                        report = self._load(store, token, cancel)
+                    else:
+                        report = load(token, cancel)
                 except Cancelled:
                     self._record(store, token, "partial", "time limit", None, time.perf_counter() - t0)
                     counts["partial"] += 1
@@ -110,16 +113,26 @@ class BatchScrape:
             store.close()
             client.close()
 
-    def _load(self, token: str, cancel: Callable[[], bool]) -> LoadReport:
-        return load_token(
-            token,
-            days=self.days,
-            db_path=self.db_path,
-            progress=lambda message: print(message, flush=True),
-            include_forks=self.include_forks,
-            cancel=cancel,
-            use_v4_index=True,
-        )
+    def _load(self, store: Store, token: str, cancel: Callable[[], bool]) -> LoadReport:
+        client = RpcClient()
+        try:
+            head = client.block_number()
+            # The index is filled once up front. This only reads blocks mined since the previous token.
+            index_v4(client, store, head, lambda _message: None, cancel)
+            catch_up_factory_tips(client, store, head, lambda _message: None, cancel)
+            return load_token(
+                token,
+                days=self.days,
+                db_path=self.db_path,
+                progress=lambda message: print(message, flush=True),
+                include_forks=self.include_forks,
+                cancel=cancel,
+                use_v4_index=True,
+                store=store,
+                client=client,
+            )
+        finally:
+            client.close()
 
     def _record(
         self,
