@@ -16,6 +16,7 @@ export function Results({
   collapsed,
   onCollapsed,
   onHeight,
+  noSwaps,
 }: {
   query: string;
   sql: string;
@@ -31,6 +32,7 @@ export function Results({
   collapsed: boolean;
   onCollapsed: (collapsed: boolean) => void;
   onHeight: (height: number) => void;
+  noSwaps: boolean;
 }) {
   function openTab(next: "query" | "sql" | "result") {
     onCollapsed(false);
@@ -102,32 +104,43 @@ export function Results({
       {!collapsed && tab === "sql" && (
         <pre className="code">{sql || run?.sql || "SQL appears here after you press Run."}</pre>
       )}
-      {!collapsed && tab === "result" && <ResultBody run={run} runError={runError} />}
+      {!collapsed && tab === "result" && <ResultBody run={run} runError={runError} noSwaps={noSwaps} />}
     </section>
   );
 }
 
-function ResultBody({ run, runError }: { run: RunResult | null; runError: string | null }) {
+function ResultBody({
+  run,
+  runError,
+  noSwaps,
+}: {
+  run: RunResult | null;
+  runError: string | null;
+  noSwaps: boolean;
+}) {
   if (runError) return <p className="banner error">{runError}</p>;
   if (!run) return <p className="muted pad">Nothing has been run. Loading a token does not calculate anything.</p>;
   return (
     <div className="result-stack">
+      {noSwaps && (
+        <p className="banner warn">No swaps were loaded for this window, so this is not a wash result.</p>
+      )}
       {run.warnings.map((warning) => (
         <p key={warning} className="banner warn">
           {warning}
         </p>
       ))}
       {run.outputs.map((output, index) => (
-        <OutputView key={`${output.title}-${index}`} output={output} />
+        <OutputView key={`${output.title}-${index}`} output={output} noSwaps={noSwaps} />
       ))}
     </div>
   );
 }
 
-function OutputView({ output }: { output: OutputResult }) {
+function OutputView({ output, noSwaps }: { output: OutputResult; noSwaps: boolean }) {
   if (output.kind === "number") return <NumberCard output={output} />;
   if (output.kind === "chart") return <ChartCard output={output} />;
-  return <TableCard output={output} />;
+  return <TableCard output={output} noSwaps={noSwaps} />;
 }
 
 function NumberCard({ output }: { output: OutputResult }) {
@@ -141,12 +154,14 @@ function NumberCard({ output }: { output: OutputResult }) {
   );
 }
 
-function TableCard({ output }: { output: OutputResult }) {
+function TableCard({ output, noSwaps }: { output: OutputResult; noSwaps: boolean }) {
   return (
     <article className="table-card">
       <h3>{output.title}</h3>
       {output.rows.length === 0 ? (
-        <p className="muted">No rows.</p>
+        <p className="muted">
+          {noSwaps ? "No swaps were loaded for this window, so this is not a wash result." : "No rows."}
+        </p>
       ) : (
         <div className="table-scroll">
           <table>

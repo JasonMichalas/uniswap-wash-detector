@@ -144,7 +144,7 @@ def _top_pools(fetch: Client) -> list[dict[str, Any]]:
     return ranked[:_LIST_CAP]
 
 
-def pools_to_tokens(payload: dict[str, Any]) -> list[dict[str, Any]]:
+def pools_to_tokens(payload: dict[str, Any], *, limit: int = _LIST_CAP) -> list[dict[str, Any]]:
     if not isinstance(payload, dict):
         return []
     included = _index_tokens(payload.get("included") or [])
@@ -154,7 +154,7 @@ def pools_to_tokens(payload: dict[str, Any]) -> list[dict[str, Any]]:
             continue
         rel = pool.get("relationships") or {}
         dex_id = str(((rel.get("dex") or {}).get("data") or {}).get("id") or "")
-        if not _uniswap_v2_or_v3(dex_id):
+        if not _readable_uniswap(dex_id):
             continue
         picked = _pick_side(rel, included)
         if picked is None:
@@ -171,7 +171,7 @@ def pools_to_tokens(payload: dict[str, Any]) -> list[dict[str, Any]]:
         if current is None or _outranks(row, current):
             best[row["address"]] = row
     ranked = sorted(best.values(), key=lambda item: (item["volume_24h_usd"] is None, -(item["volume_24h_usd"] or 0)))
-    return ranked[:_LIST_CAP]
+    return ranked[:limit]
 
 
 def _index_tokens(included: list[Any]) -> dict[str, dict[str, Any]]:
@@ -228,11 +228,44 @@ def _volume(attributes: dict[str, Any]) -> float | None:
     return value
 
 
-def _uniswap_v2_or_v3(dex_id: str) -> bool:
+def _readable_uniswap(dex_id: str) -> bool:
     dex = dex_id.strip().lower().replace("-", "_")
-    if not dex or "v4" in dex:
+    if not dex:
         return False
-    return dex.startswith("uniswap_v2") or dex.startswith("uniswap_v3")
+    return (
+        dex.startswith("uniswap_v2")
+        or dex.startswith("uniswap_v3")
+        or dex.startswith("uniswap_v4")
+    )
+
+
+def listed_tokens(limit: int, client: Client | None = None) -> list[dict[str, Any]]:
+    """Trending plus top-volume pages, for batch loads. The picker still caps at 12."""
+    fetch = client or http_get
+    found: dict[str, dict[str, Any]] = {}
+    urls = [f"{_API}/networks/eth/trending_pools?include=base_token,quote_token,dex&page=1"]
+    urls.extend(
+        f"{_API}/networks/eth/pools?include=base_token,quote_token,dex&sort=h24_volume_usd_desc&page={page}"
+        for page in range(1, 11)
+    )
+    for url in urls:
+        if len(found) >= limit:
+            break
+        try:
+            rows = pools_to_tokens(fetch(url), limit=50)
+        except Exception:
+            continue
+        for row in rows:
+            current = found.get(row["address"])
+            if current is None or _outranks(row, current):
+                found[row["address"]] = row
+        if client is None:
+            time.sleep(0.25)
+    ranked = sorted(
+        found.values(),
+        key=lambda item: (item["volume_24h_usd"] is None, -(item["volume_24h_usd"] or 0)),
+    )
+    return ranked[:limit]
 
 
 def _outranks(row: dict[str, Any], current: dict[str, Any]) -> bool:

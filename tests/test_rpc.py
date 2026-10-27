@@ -53,6 +53,67 @@ def test_client_rotates_after_a_rate_limit(monkeypatch):
     assert seen == ["https://a.example", "https://b.example"]
 
 
+def test_get_logs_skips_an_endpoint_that_rejects_wide_ranges():
+    seen: list[tuple[str, int]] = []
+
+    def transport(url: str, payload: dict) -> dict:
+        filt = payload["params"][0]
+        width = int(filt["toBlock"], 16) - int(filt["fromBlock"], 16) + 1
+        seen.append((url, width))
+        if url.endswith("narrow.example"):
+            return {
+                "jsonrpc": "2.0",
+                "id": payload["id"],
+                "error": {"code": 35, "message": "ranges over 10000 blocks are not supported on free plan"},
+            }
+        return {"jsonrpc": "2.0", "id": payload["id"], "result": [{"blockNumber": hex(1)}]}
+
+    client = RpcClient(
+        ["https://narrow.example", "https://wide.example"],
+        transport=transport,
+        sleep=lambda _seconds: None,
+    )
+    logs = client.get_logs(
+        address="0x" + "11" * 20,
+        topics=[],
+        start_block=1,
+        end_block=500,
+        init_span=500,
+    )
+    assert len(logs) == 1
+    assert seen[0][0].endswith("narrow.example")
+    assert any(url.endswith("wide.example") and width == 500 for url, width in seen)
+
+
+def test_empty_log_page_from_a_pruned_endpoint_is_not_the_answer():
+    def transport(url: str, payload: dict) -> dict:
+        if "mevblocker" in url or "drpc.org" in url:
+            raise RpcRateError("429 rate limit")
+        if "flashbots" in url:
+            return {"jsonrpc": "2.0", "id": payload["id"], "result": []}
+        return {"jsonrpc": "2.0", "id": payload["id"], "result": [{"blockNumber": "0x10"}]}
+
+    client = RpcClient(
+        [
+            "https://rpc.mevblocker.io",
+            "https://eth.drpc.org",
+            "https://rpc.flashbots.net",
+            "https://ethereum-rpc.publicnode.com",
+        ],
+        transport=transport,
+        sleep=lambda _seconds: None,
+        max_attempts=6,
+    )
+    logs = client.get_logs(
+        address="0x" + "22" * 20,
+        topics=[],
+        start_block=1,
+        end_block=100,
+        init_span=100,
+    )
+    assert logs == [{"blockNumber": "0x10"}]
+
+
 def test_http_status_is_classified_without_a_network():
     def transport(url: str, payload: dict) -> dict:
         request = httpx.Request("POST", url)

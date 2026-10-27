@@ -89,6 +89,8 @@ export type LoadResult = {
   pools: number;
   v2_pools: number;
   v3_pools: number;
+  v4_pools: number;
+  swap_logs: number;
   swaps: number;
   transfers: number;
   priced_swaps: number;

@@ -4,6 +4,12 @@ from dataclasses import dataclass
 
 V2_FACTORY = "0x5c69bee701ef814a2b6a3edd4b1652cb9cc5aa6f"
 V3_FACTORY = "0x1f98431c8ad98523631ae4a59f267346ea31f984"
+V2_FACTORY_BLOCK = 10_000_835
+V3_FACTORY_BLOCK = 12_369_621
+
+# Uniswap v4 is one PoolManager. Pool ids come from Initialize, not from a per-pool contract.
+POOL_MANAGER = "0x000000000004444c5dc75cb358380d2e3de08a90"
+V4_START_BLOCK = 21_688_329
 
 WETH = "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2"
 USDC = "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48"
@@ -36,12 +42,13 @@ ROUTERS = frozenset(
     }
 )
 
-# llamarpc answers with a browser challenge, and Ankr's public URL needs a key.
+# The first three accept multi-thousand-block eth_getLogs. dRPC's free plan rejects
+# those and says "10000" while actually capping near 100 blocks; Blast caps at 10.
 DEFAULT_RPCS = (
-    "https://eth.drpc.org",
     "https://rpc.mevblocker.io",
     "https://ethereum-rpc.publicnode.com",
     "https://rpc.flashbots.net",
+    "https://eth.drpc.org",
     "https://eth-mainnet.public.blastapi.io",
     "https://1rpc.io/eth",
 )
@@ -55,6 +62,30 @@ DEFAULT_DB = "data/washdetect.duckdb"
 BALANCE_CAP = 800
 
 APPROX_BLOCK_TIME = 12  # hint only; the loader binary-searches timestamps
+
+# Same Swap/PairCreated/PoolCreated ABIs as Uniswap. Off unless a load asks for forks.
+FORK_VENUES = (
+    ("sushiswap", "v2", "0xc0aee478e3658e2610c5f7a4a2e1777ce9e4f2ac", 10_794_229),
+    ("sushiswap", "v3", "0xbaceb8ec6b9355dfc0269c18bac9d6e2bdc29c4f", 16_955_547),
+    ("pancakeswap", "v3", "0x0bfbcf9fa4f9c56b0f40a671ad40e0805a091865", 16_950_586),
+)
+
+
+def protocol_family(protocol: str) -> str:
+    text = protocol.lower()
+    if "v4" in text:
+        return "v4"
+    if text == "v2" or text.endswith("-v2"):
+        return "v2"
+    if text == "v3" or text.endswith("-v3"):
+        return "v3"
+    return text
+
+
+def dex_name(protocol: str) -> str:
+    if protocol in {"v2", "v3", "v4"}:
+        return "uniswap"
+    return protocol.split("-", 1)[0] or "uniswap"
 
 
 @dataclass(frozen=True)

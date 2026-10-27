@@ -238,6 +238,17 @@ button.primary {
   border-radius: 8px;
   padding: 9px 14px;
   font-weight: 650;
+  max-width: 16rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.forks {
+  flex-direction: row !important;
+  align-items: center;
+  gap: 6px;
+  padding-bottom: 8px;
 }
 
 button.primary:disabled, button:disabled { opacity: 0.45; cursor: not-allowed; }

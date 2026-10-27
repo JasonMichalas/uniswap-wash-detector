@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from washdetect.config import STABLECOINS, WETH
+from washdetect.config import STABLECOINS, WETH, ZERO_ADDRESS
 
 Q96 = 2**96
 
@@ -35,9 +35,9 @@ def swap_usd(
         return abs(amount_quote)
     if eth_usd is None or eth_usd <= 0:
         return None
-    if token == WETH:
+    if token in {WETH, ZERO_ADDRESS}:
         return abs(amount_token) * eth_usd
-    if quote == WETH:
+    if quote in {WETH, ZERO_ADDRESS}:
         return abs(amount_quote) * eth_usd
     return None
 

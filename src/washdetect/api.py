@@ -20,6 +20,7 @@ from washdetect.graph.validate import validate_graph
 from washdetect.pipeline import load_token
 from washdetect.querylang.engine import QueryEngine
 from washdetect.querylang.errors import QueryError
+from washdetect.rpc import Cancelled
 from washdetect.snapshot import window_ready
 from washdetect.store import Store
 from washdetect.token import TokenData
@@ -41,6 +42,7 @@ app.add_middleware(
 
 _store: Store | None = None
 _jobs: dict[str, dict[str, Any]] = {}
+_cancels: dict[str, threading.Event] = {}
 _jobs_lock = threading.Lock()
 
 
@@ -85,6 +87,7 @@ class LoadRequest(BaseModel):
     start: str | None = None
     end: str | None = None
     rediscover: bool = False
+    include_forks: bool = False
 
 
 class RunRequest(BaseModel):
@@ -156,13 +159,15 @@ def template(template_id: str) -> dict[str, Any]:
 @app.post("/api/token/load")
 def start_load(body: LoadRequest) -> dict[str, str]:
     job_id = uuid.uuid4().hex[:12]
+    stopped = threading.Event()
     with _jobs_lock:
         _jobs[job_id] = {"status": "running", "message": "Starting", "result": None, "error": None}
+        _cancels[job_id] = stopped
 
     def work() -> None:
         def progress(message: str) -> None:
             with _jobs_lock:
-                if job_id in _jobs:
+                if job_id in _jobs and not stopped.is_set():
                     _jobs[job_id]["message"] = message
 
         try:
@@ -174,11 +179,17 @@ def start_load(body: LoadRequest) -> dict[str, str]:
                 store=get_store(),
                 progress=progress,
                 rediscover=body.rediscover,
+                include_forks=body.include_forks,
+                cancel=stopped.is_set,
             )
             with _jobs_lock:
                 _jobs[job_id]["status"] = "done"
                 _jobs[job_id]["result"] = report.as_dict()
                 _jobs[job_id]["message"] = "Token data is cached. The canvas is empty until you build a graph."
+        except Cancelled:
+            with _jobs_lock:
+                _jobs[job_id]["status"] = "cancelled"
+                _jobs[job_id]["message"] = "Load cancelled. Blocks already read stay cached."
         except Exception as exc:
             with _jobs_lock:
                 _jobs[job_id]["status"] = "error"
@@ -187,6 +198,20 @@ def start_load(body: LoadRequest) -> dict[str, str]:
 
     threading.Thread(target=work, daemon=True).start()
     return {"job_id": job_id}
+
+
+@app.post("/api/jobs/{job_id}/cancel")
+def cancel_job(job_id: str) -> dict[str, bool]:
+    with _jobs_lock:
+        stopped = _cancels.get(job_id)
+        found = _jobs.get(job_id)
+        if not found:
+            raise HTTPException(404, "Unknown job.")
+        if stopped is not None:
+            stopped.set()
+        if found["status"] == "running":
+            found["message"] = "Cancelling…"
+    return {"ok": True}
 
 
 @app.get("/api/jobs/{job_id}")

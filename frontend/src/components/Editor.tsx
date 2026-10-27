@@ -14,6 +14,7 @@ import {
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ApiError,
+  cancelJob,
   compileGraph,
   fetchJob,
   fetchTemplate,
@@ -57,6 +58,8 @@ export function Editor({ catalog }: { catalog: Catalog }) {
   const [endDate, setEndDate] = useState("");
   const [loading, setLoading] = useState(false);
   const [progress, setProgress] = useState("");
+  const [forks, setForks] = useState(false);
+  const jobRef = useRef<string | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [loaded, setLoaded] = useState<LoadResult | null>(null);
   const [query, setQuery] = useState("");
@@ -218,13 +221,19 @@ export function Editor({ catalog }: { catalog: Catalog }) {
     try {
       const token = address.trim().toLowerCase();
       const body = preset !== null ? { token, days: preset } : { token, start: startDate, end: endDate };
-      const { job_id: jobId } = await startLoad(body);
+      const { job_id: jobId } = await startLoad({ ...body, include_forks: forks });
+      jobRef.current = jobId;
       for (;;) {
         const job = await fetchJob(jobId);
         if (!alive.current) return;
         setProgress(job.message);
         if (job.status === "done" && job.result) {
           setLoaded(job.result);
+          setLoading(false);
+          return;
+        }
+        if (job.status === "cancelled") {
+          setLoadError(null);
           setLoading(false);
           return;
         }
@@ -240,6 +249,12 @@ export function Editor({ catalog }: { catalog: Catalog }) {
       setLoadError(error instanceof Error ? error.message : "The load failed.");
       setLoading(false);
     }
+  }
+
+  function onCancel() {
+    const jobId = jobRef.current;
+    if (jobId) void cancelJob(jobId).catch(() => undefined);
+    setProgress("Cancelling…");
   }
 
   async function onRun() {
@@ -348,7 +363,7 @@ export function Editor({ catalog }: { catalog: Catalog }) {
 
   const selected = nodes.find((node) => node.selected) ?? null;
   const runReady = Boolean(loaded) && !running && nodes.length > 0 && errors.length === 0;
-  const hint = stepHint(step, loading, preset, nodes.length, errors.length);
+  const hint = stepHint(step, loading, preset, nodes.length, errors.length, progress);
 
   return (
     <div className="app">
@@ -379,7 +394,11 @@ export function Editor({ catalog }: { catalog: Catalog }) {
         }}
         canLoad={canLoad}
         loading={loading}
+        progress={progress}
+        forks={forks}
+        onForks={setForks}
         onLoad={() => void onLoad()}
+        onCancel={onCancel}
       />
 
       <LoadStatus
@@ -505,6 +524,7 @@ export function Editor({ catalog }: { catalog: Catalog }) {
         collapsed={panelCollapsed}
         onCollapsed={setPanelCollapsed}
         onHeight={setPanelHeight}
+        noSwaps={loaded !== null && loaded.swaps === 0}
       />
     </div>
   );

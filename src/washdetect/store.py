@@ -10,6 +10,8 @@ import pandas as pd
 
 from washdetect.ranges import covers, merge_intervals, missing_intervals
 
+CHAIN = "__chain__"
+
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS tokens (
     token VARCHAR PRIMARY KEY,
@@ -124,6 +126,16 @@ CREATE TABLE IF NOT EXISTS labelled_swaps (
     confidence DOUBLE,
     cycle_id VARCHAR,
     PRIMARY KEY (token, start_block, end_block, tx_hash, log_index)
+);
+
+CREATE TABLE IF NOT EXISTS chain_pools (
+    pool_address VARCHAR PRIMARY KEY,
+    protocol VARCHAR,
+    dex VARCHAR,
+    token0 VARCHAR,
+    token1 VARCHAR,
+    fee INTEGER,
+    hooks VARCHAR
 );
 
 CREATE TABLE IF NOT EXISTS wallet_features (
@@ -522,6 +534,23 @@ class Store:
                     "(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                     records,
                 )
+
+    def upsert_chain_pools(self, rows: list[tuple[Any, ...]]) -> None:
+        if not rows:
+            return
+        with self.lock:
+            self.con.executemany(
+                "INSERT OR REPLACE INTO chain_pools VALUES (?, ?, ?, ?, ?, ?, ?)",
+                rows,
+            )
+
+    def chain_pools_for(self, token: str) -> list[dict[str, Any]]:
+        with self.lock:
+            frame = self._df(
+                "SELECT * FROM chain_pools WHERE token0 = ? OR token1 = ? ORDER BY protocol, pool_address",
+                [token, token],
+            )
+        return frame.to_dict(orient="records")
 
     def export_features(self, token: str, path: str) -> int:
         Path(path).parent.mkdir(parents=True, exist_ok=True)

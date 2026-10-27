@@ -1,4 +1,11 @@
 import { PRESETS, shortAddress } from "../editor/ui";
+
+function loadLabel(progress: string): string {
+  const match = progress.match(/\((\d+)%\)/);
+  if (match) return `Loading ${match[1]}%`;
+  if (!progress) return "Loading…";
+  return progress.length > 48 ? `${progress.slice(0, 48)}…` : progress;
+}
 import type { TokenSuggestion } from "../types";
 import { TokenPicker } from "./TokenPicker";
 
@@ -20,7 +27,11 @@ export function TokenWindow({
   onEnd,
   canLoad,
   loading,
+  progress,
+  forks,
+  onForks,
   onLoad,
+  onCancel,
 }: {
   step: 1 | 2 | 3;
   hint: string;
@@ -39,7 +50,11 @@ export function TokenWindow({
   onEnd: (value: string) => void;
   canLoad: boolean;
   loading: boolean;
+  progress: string;
+  forks: boolean;
+  onForks: (value: boolean) => void;
   onLoad: () => void;
+  onCancel: () => void;
 }) {
   return (
     <header className="top">
@@ -93,9 +108,18 @@ export function TokenWindow({
             </label>
           </div>
         </fieldset>
-        <button type="submit" className="primary" disabled={!canLoad}>
-          {loading ? "Loading…" : "Load token"}
+        <label className="forks">
+          <input type="checkbox" checked={forks} disabled={loading} onChange={(event) => onForks(event.target.checked)} />
+          Also SushiSwap and PancakeSwap
+        </label>
+        <button type="submit" className="primary" disabled={!canLoad} title={loading ? progress : undefined}>
+          {loading ? loadLabel(progress) : "Load token"}
         </button>
+        {loading && (
+          <button type="button" className="text cancel" onClick={onCancel}>
+            Cancel
+          </button>
+        )}
       </form>
     </header>
   );

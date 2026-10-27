@@ -4,7 +4,7 @@ import time
 from collections import defaultdict
 from collections.abc import Callable
 from dataclasses import dataclass, field
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from washdetect.abi import (
@@ -19,7 +19,14 @@ from washdetect.abi import (
     normalize_address,
     topic_address,
 )
-from washdetect.config import BALANCE_CAP, MULTICALL3, ROUTERS, WETH_USDC_POOL
+from washdetect.config import (
+    BALANCE_CAP,
+    MULTICALL3,
+    POOL_MANAGER,
+    ROUTERS,
+    WETH_USDC_POOL,
+    protocol_family,
+)
 from washdetect.discover import PoolMeta, discover_pools, read_token_meta
 from washdetect.logs import (
     _hex_int,
@@ -60,6 +67,8 @@ class LoadReport:
     seconds: float
     eth_usd: float | None
     used_subgraph: bool
+    v4_pools: int
+    swap_logs: int
     notes: list[str] = field(default_factory=list)
 
     def as_dict(self) -> dict[str, Any]:
@@ -74,6 +83,8 @@ class LoadReport:
             "pools": self.pools,
             "v2_pools": self.v2_pools,
             "v3_pools": self.v3_pools,
+            "v4_pools": self.v4_pools,
+            "swap_logs": self.swap_logs,
             "swaps": self.swaps,
             "transfers": self.transfers,
             "priced_swaps": self.priced_swaps,
@@ -170,6 +181,9 @@ def load_token(
     client: RpcClient | None = None,
     store: Store | None = None,
     rediscover: bool = False,
+    include_forks: bool = False,
+    cancel: Callable[[], bool] | None = None,
+    hours: int | None = None,
 ) -> LoadReport:
     """Fills the cache only. A wash score is a separate step."""
     say = progress or (lambda _msg: None)
@@ -181,11 +195,13 @@ def load_token(
     store = store or Store(db_path)
     blocks_fetched = 0
     blocks_cached = 0
+    swap_logs = 0
     used_subgraph = False
+    stop = cancel or (lambda: False)
     try:
         say("Resolving the block window")
         start_block, end_block, start_ts, end_ts = resolve_window(
-            client, days=days, start=start, end=end
+            client, days=days, start=start, end=end, hours=hours
         )
         head_ts = end_ts
         span_blocks = end_block - start_block + 1
@@ -197,41 +213,34 @@ def load_token(
         store.upsert_token(token, symbol, decimals)
         say(f"Token {symbol} ({decimals} decimals)")
 
-        cached_pools = [] if rediscover else store.pools_for(token)
-        if cached_pools:
-            pools = [
-                PoolMeta(
-                    pool_address=str(row["pool_address"]),
-                    protocol=str(row["protocol"]),
-                    token0=str(row["token0"]),
-                    token1=str(row["token1"]),
-                    fee=int(row["fee"] or 0),
-                    token0_decimals=int(row["token0_decimals"] or 18),
-                    token1_decimals=int(row["token1_decimals"] or 18),
-                    token0_symbol=str(row["token0_symbol"] or ""),
-                    token1_symbol=str(row["token1_symbol"] or ""),
-                )
-                for row in cached_pools
-            ]
-            say(f"Using {len(pools)} cached pools")
-        else:
-            say("Discovering Uniswap v2 and v3 pools")
-            pools = discover_pools(client, token)
-            if not pools:
-                raise RpcError(
-                    "No Uniswap v2/v3 pool was found against WETH, USDC, USDT, or DAI. "
-                    "Check the address, or the token only trades in an exotic quote."
-                )
-            store.save_pools(
-                [
-                    (
-                        token, p.pool_address, p.protocol, p.token0, p.token1, p.fee,
-                        p.token0_decimals, p.token1_decimals, p.token0_symbol, p.token1_symbol,
-                    )
-                    for p in pools
-                ]
+        say("Discovering Uniswap v2, v3, and v4 pools")
+        pools = discover_pools(
+            client,
+            token,
+            store=store,
+            head=end_block,
+            progress=say,
+            include_forks=include_forks,
+            cancel=stop,
+        )
+        if rediscover:
+            client.note("rediscover re-read factory logs and quote pairs")
+        if not pools:
+            raise RpcError(
+                "No Uniswap v2, v3, or v4 pool was found for this token, "
+                "including token-token pairs and native ETH. "
+                "It may only trade on a DEX this tool does not read."
             )
-            say(f"Found {len(pools)} pools")
+        store.save_pools(
+            [
+                (
+                    token, p.pool_address, p.protocol, p.token0, p.token1, p.fee,
+                    p.token0_decimals, p.token1_decimals, p.token0_symbol, p.token1_symbol,
+                )
+                for p in pools
+            ]
+        )
+        say(f"Found {len(pools)} pools")
 
         if api_key():
             try:
@@ -244,39 +253,36 @@ def load_token(
                 client.note(f"subgraph skipped: {exc}")
                 say(f"Subgraph unavailable ({exc}). Using RPC for swaps.")
 
-        for pool in pools:
-            dataset = f"swaps:{pool.pool_address}"
-            gaps = store.missing(token, dataset, start_block, end_block)
-            blocks_cached += span_blocks - _gap_blocks(gaps)
-            for gap_start, gap_end in gaps:
-                say(
-                    f"Swaps {pool.protocol} {pool.token0_symbol}/{pool.token1_symbol} "
-                    f"blocks {gap_start:,}–{gap_end:,}"
-                )
-                logs = client.get_logs(
-                    address=pool.pool_address,
-                    topics=_pool_topics(pool.protocol),
-                    start_block=gap_start,
-                    end_block=gap_end,
-                )
-                blocks_fetched += gap_end - gap_start + 1
-                _store_pool_logs(store, client, token, pool, logs, end_block, head_ts)
-                # Coverage follows a successful write, so a crash retries this gap.
-                store.add_coverage(token, dataset, gap_start, gap_end)
+        fetched, cached, swap_logs = _fetch_swap_groups(
+            store, client, token, pools, start_block, end_block, span_blocks, head_ts, say, stop
+        )
+        blocks_fetched += fetched
+        blocks_cached += cached
 
         transfer_gaps = store.missing(token, "transfers", start_block, end_block)
         blocks_cached += span_blocks - _gap_blocks(transfer_gaps)
         for gap_start, gap_end in transfer_gaps:
-            say(f"Token transfers blocks {gap_start:,}–{gap_end:,}")
-            logs = client.get_logs(
+            def on_progress(at: int, _end: int, count: int, *, gap_end: int = gap_end) -> None:
+                pct = _window_pct(start_block, end_block, at)
+                say(
+                    f"Scraping transfers from Ethereum: blocks {at:,} of {end_block:,} "
+                    f"({pct}%) · {count:,} logs"
+                )
+
+            say(f"Scraping transfers from Ethereum: blocks {gap_start:,} of {end_block:,}")
+            client.get_logs(
                 address=token,
                 topics=[TRANSFER],
                 start_block=gap_start,
                 end_block=gap_end,
+                workers=4,
+                on_progress=on_progress,
+                on_chunk=lambda frm, to, chunk, gap_end=gap_end: _keep_transfers(
+                    store, client, token, decimals, chunk, end_block, head_ts, frm, to
+                ),
+                cancel=stop,
             )
             blocks_fetched += gap_end - gap_start + 1
-            _store_transfers(store, client, token, decimals, logs, end_block, head_ts)
-            store.add_coverage(token, "transfers", gap_start, gap_end)
 
         say("Resolving traders from transaction senders")
         _resolve_traders(store, client, token, start_block, end_block, say)
@@ -307,8 +313,8 @@ def load_token(
             start_time=start_ts.isoformat(timespec="minutes"),
             end_time=end_ts.isoformat(timespec="minutes"),
             pools=len(pools),
-            v2_pools=sum(1 for p in pools if p.protocol == "v2"),
-            v3_pools=sum(1 for p in pools if p.protocol == "v3"),
+            v2_pools=sum(1 for p in pools if protocol_family(p.protocol) == "v2"),
+            v3_pools=sum(1 for p in pools if protocol_family(p.protocol) == "v3"),
             swaps=store.count_swaps(token, start_block, end_block),
             transfers=store.count_transfers(token, start_block, end_block),
             priced_swaps=store.priced_swap_count(token, start_block, end_block),
@@ -319,8 +325,12 @@ def load_token(
             seconds=time.perf_counter() - started,
             eth_usd=eth_usd,
             used_subgraph=used_subgraph,
-            notes=list(client.notes),
+            v4_pools=sum(1 for p in pools if protocol_family(p.protocol) == "v4"),
+            swap_logs=swap_logs,
+            notes=_load_notes(client.notes, pools),
         )
+        if report.swaps == 0:
+            report.notes.insert(0, _empty_window_note(token, start_ts, report.swap_logs, blocks_fetched))
         say(
             f"Cached {report.swaps:,} swaps and {report.transfers:,} transfers "
             f"in {report.seconds:.1f}s. No analysis was run."
@@ -331,6 +341,217 @@ def load_token(
             client.close()
         if own_store:
             store.close()
+
+
+def _window_pct(start: int, end: int, at: int) -> int:
+    width = max(1, end - start + 1)
+    return min(100, max(0, int(100 * (at - start + 1) / width)))
+
+
+def _fetch_swap_groups(
+    store: Store,
+    client: RpcClient,
+    token: str,
+    pools: list[PoolMeta],
+    start_block: int,
+    end_block: int,
+    span_blocks: int,
+    head_ts: datetime,
+    say: Progress,
+    cancel: Callable[[], bool],
+) -> tuple[int, int, int]:
+    pending: list[tuple[PoolMeta, tuple[tuple[int, int], ...]]] = []
+    cached = 0
+    for pool in pools:
+        gaps = tuple(store.missing(token, f"swaps:{pool.pool_address}", start_block, end_block))
+        cached += span_blocks - _gap_blocks(list(gaps))
+        if gaps:
+            pending.append((pool, gaps))
+    groups: dict[tuple[tuple[int, int], ...], list[PoolMeta]] = defaultdict(list)
+    for pool, gaps in pending:
+        groups[gaps].append(pool)
+    fetched = 0
+    raw = 0
+    for gaps, group in groups.items():
+        for gap_start, gap_end in gaps:
+            got_raw, got_blocks = _fetch_one_gap(
+                store, client, token, group, gap_start, gap_end, start_block, end_block, head_ts, say, cancel
+            )
+            raw += got_raw
+            fetched += got_blocks
+    return fetched, cached, raw
+
+
+def _fetch_one_gap(
+    store: Store,
+    client: RpcClient,
+    token: str,
+    group: list[PoolMeta],
+    gap_start: int,
+    gap_end: int,
+    start_block: int,
+    end_block: int,
+    head_ts: datetime,
+    say: Progress,
+    cancel: Callable[[], bool],
+) -> tuple[int, int]:
+    raw = 0
+    scanned = 0
+    v4 = [pool for pool in group if protocol_family(pool.protocol) == "v4"]
+    rest = [pool for pool in group if protocol_family(pool.protocol) != "v4"]
+
+    def consume(logs: list[dict[str, Any]], pools_in_call: list[PoolMeta], frm: int, to: int) -> None:
+        nonlocal raw
+        raw += len(logs)
+        by_addr = {pool.pool_address: pool for pool in pools_in_call}
+        by_id = {pool.pool_address.lower(): pool for pool in pools_in_call}
+        bucket: dict[str, list[dict[str, Any]]] = defaultdict(list)
+        for log in logs:
+            pool = _match_pool(log, by_addr, by_id)
+            if pool is not None:
+                bucket[pool.pool_address].append(log)
+        for pool in pools_in_call:
+            _store_pool_logs(
+                store, client, token, pool, bucket.get(pool.pool_address, []), end_block, head_ts,
+                allow_rpc=False,
+            )
+            store.add_coverage(token, f"swaps:{pool.pool_address}", frm, to)
+
+    def progress(at: int, _range_end: int, count: int) -> None:
+        say(
+            f"Scraping swaps from Ethereum: blocks {at:,} of {end_block:,} "
+            f"({_window_pct(start_block, end_block, at)}%) · {count:,} logs"
+        )
+
+    say(f"Scraping swaps from Ethereum: blocks {gap_start:,} of {end_block:,}")
+    workers = 4 if gap_end - gap_start > 8_000 else 1
+    width = gap_end - gap_start + 1
+    for offset in range(0, len(rest), 30):
+        chunk = rest[offset : offset + 30]
+        topics: list[str] = []
+        for pool in chunk:
+            for topic in _pool_topics(pool.protocol)[0]:
+                if topic not in topics:
+                    topics.append(topic)
+
+        def on_chunk(frm: int, to: int, logs: list[dict[str, Any]], chunk: list[PoolMeta] = chunk) -> None:
+            consume(logs, chunk, frm, to)
+
+        client.get_logs(
+            address=[pool.pool_address for pool in chunk],
+            topics=[topics],
+            start_block=gap_start,
+            end_block=gap_end,
+            workers=workers,
+            on_chunk=on_chunk,
+            on_progress=progress,
+            cancel=cancel,
+        )
+        scanned += width
+    for offset in range(0, len(v4), 30):
+        chunk = v4[offset : offset + 30]
+
+        def on_v4(frm: int, to: int, logs: list[dict[str, Any]], chunk: list[PoolMeta] = chunk) -> None:
+            consume(logs, chunk, frm, to)
+
+        client.get_logs(
+            address=POOL_MANAGER,
+            topics=[_pool_topics("v4")[0], [pool.pool_address for pool in chunk]],
+            start_block=gap_start,
+            end_block=gap_end,
+            workers=workers,
+            on_chunk=on_v4,
+            on_progress=progress,
+            cancel=cancel,
+        )
+        scanned += width
+    return raw, scanned
+
+
+def _match_pool(
+    log: dict[str, Any],
+    by_addr: dict[str, PoolMeta],
+    by_id: dict[str, PoolMeta],
+) -> PoolMeta | None:
+    address = str(log.get("address") or "").lower()
+    if address == POOL_MANAGER:
+        topics = log.get("topics") or []
+        if len(topics) < 2:
+            return None
+        return by_id.get(str(topics[1]).lower())
+    return by_addr.get(address)
+
+
+def _keep_transfers(
+    store: Store,
+    client: RpcClient,
+    token: str,
+    decimals: int,
+    logs: list[dict[str, Any]],
+    head: int,
+    head_ts: datetime,
+    frm: int,
+    to: int,
+) -> None:
+    _store_transfers(store, client, token, decimals, logs, head, head_ts, allow_rpc=False)
+    store.add_coverage(token, "transfers", frm, to)
+
+
+def _load_notes(notes: list[str], pools: list[PoolMeta]) -> list[str]:
+    dexes = sorted({pool.dex for pool in pools})
+    extra: list[str] = []
+    if any(item != "uniswap" for item in dexes):
+        extra.append("DEXes in this load: " + ", ".join(dexes) + ".")
+    return extra + list(notes)
+
+
+def _empty_window_note(token: str, start_ts: datetime, raw_logs: int, blocks: int) -> str:
+    if raw_logs > 0:
+        return (
+            f"The chain returned {raw_logs:,} pool logs in this window but none decoded as swaps. "
+            "That is a reader problem, not a wash result."
+        )
+    return (
+        f"Scanned {blocks:,} blocks and found no Swap logs. "
+        "An empty table is not a wash result — there were no trades in this window."
+        + _gecko_window_hint(token, start_ts)
+    )
+
+
+def _gecko_window_hint(token: str, start_ts: datetime) -> str:
+    try:
+        import httpx
+
+        response = httpx.get(
+            f"https://api.geckoterminal.com/api/v2/networks/eth/tokens/{token}/pools?include=dex",
+            headers={"Accept": "application/json", "User-Agent": "washdetect/0.1"},
+            timeout=8,
+        )
+        response.raise_for_status()
+        payload = response.json()
+    except Exception:
+        return ""
+    pools = payload.get("data") if isinstance(payload, dict) else None
+    if not pools:
+        return ""
+    pool = pools[0]
+    attrs = pool.get("attributes") or {}
+    rel = pool.get("relationships") or {}
+    dex = str(((rel.get("dex") or {}).get("data") or {}).get("id") or "")
+    raw = attrs.get("pool_created_at")
+    created: datetime | None = None
+    if raw:
+        try:
+            created = _naive(datetime.fromisoformat(str(raw).replace("Z", "+00:00")))
+        except ValueError:
+            created = None
+    if created is not None and created > start_ts:
+        when = created.strftime("%Y-%m-%d %H:%M")
+        where = dex or "unknown DEX"
+        return f" The top pool ({where}) was created {when}, after this window."
+    if dex and not any(name in dex.lower() for name in ("uniswap", "sushi", "pancake")):
+        return f" GeckoTerminal's top pool is on {dex}, which this tool does not read."
+    return ""
 
 
 def _fill_swaps_from_subgraph(
@@ -392,6 +613,8 @@ def _store_pool_logs(
     logs: list[dict[str, Any]],
     head: int,
     head_ts: datetime,
+    *,
+    allow_rpc: bool = True,
 ) -> None:
     if not logs:
         return
@@ -403,8 +626,14 @@ def _store_pool_logs(
         raw_ts = _log_ts(log)
         if raw_ts is not None:
             embedded[block] = _naive(datetime.fromtimestamp(raw_ts, UTC))
-    stamps = fetch_timestamps(client, store, numbers, head, head_ts)
-    stamps.update(embedded)
+    if allow_rpc:
+        stamps = fetch_timestamps(client, store, numbers, head, head_ts)
+        stamps.update(embedded)
+    else:
+        stamps = dict(embedded)
+        for number in numbers:
+            if number not in stamps:
+                stamps[number] = head_ts - timedelta(seconds=12 * (head - number))
     swaps: list[tuple[Any, ...]] = []
     liquidity: list[tuple[Any, ...]] = []
     for log in logs:
@@ -442,6 +671,8 @@ def _store_transfers(
     logs: list[dict[str, Any]],
     head: int,
     head_ts: datetime,
+    *,
+    allow_rpc: bool = True,
 ) -> None:
     if not logs:
         return
@@ -453,8 +684,14 @@ def _store_transfers(
             embedded[_hex_int(log["blockNumber"])] = _naive(
                 datetime.fromtimestamp(raw_ts, UTC)
             )
-    stamps = fetch_timestamps(client, store, numbers, head, head_ts)
-    stamps.update(embedded)
+    if allow_rpc:
+        stamps = fetch_timestamps(client, store, numbers, head, head_ts)
+        stamps.update(embedded)
+    else:
+        stamps = dict(embedded)
+        for number in numbers:
+            if number not in stamps:
+                stamps[number] = head_ts - timedelta(seconds=12 * (head - number))
     rows: list[tuple[Any, ...]] = []
     for log in logs:
         topics = log.get("topics") or []

@@ -37,7 +37,7 @@ export function LoadStatus({
             {loaded.symbol} · {shortAddress(loaded.token)}
           </strong>
           <span>
-            {loaded.pools} pools ({loaded.v2_pools} v2, {loaded.v3_pools} v3)
+            {loaded.pools} pools ({loaded.v2_pools} v2, {loaded.v3_pools} v3, {loaded.v4_pools} v4)
           </span>
           <span>{loaded.swaps.toLocaleString()} swaps</span>
           <span>{loaded.transfers.toLocaleString()} transfers</span>
@@ -49,10 +49,16 @@ export function LoadStatus({
           <span className="quiet">{ran ? "Last result came from Run." : "No analysis has been run."}</span>
           <span
             className="quiet"
-            title="Already-covered spans, summed across each pool and the transfer log. Extending the window fetches only the missing blocks."
+            title="Blocks read from the chain this load, summed across swap and transfer requests. This is not a log count."
           >
-            fetched {loaded.blocks_fetched.toLocaleString()} · cached {loaded.blocks_cached.toLocaleString()}
+            blocks scanned {loaded.blocks_fetched.toLocaleString()} · cached {loaded.blocks_cached.toLocaleString()}
+            {loaded.swap_logs > 0 ? ` · ${loaded.swap_logs.toLocaleString()} swap logs` : ""}
           </span>
+          {loaded.notes.slice(0, 3).map((note) => (
+            <p key={note} className={loaded.swaps === 0 ? "banner warn" : "quiet"}>
+              {note}
+            </p>
+          ))}
           {loaded.balances_truncated && <span className="quiet">Balances capped at the most active wallets.</span>}
         </section>
       )}

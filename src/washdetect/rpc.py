@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import random
+import threading
 import time
 from collections.abc import Callable
 from typing import Any
@@ -24,6 +25,10 @@ class RpcRateError(RpcError):
     pass
 
 
+class Cancelled(Exception):
+    """The user stopped this load. Chunks already written stay cached."""
+
+
 _RANGE_HINTS = (
     "block range",
     "more than",
@@ -40,7 +45,63 @@ _RANGE_HINTS = (
     "invalid block range",
     "header not found",
     "history has been pruned",
+    "archive request",
+    "personal token",
 )
+
+
+def _trusts_empty(url: str) -> bool:
+    """Flashbots answers eth_getLogs with [] for ranges it does not store. These two do not."""
+    host = url.lower()
+    return "mevblocker" in host or "drpc.org" in host
+
+
+def _hard_cap(text: str) -> bool:
+    """This endpoint will not serve a range this wide. Another endpoint might."""
+    lowered = text.lower()
+    return any(hint in lowered for hint in ("free plan", "10000", "10,000", "10 block", "up to a"))
+
+
+def _logs_width(params: list[Any]) -> int | None:
+    if not params or not isinstance(params[0], dict):
+        return None
+    filt = params[0]
+    try:
+        start = int(str(filt["fromBlock"]), 16)
+        end = int(str(filt["toBlock"]), 16)
+    except (KeyError, TypeError, ValueError):
+        return None
+    return end - start + 1
+
+
+class SpanBook:
+    """Per-endpoint widest range that was refused, shared by parallel clients."""
+
+    def __init__(self) -> None:
+        self.lock = threading.Lock()
+        self.reject: dict[str, int] = {}
+        self._next: dict[str, float] = {}
+
+    def allows(self, url: str, width: int | None) -> bool:
+        if width is None:
+            return True
+        with self.lock:
+            cap = self.reject.get(url)
+            return cap is None or width < cap
+
+    def mark_reject(self, url: str, width: int) -> None:
+        with self.lock:
+            prev = self.reject.get(url)
+            self.reject[url] = width if prev is None else min(prev, width)
+
+    def wait_turn(self, url: str, gap: float = 0.08) -> None:
+        with self.lock:
+            now = time.monotonic()
+            due = self._next.get(url, 0.0)
+            self._next[url] = max(now, due) + gap
+            delay = due - now
+        if delay > 0:
+            time.sleep(delay)
 
 
 def _error_text(body: Any, status: int) -> str:
@@ -74,6 +135,9 @@ def fetch_logs_adaptive(
     min_span: int = 1,
     max_logs: int = 8_000,
     on_note: Callable[[str], None] | None = None,
+    on_chunk: Callable[[int, int, list[dict[str, Any]]], None] | None = None,
+    on_progress: Callable[[int, int, int], None] | None = None,
+    cancel: Callable[[], bool] | None = None,
 ) -> list[dict[str, Any]]:
     """A full page may be a silent truncation, so a chunk at the cap is retried smaller."""
     if start > end:
@@ -89,6 +153,8 @@ def fetch_logs_adaptive(
 
     while block <= end:
         steps += 1
+        if cancel and cancel():
+            raise Cancelled("Load cancelled")
         if steps > guard:
             raise RpcError(
                 f"eth_getLogs did not finish between {start} and {end}; "
@@ -123,6 +189,10 @@ def fetch_logs_adaptive(
                 "chunk size; keeping them, but the page may be truncated"
             )
         logs.extend(batch)
+        if on_chunk:
+            on_chunk(block, to, batch)
+        if on_progress:
+            on_progress(to, end, len(logs))
         block = to + 1
         if len(batch) < max_logs // 4 and span < init_span:
             span = min(init_span, max(span * 2, min_span))
@@ -151,9 +221,29 @@ class RpcClient:
         self.notes: list[str] = []
         self._id = 1
         self._http: httpx.Client | None = None
+        self._lock = threading.Lock()
+        self.spans = SpanBook()
 
     def note(self, message: str) -> None:
-        self.notes.append(message)
+        with self._lock:
+            self.notes.append(message)
+
+    def spawn(self) -> RpcClient:
+        child = RpcClient(
+            self.endpoints,
+            transport=self._transport,
+            sleep=self._sleep,
+            timeout=self._timeout,
+            max_attempts=self._max_attempts,
+        )
+        child.spans = self.spans
+        return child
+
+    def _next_id(self) -> int:
+        with self._lock:
+            value = self._id
+            self._id += 1
+            return value
 
     def _endpoint(self) -> str:
         return self.endpoints[self._cursor % len(self.endpoints)]
@@ -176,11 +266,12 @@ class RpcClient:
         return body
 
     def call(self, method: str, params: list[Any]) -> Any:
+        if method == "eth_getLogs":
+            return self._call_logs(params)
         last: Exception | None = None
         for attempt in range(self._max_attempts):
             url = self._endpoint()
-            payload = {"jsonrpc": "2.0", "id": self._id, "method": method, "params": params}
-            self._id += 1
+            payload = {"jsonrpc": "2.0", "id": self._next_id(), "method": method, "params": params}
             try:
                 body = self._post(url, payload)
             except RpcRangeError:
@@ -214,11 +305,11 @@ class RpcClient:
             payload = []
             ids = []
             for method, params in chunk:
+                rpc_id = self._next_id()
                 payload.append(
-                    {"jsonrpc": "2.0", "id": self._id, "method": method, "params": params}
+                    {"jsonrpc": "2.0", "id": rpc_id, "method": method, "params": params}
                 )
-                ids.append(self._id)
-                self._id += 1
+                ids.append(rpc_id)
             try:
                 body = self._post(self._endpoint(), payload)
                 if isinstance(body, dict) and body.get("error"):
@@ -240,6 +331,79 @@ class RpcClient:
     @staticmethod
     def _backoff(attempt: int) -> float:
         return min(8.0, 0.4 * (2**attempt)) + random.random() * 0.2
+
+    def _pick_log_endpoint(self, width: int | None, tried: set[str]) -> str | None:
+        archive = [url for url in self.endpoints if _trusts_empty(url)]
+        others = [url for url in self.endpoints if not _trusts_empty(url)]
+        for url in archive + others:
+            if url in tried or not self.spans.allows(url, width):
+                continue
+            return url
+        return None
+
+    def _call_logs(self, params: list[Any]) -> Any:
+        """Try the next endpoint when one refuses a wide eth_getLogs, then shrink only if all refuse."""
+        width = _logs_width(params)
+        last_range: Exception | None = None
+        last_other: Exception | None = None
+        untrusted_empty: list[Any] | None = None
+        tried: set[str] = set()
+        attempts = 0
+        while attempts < self._max_attempts:
+            url = self._pick_log_endpoint(width, tried)
+            if url is None:
+                break
+            tried.add(url)
+            attempts += 1
+            if self._transport is None:
+                self.spans.wait_turn(url)
+            payload = {
+                "jsonrpc": "2.0",
+                "id": self._next_id(),
+                "method": "eth_getLogs",
+                "params": params,
+            }
+            try:
+                body = self._post(url, payload)
+            except RpcRangeError as exc:
+                last_range = exc
+                if width is not None and _hard_cap(str(exc)):
+                    self.spans.mark_reject(url, width)
+                self.note(f"eth_getLogs refused on {url}: {exc}")
+                continue
+            except (RpcRateError, RpcError, httpx.HTTPError) as exc:
+                last_other = exc
+                self.note(f"eth_getLogs failed on {url}: {exc}")
+                self._sleep(self._backoff(attempts))
+                continue
+            if isinstance(body, dict) and body.get("error"):
+                err = classify_error(200, body)
+                if isinstance(err, RpcRangeError):
+                    last_range = err
+                    if width is not None and _hard_cap(str(err)):
+                        self.spans.mark_reject(url, width)
+                    self.note(f"eth_getLogs refused on {url}: {err}")
+                    continue
+                last_other = err
+                self.note(f"eth_getLogs error on {url}: {err}")
+                self._sleep(self._backoff(attempts))
+                continue
+            if not isinstance(body, dict) or "result" not in body:
+                last_other = RpcError(f"missing result from {url}")
+                continue
+            result = body["result"]
+            if isinstance(result, list) and len(result) == 0 and not _trusts_empty(url):
+                untrusted_empty = result
+                self.note(f"eth_getLogs on {url} returned no logs; asking an archive endpoint")
+                continue
+            return result
+        if untrusted_empty is not None and last_range is None and last_other is None:
+            return untrusted_empty
+        if last_range is not None:
+            raise last_range
+        if untrusted_empty is not None:
+            return untrusted_empty
+        raise RpcError(f"eth_getLogs failed after {attempts} attempts: {last_other}")
 
     def block_number(self) -> int:
         return int(self.call("eth_blockNumber", []), 16)
@@ -265,6 +429,68 @@ class RpcClient:
         start_block: int,
         end_block: int,
         init_span: int = 4_000,
+        workers: int = 1,
+        on_chunk: Callable[[int, int, list[dict[str, Any]]], None] | None = None,
+        on_progress: Callable[[int, int, int], None] | None = None,
+        cancel: Callable[[], bool] | None = None,
+    ) -> list[dict[str, Any]]:
+        if start_block > end_block:
+            return []
+        width = end_block - start_block + 1
+        use_workers = 1 if self._transport is not None else max(1, workers)
+        if use_workers <= 1 or width < init_span * 2:
+            return self._logs_span(
+                address, topics, start_block, end_block, init_span, on_chunk, on_progress, cancel
+            )
+        parts = _split_range(start_block, end_block, min(use_workers, 4, max(1, width // init_span)))
+        found: list[dict[str, Any]] = []
+        errors: list[BaseException] = []
+        lock = threading.Lock()
+
+        def run(span: tuple[int, int], client: RpcClient) -> None:
+            try:
+                rows = client._logs_span(
+                    address, topics, span[0], span[1], init_span, on_chunk, on_progress, cancel
+                )
+                with lock:
+                    found.extend(rows)
+            except BaseException as exc:
+                with lock:
+                    errors.append(exc)
+            finally:
+                client.close()
+
+        threads: list[threading.Thread] = []
+        children: list[RpcClient] = []
+        for index, span in enumerate(parts):
+            client = self.spawn()
+            client._cursor = self._cursor + index
+            children.append(client)
+            thread = threading.Thread(target=run, args=(span, client), daemon=True)
+            thread.start()
+            threads.append(thread)
+        for thread in threads:
+            thread.join()
+        for child in children:
+            self.notes.extend(child.notes)
+        cancelled = [item for item in errors if isinstance(item, Cancelled)]
+        if cancelled:
+            raise cancelled[0]
+        if errors:
+            raise errors[0]
+        found.sort(key=_log_sort)
+        return found
+
+    def _logs_span(
+        self,
+        address: str | list[str],
+        topics: list[Any],
+        start_block: int,
+        end_block: int,
+        init_span: int,
+        on_chunk: Callable[[int, int, list[dict[str, Any]]], None] | None,
+        on_progress: Callable[[int, int, int], None] | None,
+        cancel: Callable[[], bool] | None,
     ) -> list[dict[str, Any]]:
         def fetch(frm: int, to: int) -> list[dict[str, Any]]:
             params = {
@@ -284,6 +510,9 @@ class RpcClient:
             fetch,
             init_span=init_span,
             on_note=self.note,
+            on_chunk=on_chunk,
+            on_progress=on_progress,
+            cancel=cancel,
         )
 
     def find_block_by_timestamp(self, target_ts: int, lo: int, hi: int) -> int:
@@ -303,3 +532,26 @@ class RpcClient:
         if self._http is not None:
             self._http.close()
             self._http = None
+
+
+def _split_range(start: int, end: int, parts: int) -> list[tuple[int, int]]:
+    width = end - start + 1
+    step = max(1, (width + parts - 1) // parts)
+    spans: list[tuple[int, int]] = []
+    block = start
+    while block <= end:
+        spans.append((block, min(end, block + step - 1)))
+        block += step
+    return spans
+
+
+def _log_sort(log: dict[str, Any]) -> tuple[int, int]:
+    try:
+        block = int(str(log.get("blockNumber", "0x0")), 16)
+    except (TypeError, ValueError):
+        block = 0
+    try:
+        index = int(str(log.get("logIndex", "0x0")), 16)
+    except (TypeError, ValueError):
+        index = 0
+    return block, index

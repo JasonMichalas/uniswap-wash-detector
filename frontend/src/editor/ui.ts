@@ -16,8 +16,9 @@ export function stepHint(
   preset: number | null,
   boxes: number,
   problems: number,
+  progress = "",
 ): string {
-  if (loading) return "Fetching this token's swaps and transfers. Nothing is calculated yet.";
+  if (loading) return progress || "Fetching this token's swaps and transfers. Nothing is calculated yet.";
   if (step === 1) return "Search by name, or pick a token from the list. You do not need a contract address.";
   if (step === 2) {
     return preset === 7

@@ -84,8 +84,13 @@ export function startLoad(body: {
   days?: number;
   start?: string;
   end?: string;
+  include_forks?: boolean;
 }): Promise<{ job_id: string }> {
   return request("/api/token/load", { method: "POST", body: JSON.stringify(body) });
+}
+
+export function cancelJob(id: string): Promise<{ ok: boolean }> {
+  return request(`/api/jobs/${encodeURIComponent(id)}/cancel`, { method: "POST", body: "{}" });
 }
 
 export function fetchSuggestions(query?: string): Promise<TokenSuggestions> {
@@ -95,7 +100,7 @@ export function fetchSuggestions(query?: string): Promise<TokenSuggestions> {
 
 export function fetchJob(id: string): Promise<{
   id: string;
-  status: "running" | "done" | "error";
+  status: "running" | "done" | "error" | "cancelled";
   message: string;
   result: LoadResult | null;
   error: string | null;

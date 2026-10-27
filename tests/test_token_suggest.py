@@ -68,7 +68,7 @@ def _payload() -> dict:
     }
 
 
-def test_mocked_pools_keep_uniswap_v2_and_v3_token_addresses():
+def test_mocked_pools_keep_uniswap_v2_v3_and_v4_token_addresses():
     payload = _payload()
 
     def client(url: str) -> dict:
@@ -78,9 +78,8 @@ def test_mocked_pools_keep_uniswap_v2_and_v3_token_addresses():
     assert body["source"] == "geckoterminal"
     assert "results" not in body
     addresses = {item["address"] for item in body["trending"]}
-    assert addresses == {PEPE, OTHER}
+    assert addresses == {PEPE, OTHER, V4_TOKEN}
     assert POOL not in addresses
-    assert V4_TOKEN not in addresses
     assert CURVE_TOKEN not in addresses
     pepe = next(item for item in body["trending"] if item["address"] == PEPE)
     assert pepe["symbol"] == "PEPE"
@@ -89,7 +88,7 @@ def test_mocked_pools_keep_uniswap_v2_and_v3_token_addresses():
     # The same token in two pools keeps the larger 24h volume.
     other = next(item for item in body["trending"] if item["address"] == OTHER)
     assert other["volume_24h_usd"] == 99
-    assert body["trending"][0]["address"] == PEPE
+    assert body["trending"][0]["address"] == V4_TOKEN
 
 
 def test_top_volume_includes_a_second_page_when_the_first_is_short():
@@ -154,7 +153,7 @@ def test_search_uses_curated_names_when_the_search_call_fails_but_lists_worked()
 
     body = suggest_tokens("ens", client=client)
     assert body["source"] == "geckoterminal"
-    assert body["trending"][0]["address"] == PEPE
+    assert body["trending"][0]["address"] == V4_TOKEN
     assert body["results"][0]["symbol"] == "ENS"
     assert body["results"][0]["address"] == "0xc18360217d8f7ab5e7c516566761ea12ce7f9d72"
 
@@ -182,4 +181,4 @@ def test_suggest_route_returns_mocked_trending_tokens(monkeypatch):
     assert response.status_code == 200
     body = response.json()
     assert body["source"] == "geckoterminal"
-    assert {item["address"] for item in body["top_volume"]} == {PEPE, OTHER}
+    assert {item["address"] for item in body["top_volume"]} == {PEPE, OTHER, V4_TOKEN}
