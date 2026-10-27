@@ -394,14 +394,15 @@ def load_token(
         stats["cached"] = blocks_cached
         for gap_start, gap_end in transfer_gaps:
             def on_progress(at: int, _end: int, count: int, *, gap_end: int = gap_end) -> None:
-                say(f"Reading transfers: blocks {at:,} of {end_block:,}")
+                walked = max(0, at - start_block)
+                say(f"Reading transfers: blocks {walked:,} of {span_blocks:,}")
 
             def on_transfer_chunk(frm: int, to: int, chunk: list[dict[str, Any]], *, gap_end: int = gap_end) -> None:
                 _keep_transfers(store, client, token, decimals, chunk, end_block, head_ts, frm, to)
                 stats["transfers"] += len(chunk)
                 stats["at"] = to
 
-            say(f"Reading transfers: blocks {gap_start:,} of {end_block:,}")
+            say(f"Reading transfers: blocks {max(0, gap_start - start_block):,} of {span_blocks:,}")
             transfer_span = min(max(gap_end - gap_start + 1, 1), _LOG_SPAN)
             client.get_logs(
                 address=token,
@@ -600,10 +601,12 @@ def _fetch_one_gap(
             for row in spans:
                 store.add_coverage(row[0], row[1], row[2], row[3])
 
-    def progress(at: int, _range_end: int, count: int) -> None:
-        say(f"Reading swaps: blocks {at:,} of {end_block:,}")
+    window = max(1, end_block - start_block + 1)
 
-    say(f"Reading swaps: blocks {gap_start:,} of {end_block:,}")
+    def progress(at: int, _range_end: int, count: int) -> None:
+        say(f"Reading swaps: blocks {max(0, at - start_block):,} of {window:,}")
+
+    say(f"Reading swaps: blocks {max(0, gap_start - start_block):,} of {window:,}")
     width = gap_end - gap_start + 1
     span = min(max(width, 1), _LOG_SPAN)
     workers = 4 if width > _LOG_SPAN else 1
