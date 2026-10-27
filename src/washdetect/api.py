@@ -1,11 +1,3 @@
-"""HTTP API for the node editor.
-
-Loading a token only fills the cache. Compiling a graph only type-checks and
-prints the query. Running a graph is the first time the detector, or any
-other box, executes. Nothing on these routes writes SQL that came from the
-browser; the compiler does.
-"""
-
 from __future__ import annotations
 
 import os
@@ -33,6 +25,7 @@ from washdetect.store import Store
 from washdetect.token import TokenData
 from washdetect.tokensuggest import suggest_tokens
 
+# Compile only prints the query. Run is the first time a box executes, and the browser never sends SQL.
 app = FastAPI(title="Uniswap Wash Detector", version="0.1.0")
 app.add_middleware(
     CORSMiddleware,

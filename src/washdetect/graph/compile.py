@@ -1,11 +1,3 @@
-"""Lower a validated graph to a query-language program.
-
-Each box becomes one or more assignments. The detector's three sockets
-become `project <id> swaps|wallets|cycles`, which is what the text under
-the graph shows. Invalid graphs raise GraphCompileError carrying the same
-messages as `validate_graph`.
-"""
-
 from __future__ import annotations
 
 import re

@@ -1,10 +1,3 @@
-"""Type-check a node graph before it is allowed to run.
-
-The messages name the box and the socket. A loop in the graph is rejected
-with a reminder that wash-trading cycles are found by the detector, not by
-wiring a box back into itself.
-"""
-
 from __future__ import annotations
 
 from collections import defaultdict
@@ -43,6 +36,7 @@ class GraphErrorItem:
 
 
 def validate_graph(graph: dict[str, Any]) -> list[GraphErrorItem]:
+    """A loop here is a wiring error. Wash cycles come from the detector, not from a box feeding itself."""
     errors: list[GraphErrorItem] = []
     nodes = graph.get("nodes") or []
     edges = graph.get("edges") or []
@@ -135,8 +129,6 @@ def validate_graph(graph: dict[str, Any]) -> list[GraphErrorItem]:
         )
         return errors
 
-    # Infer output types in topological order. Edges into a broken box are
-    # still reported, then downstream field checks are skipped.
     order = _topo(by_id, edges)
     out_types: dict[tuple[str, str], str] = {}
     out_fields: dict[tuple[str, str], dict[str, str]] = {}
@@ -314,7 +306,6 @@ def _produce(
         return {"out": ("scalar", field_map("scalar"))}
 
     if ntype == "ratio":
-        # Both inputs are checked for the field in _check_params via a dedicated path.
         _check_ratio(node, errors)
         return {"out": ("scalar", field_map("scalar"))}
 
@@ -580,7 +571,6 @@ def _topo(by_id: dict[str, dict[str, Any]], edges: list[dict[str, Any]]) -> list
             indeg[nxt] -= 1
             if indeg[nxt] == 0:
                 queue.append(nxt)
-    # If a cycle hid some nodes, append them so param checks still run.
     for node_id in by_id:
         if node_id not in order:
             order.append(node_id)

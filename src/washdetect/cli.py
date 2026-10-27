@@ -1,10 +1,3 @@
-"""Command line for fetch, detect, query, batch, and the editor.
-
-`fetch` only fills the cache. `detect` and `query` load anything missing and
-then run the heuristic, because you asked them to. The editor never does
-that on its own: loading a token there leaves the canvas empty.
-"""
-
 from __future__ import annotations
 
 import argparse
@@ -23,6 +16,7 @@ from washdetect.token import TokenData
 
 
 def main(argv: list[str] | None = None) -> int:
+    """fetch only fills the cache. detect and query run because they were asked to."""
     parser = argparse.ArgumentParser(
         prog="washdetect",
         description="Uniswap Wash Detector. Ethereum mainnet, Uniswap v2 and v3, no API key required.",
@@ -367,7 +361,6 @@ def _train(args: argparse.Namespace) -> int:
 
 
 def _cold_fetch_seconds(db_path: str) -> dict[str, float]:
-    """Successful scrape times written beside the cache, keyed by token address."""
     path = Path(db_path).expanduser().parent / "fetch-log.txt"
     found: dict[str, float] = {}
     if not path.is_file():
@@ -387,10 +380,9 @@ def _serve(args: argparse.Namespace) -> int:
     import uvicorn
 
     os_db = str(Path(args.db))
-    # The app reads the path from the environment when the first request opens it.
     import os
 
-    os.environ["WASHDETECT_DB"] = os_db
+    os.environ["WASHDETECT_DB"] = os_db  # read when the first request opens the store
     print(f"Uniswap Wash Detector on http://127.0.0.1:{args.port}")
     print("Loading a token caches data and leaves the canvas empty.")
     uvicorn.run("washdetect.api:app", host=args.host, port=args.port, reload=False)

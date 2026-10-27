@@ -1,16 +1,7 @@
-"""Box types, socket types, and the columns each stream is allowed to use.
-
-The editor asks the API for this catalog, so the Python file is the one
-place a student adds a field or a box. Sockets only connect when
-`can_connect` says so. `rows`, `timed`, `walletish`, and `scoreable` are input-only
-wildcards; they are never the type of an output.
-"""
-
 from __future__ import annotations
 
 from typing import Any
 
-# kind is "number", "string", or "bool". Order is the order shown in the UI.
 TYPES: dict[str, list[tuple[str, str]]] = {
     "swaps": [
         ("block_number", "number"),
@@ -93,9 +84,6 @@ TYPES: dict[str, list[tuple[str, str]]] = {
     ],
 }
 
-# swaps_flagged is a swaps stream plus the detector's columns. It is not a
-# different family: a filter that accepts swaps also accepts it, except the
-# detector input itself, which wants unmarked swaps (see can_connect).
 TYPES["swaps_flagged"] = TYPES["swaps"] + [
     ("is_wash", "bool"),
     ("confidence", "number"),
@@ -131,7 +119,6 @@ def field_map(type_name: str) -> dict[str, str]:
 
 
 def can_connect(src: str, dst: str) -> bool:
-    """Whether an output socket of type `src` may feed an input of type `dst`."""
     if dst == "rows":
         return src in ROW_TYPES
     if dst == "timed":
@@ -141,8 +128,7 @@ def can_connect(src: str, dst: str) -> bool:
     if dst == "scoreable":
         return src in {"swaps", "swaps_flagged", "wallets", "wash_wallets"}
     if dst == "swaps":
-        # The detector wants the raw swap stream, not one it has already flagged.
-        return src == "swaps"
+        return src == "swaps"  # detector input must be unmarked; flagged swaps are a different socket
     return src == dst
 
 
