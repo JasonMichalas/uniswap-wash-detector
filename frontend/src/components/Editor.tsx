@@ -22,6 +22,7 @@ import {
   startLoad,
 } from "../api";
 import { describeProblem } from "../editor/boxCopy";
+import { freePosition } from "../editor/place";
 import { actionStatus, addressProblem, numericSuffix, sleep, slug, stepHint } from "../editor/ui";
 import {
   connectionAllowed,
@@ -193,12 +194,10 @@ export function Editor({ catalog }: { catalog: Catalog }) {
 
   function clickPosition(): { x: number; y: number } {
     const rect = wrapRef.current?.getBoundingClientRect();
-    const count = nodesRef.current.length;
-    if (!rect) return { x: 80 + count * 24, y: 80 };
-    return screenToFlowPosition({
-      x: rect.left + 56 + (count % 3) * 28,
-      y: rect.top + 40 + count * 16,
-    });
+    const preferred = rect
+      ? screenToFlowPosition({ x: rect.left + 48, y: rect.top + 64 })
+      : { x: 48, y: 48 };
+    return freePosition(nodesRef.current, preferred);
   }
 
   function placeChip(item: PaletteItem) {
@@ -327,7 +326,7 @@ export function Editor({ catalog }: { catalog: Catalog }) {
   function focusNode(id: string) {
     setNodes((current) => current.map((node) => ({ ...node, selected: node.id === id })));
     const node = nodes.find((item) => item.id === id);
-    if (node) setCenter(node.position.x + 110, node.position.y + 50, { zoom: 1.1, duration: 200 });
+    if (node) setCenter(node.position.x + 140, node.position.y + 70, { zoom: 1.1, duration: 200 });
   }
 
   function toggleTheme() {
@@ -432,7 +431,8 @@ export function Editor({ catalog }: { catalog: Catalog }) {
             const raw = event.dataTransfer.getData("application/washdetect");
             if (!raw) return;
             const item = JSON.parse(raw) as { node_type: string; label: string; data: Record<string, unknown> };
-            addBox(item.node_type, item.data, item.label, screenToFlowPosition({ x: event.clientX, y: event.clientY }));
+            const preferred = screenToFlowPosition({ x: event.clientX, y: event.clientY });
+            addBox(item.node_type, item.data, item.label, freePosition(nodesRef.current, preferred));
           }}
         >
           {nodes.length === 0 && (
