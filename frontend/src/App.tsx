@@ -117,7 +117,7 @@ function Editor({ catalog }: { catalog: Catalog }) {
     document.documentElement.dataset.theme === "dark" ? "dark" : "light",
   );
   const [examplesAt, setExamplesAt] = useState<"toolbar" | "canvas" | null>(null);
-  const [panelHeight, setPanelHeight] = useState(180);
+  const [panelHeight, setPanelHeight] = useState(140);
   const [panelCollapsed, setPanelCollapsed] = useState(false);
   const idRef = useRef(1);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -400,25 +400,22 @@ function Editor({ catalog }: { catalog: Catalog }) {
     <div className="app">
       <header className="top">
         <div className="brand-row">
-          <div className="brand">
-            <h1>Uniswap Wash Detector</h1>
-            <p>Uniswap on Ethereum. You build the question, then press Run.</p>
-          </div>
+          <h1>Uniswap Wash Detector</h1>
+          <ol className="steps">
+            <li className={step === 1 ? "current" : "done"}>
+              <span className="n">1</span> Choose a token
+            </li>
+            <li className={step === 2 ? "current" : step > 2 ? "done" : ""}>
+              <span className="n">2</span> Choose a time window
+            </li>
+            <li className={step === 3 ? "current" : ""}>
+              <span className="n">3</span> Drag boxes and connect them, then press Run
+            </li>
+          </ol>
           <button type="button" className="text theme" aria-pressed={theme === "dark"} onClick={toggleTheme}>
             {theme === "dark" ? "Light theme" : "Dark theme"}
           </button>
         </div>
-        <ol className="steps">
-          <li className={step === 1 ? "current" : "done"}>
-            <span className="n">1</span> Choose a token
-          </li>
-          <li className={step === 2 ? "current" : step > 2 ? "done" : ""}>
-            <span className="n">2</span> Choose a time window
-          </li>
-          <li className={step === 3 ? "current" : ""}>
-            <span className="n">3</span> Drag boxes and connect them, then press Run
-          </li>
-        </ol>
         <p className="step-hint">{hint}</p>
         <form
           className="load"
