@@ -23,6 +23,18 @@ export function nodeDef(catalog: Catalog, nodeType: string) {
   return catalog.nodes.find((item) => item.type === nodeType);
 }
 
+function paramsForRun(nodeType: string, params: Record<string, unknown>): Record<string, unknown> {
+  if (nodeType !== "detect_cycles") return params;
+  // The inspector shows these when a box was saved with nothing filled in.
+  // Run and the query preview have to use the same numbers.
+  const next = { ...params };
+  if (next.tolerance == null || next.tolerance === "") next.tolerance = 0.05;
+  if (next.window_blocks == null || next.window_blocks === "") next.window_blocks = 7200;
+  if (next.max_group_size == null || next.max_group_size === "") next.max_group_size = 24;
+  if (next.rules == null || next.rules === "") next.rules = "R1,R2,R3,R4,R5,R6";
+  return next;
+}
+
 export function toApiGraph(nodes: BoxNode[], edges: Edge[], name?: string): ApiGraph {
   return {
     name,
@@ -30,7 +42,7 @@ export function toApiGraph(nodes: BoxNode[], edges: Edge[], name?: string): ApiG
       id: node.id,
       type: node.data.nodeType,
       position: node.position,
-      data: node.data.params,
+      data: paramsForRun(node.data.nodeType, node.data.params),
     })),
     edges: edges.map((edge) => ({
       id: edge.id,
