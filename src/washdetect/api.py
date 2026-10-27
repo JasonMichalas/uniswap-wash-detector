@@ -28,8 +28,9 @@ from washdetect.graph.validate import validate_graph
 from washdetect.pipeline import load_token
 from washdetect.querylang.engine import execute_frames
 from washdetect.querylang.errors import QueryError
-from washdetect.snapshot import read_window, window_ready
+from washdetect.snapshot import window_ready
 from washdetect.store import Store
+from washdetect.token import TokenData
 from washdetect.tokensuggest import suggest_tokens
 
 app = FastAPI(title="Uniswap Wash Detector", version="0.1.0")
@@ -234,15 +235,15 @@ def run(body: RunRequest) -> dict[str, Any]:
         end_ts = datetime.fromisoformat(body.end_time)
     except ValueError as exc:
         raise HTTPException(400, detail="start_time and end_time must be ISO timestamps.") from exc
-    frames = read_window(store, body.token.lower(), body.start_block, body.end_block, start_ts, end_ts)
+    loaded = TokenData.load(store, body.token.lower(), body.start_block, body.end_block, start_ts, end_ts)
     try:
         result = execute_frames(
             program,
-            swaps=frames["swaps"],
-            transfers=frames["transfers"],
-            wallets=frames["wallets"],
-            pools=frames["pools"],
-            pool_addresses=frames["pool_addresses"],
+            swaps=loaded.swaps,
+            transfers=loaded.transfers,
+            wallets=loaded.wallets,
+            pools=loaded.pools,
+            pool_addresses=loaded.pool_addresses,
             end_ts=end_ts,
             window_start=start_ts,
             window_end=end_ts,

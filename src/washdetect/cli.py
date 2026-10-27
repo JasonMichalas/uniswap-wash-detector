@@ -19,8 +19,8 @@ from washdetect.pipeline import LoadReport, load_token
 from washdetect.querylang.engine import execute_frames
 from washdetect.querylang.errors import QueryError
 from washdetect.querylang.parser import parse
-from washdetect.snapshot import read_window
 from washdetect.store import Store
+from washdetect.token import TokenData
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -129,8 +129,8 @@ def _open(args: argparse.Namespace, report: LoadReport) -> tuple[Store, dict[str
     store = Store(args.db)
     start_ts = datetime.fromisoformat(report.start_time)
     end_ts = datetime.fromisoformat(report.end_time)
-    frames = read_window(store, report.token, report.start_block, report.end_block, start_ts, end_ts)
-    return store, frames, start_ts, end_ts
+    loaded = TokenData.load(store, report.token, report.start_block, report.end_block, start_ts, end_ts)
+    return store, loaded.frames(), start_ts, end_ts
 
 
 def _detect(args: argparse.Namespace) -> int:
@@ -305,9 +305,9 @@ def _train(args: argparse.Namespace) -> int:
             try:
                 start_ts = datetime.fromisoformat(report.start_time)
                 end_ts = datetime.fromisoformat(report.end_time)
-                frames = read_window(
+                frames = TokenData.load(
                     store, report.token, report.start_block, report.end_block, start_ts, end_ts
-                )
+                ).frames()
             finally:
                 store.close()
             swaps, transfers = events_from_frames(frames["swaps"], frames["transfers"])
