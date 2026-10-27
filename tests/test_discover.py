@@ -173,6 +173,31 @@ def test_a_stale_v4_scan_does_not_hide_a_new_pool():
     store.close()
 
 
+def test_batch_reads_v4_pools_from_the_shared_index():
+    from washdetect.config import V2_FACTORY_BLOCK, V3_FACTORY_BLOCK
+    from washdetect.store import CHAIN
+
+    head = V4_START_BLOCK + 20
+    pool_id = "0x" + "cd" * 32
+    quote = "0x" + "11" * 20
+    logs: list = []
+    store = Store(":memory:")
+    store.add_coverage(CHAIN, "v4-initialize", V4_START_BLOCK, head)
+    store.add_coverage(CHAIN, "v2-pairs", V2_FACTORY_BLOCK, head)
+    store.add_coverage(CHAIN, "v3-pools", V3_FACTORY_BLOCK, head)
+    store.upsert_chain_pools([(pool_id, "v4", "uniswap", TOKEN, quote, 500, "0x" + "00" * 20)])
+    pools = discover_pools(
+        _client(logs, []),
+        TOKEN,
+        store=store,
+        head=head,
+        use_v4_index=True,
+    )
+    assert pool_id in {pool.pool_address for pool in pools}
+    assert logs == []
+    store.close()
+
+
 def test_a_quote_pool_skips_the_factory_log_walk():
     from washdetect.abi import calldata
 

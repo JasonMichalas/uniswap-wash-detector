@@ -142,6 +142,7 @@ def discover_pools(
     include_forks: bool = False,
     cancel: Callable[[], bool] | None = None,
     rediscover: bool = False,
+    use_v4_index: bool = False,
 ) -> list[PoolMeta]:
     """Pools for this one token. A full-chain factory index is not part of a load."""
     token = normalize_address(token)
@@ -157,20 +158,42 @@ def discover_pools(
     meta = client.spawn()
     meta._timeout = 10
     meta._max_attempts = 3
+    indexed_v4 = bool(
+        use_v4_index
+        and store is not None
+        and store.range_covered(CHAIN, "v4-initialize", V4_START_BLOCK, head)
+    )
+    indexed_factories = bool(
+        use_v4_index
+        and store is not None
+        and store.range_covered(CHAIN, "v2-pairs", V2_FACTORY_BLOCK, head)
+        and store.range_covered(CHAIN, "v3-pools", V3_FACTORY_BLOCK, head)
+    )
     try:
         say("Finding pools")
-        if store is not None and not rediscover and store.range_covered(token, "direct-quotes", 0, 0):
+        # A batch refreshes quote pools with getPair/getPool. The saved list can
+        # predate the v4 index, so it is not the whole answer in that mode.
+        if (
+            store is not None
+            and not use_v4_index
+            and not rediscover
+            and store.range_covered(token, "direct-quotes", 0, 0)
+        ):
             _take_saved(store, token, found, seen)
         else:
             _quote_pairs(meta, token, include_forks, found, seen, cache)
             if store is not None:
                 _save_found(store, token, found)
                 store.add_coverage(token, "direct-quotes", 0, 0)
-        _v4_pools(client, meta, token, head, store, found, seen, cache, say, cancel)
-        # PairCreated/PoolCreated from the factory start is only for a token that
-        # has no pool against WETH, the stables, WBTC, USDe, or USDS. Those logs
-        # are filtered by the token, and they are still a long walk on a public RPC.
-        if not any(protocol_family(pool.protocol) in {"v2", "v3"} for pool in found):
+        if indexed_v4:
+            _take_indexed(store, meta, token, found, seen, cache, {"v4"}, include_forks)
+        else:
+            _v4_pools(client, meta, token, head, store, found, seen, cache, say, cancel)
+        if indexed_factories:
+            _take_indexed(store, meta, token, found, seen, cache, {"v2", "v3"}, include_forks)
+        elif not any(protocol_family(pool.protocol) in {"v2", "v3"} for pool in found):
+            # PairCreated/PoolCreated from the factory start is only for a token that
+            # has no pool against WETH, the stables, WBTC, USDe, or USDS.
             _odd_quote_pools(client, meta, token, head, store, include_forks, found, seen, cache, say, cancel)
         if store is not None:
             _save_found(store, token, found)
@@ -538,6 +561,176 @@ def _assemble_pools(
     return found
 
 
+def _take_indexed(
+    store: Store,
+    meta: RpcClient,
+    token: str,
+    found: list[PoolMeta],
+    seen: set[str],
+    cache: dict[str, Any],
+    families: set[str],
+    include_forks: bool,
+) -> None:
+    rows = []
+    for row in store.chain_pools_for(token):
+        family = protocol_family(str(row["protocol"]))
+        if family not in families:
+            continue
+        dex = str(row.get("dex") or "uniswap")
+        if dex != "uniswap" and not include_forks:
+            continue
+        rows.append(
+            (
+                str(row["pool_address"]),
+                str(row["protocol"]),
+                dex,
+                str(row["token0"]),
+                str(row["token1"]),
+                row["fee"],
+                str(row.get("hooks") or ""),
+            )
+        )
+    _add_rows(meta, rows, found, seen, cache)
+
+
+def _archive_client(client: RpcClient) -> RpcClient:
+    logs = client.spawn()
+    archive = [url for url in client.endpoints if "mevblocker" in url]
+    if archive:
+        logs.endpoints = archive
+    return logs
+
+
+def _scan_coverage(
+    client: RpcClient,
+    store: Store,
+    head: int,
+    progress: Callable[[str], None],
+    cancel: Callable[[], bool] | None,
+    *,
+    label: str,
+    dataset: str,
+    address: str,
+    topics: list[Any],
+    start: int,
+    parse: Callable[[dict[str, Any]], tuple | None],
+    span: int,
+    workers: int,
+) -> None:
+    gaps = store.missing(CHAIN, dataset, start, head)
+    total = max(1, head - start + 1)
+    for gap_start, gap_end in gaps:
+
+        def on_chunk(
+            frm: int,
+            to: int,
+            logs: list[dict[str, Any]],
+            *,
+            parse: Callable[[dict[str, Any]], tuple | None] = parse,
+            dataset: str = dataset,
+        ) -> None:
+            rows = []
+            for log in logs:
+                row = parse(log)
+                if row:
+                    rows.append(row)
+            store.upsert_chain_pools(rows)
+            store.add_coverage(CHAIN, dataset, frm, to)
+
+        def on_progress(
+            at: int,
+            _range_end: int,
+            _count: int,
+            *,
+            label: str = label,
+            start: int = start,
+            total: int = total,
+        ) -> None:
+            pct = min(100, int(100 * (at - start + 1) / total))
+            progress(f"Indexing {label}: block {at:,} of {head:,} ({pct}%)")
+
+        progress(f"Indexing {label}: blocks {gap_start:,}–{gap_end:,}")
+        client.get_logs(
+            address=address,
+            topics=topics,
+            start_block=gap_start,
+            end_block=gap_end,
+            init_span=span,
+            workers=workers,
+            on_chunk=on_chunk,
+            on_progress=on_progress,
+            cancel=cancel,
+        )
+
+
+def index_v4(
+    client: RpcClient,
+    store: Store,
+    head: int,
+    progress: Callable[[str], None],
+    cancel: Callable[[], bool] | None = None,
+) -> None:
+    """One Initialize scan for the whole batch. Each token then looks its pools up."""
+    logs = _archive_client(client)
+    try:
+        _scan_coverage(
+            logs,
+            store,
+            head,
+            progress,
+            cancel,
+            label="Uniswap v4 pools",
+            dataset="v4-initialize",
+            address=POOL_MANAGER,
+            topics=[INITIALIZE_V4],
+            start=V4_START_BLOCK,
+            parse=parse_v4_initialize,
+            span=8_000,
+            workers=1,
+        )
+    finally:
+        logs.close()
+
+
+def catch_up_factory_tips(
+    client: RpcClient,
+    store: Store,
+    head: int,
+    progress: Callable[[str], None],
+    cancel: Callable[[], bool] | None = None,
+) -> None:
+    """Extend a v2/v3 index that already exists. A missing index is not started."""
+    jobs = [
+        ("Uniswap v3 pools", "v3-pools", V3_FACTORY, [POOL_CREATED], V3_FACTORY_BLOCK, parse_v3_pool),
+        ("Uniswap v2 pairs", "v2-pairs", V2_FACTORY, [PAIR_CREATED], V2_FACTORY_BLOCK, parse_v2_pair),
+    ]
+    logs = _archive_client(client)
+    try:
+        for label, dataset, address, topics, start, parse in jobs:
+            if not store.coverage(CHAIN, dataset):
+                continue
+            gaps = store.missing(CHAIN, dataset, start, head)
+            if any(end - begin + 1 > 80_000 for begin, end in gaps):
+                continue
+            _scan_coverage(
+                logs,
+                store,
+                head,
+                progress,
+                cancel,
+                label=label,
+                dataset=dataset,
+                address=address,
+                topics=topics,
+                start=start,
+                parse=parse,
+                span=8_000,
+                workers=1,
+            )
+    finally:
+        logs.close()
+
+
 def index_chain(
     client: RpcClient,
     store: Store,
@@ -560,49 +753,21 @@ def index_chain(
             else:
                 jobs.append((f"{dex} v3 pools", f"{dex}-v3-pools", factory, [POOL_CREATED], start, _fork_v3(dex), 8_000))
     for label, dataset, address, topics, start, parse, span in jobs:
-        gaps = store.missing(CHAIN, dataset, start, head)
-        total = max(1, head - start + 1)
-        for gap_start, gap_end in gaps:
-            def on_chunk(
-                frm: int,
-                to: int,
-                logs: list[dict[str, Any]],
-                *,
-                parse: Callable[[dict[str, Any]], tuple | None] = parse,
-                dataset: str = dataset,
-            ) -> None:
-                rows = []
-                for log in logs:
-                    row = parse(log)
-                    if row:
-                        rows.append(row)
-                store.upsert_chain_pools(rows)
-                store.add_coverage(CHAIN, dataset, frm, to)
-
-            def on_progress(
-                at: int,
-                _range_end: int,
-                _count: int,
-                *,
-                label: str = label,
-                start: int = start,
-                total: int = total,
-            ) -> None:
-                pct = min(100, int(100 * (at - start + 1) / total))
-                progress(f"Indexing {label}: block {at:,} of {head:,} ({pct}%)")
-
-            progress(f"Indexing {label}: blocks {gap_start:,}–{gap_end:,}")
-            client.get_logs(
-                address=address,
-                topics=topics,
-                start_block=gap_start,
-                end_block=gap_end,
-                init_span=span,
-                workers=4,
-                on_chunk=on_chunk,
-                on_progress=on_progress,
-                cancel=cancel,
-            )
+        _scan_coverage(
+            client,
+            store,
+            head,
+            progress,
+            cancel,
+            label=label,
+            dataset=dataset,
+            address=address,
+            topics=topics,
+            start=start,
+            parse=parse,
+            span=span,
+            workers=4,
+        )
 
 
 def parse_v4_initialize(log: dict[str, Any]) -> tuple | None:

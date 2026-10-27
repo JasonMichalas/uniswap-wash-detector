@@ -1,11 +1,9 @@
 from __future__ import annotations
 
 import argparse
-import json
 import sys
 from datetime import datetime
 from pathlib import Path
-from typing import Any
 
 from washdetect.config import DEFAULT_DB, MAX_WINDOW_DAYS
 from washdetect.features import build_feature_frame
@@ -48,6 +46,12 @@ def main(argv: list[str] | None = None) -> int:
     batch.add_argument("--top", type=int, default=0, help="How many GeckoTerminal tokens to load")
     batch.add_argument("--out", default="data/training", help="Directory for per-token parquet files")
     batch.add_argument("--forks", action="store_true", help="Also read SushiSwap v2/v3 and PancakeSwap v3")
+    batch.add_argument(
+        "--token-seconds",
+        type=int,
+        default=360,
+        help="Stop one token after this many seconds and continue with the next",
+    )
 
     cover = sub.add_parser(
         "cover",
@@ -277,40 +281,21 @@ def _token_lines(path: Path) -> list[str]:
     return tokens
 
 
-def _batch_window_key(args: argparse.Namespace) -> str:
-    if args.days:
-        return f"days:{args.days}"
-    return f"{args.start or ''}:{args.end or ''}"
-
-
-def _load_checkpoint(path: Path, window: str) -> dict[str, Any]:
-    empty: dict[str, Any] = {"window": window, "done": [], "failed": {}}
-    if not path.is_file():
-        return empty
-    try:
-        saved = json.loads(path.read_text(encoding="utf-8"))
-    except json.JSONDecodeError:
-        return empty
-    if not isinstance(saved, dict) or saved.get("window") != window:
-        return empty
-    saved.setdefault("done", [])
-    saved.setdefault("failed", {})
-    return saved
-
-
 def _batch(args: argparse.Namespace) -> int:
+    from washdetect.batch import BatchScrape
+
     if args.top and args.tokens_file:
         raise ValueError("Pass either a tokens file or --top, not both.")
+    if not args.days:
+        raise ValueError("batch needs --days D (the window for every token).")
     if args.top:
-        if not args.days:
-            raise ValueError("batch --top needs --days D (the window for every token).")
-        from washdetect.tokensuggest import listed_tokens
+        from washdetect.tokensuggest import training_tokens
 
-        rows = listed_tokens(args.top)
+        rows = training_tokens(args.top)
         tokens = [row["address"] for row in rows]
         if not tokens:
             raise ValueError("GeckoTerminal returned no Uniswap tokens.")
-        print(f"GeckoTerminal list: {len(tokens)} token(s)", flush=True)
+        print(f"Training list: {len(tokens)} token(s)", flush=True)
     else:
         if not args.tokens_file:
             raise ValueError("Pass a tokens file, or --top N --days D.")
@@ -318,46 +303,15 @@ def _batch(args: argparse.Namespace) -> int:
         tokens = _token_lines(path)
         if not tokens:
             raise ValueError(f"{path} has no token addresses.")
-    out = Path(args.out)
-    out.mkdir(parents=True, exist_ok=True)
-    window = _batch_window_key(args)
-    checkpoint_path = out / "batch-checkpoint.json"
-    checkpoint = _load_checkpoint(checkpoint_path, window)
-    done = {str(token).lower() for token in checkpoint["done"]}
-    failures: list[str] = []
-    pending = [token for token in tokens if token.lower() not in done]
-    print(
-        f"Batch {window}: {len(tokens)} token(s), {len(done)} already checkpointed, "
-        f"{len(pending)} to do. Log pages run in parallel across endpoints; "
-        "tokens run one at a time because the cache has one writer.",
-        flush=True,
+    scrape = BatchScrape(
+        args.db,
+        days=args.days,
+        token_seconds=args.token_seconds,
+        include_forks=args.forks,
+        out_dir=args.out,
     )
-    for index, token in enumerate(pending, start=1):
-        print(f"\n=== token {index} of {len(pending)} · {token}", flush=True)
-        ns = argparse.Namespace(**vars(args), token=token)
-        try:
-            code = _detect(ns)
-        except Exception as exc:
-            code = 1
-            print(f"FAILED {token}: {exc}", flush=True)
-            checkpoint["failed"][token.lower()] = str(exc)
-            failures.append(token)
-        else:
-            if code != 0:
-                checkpoint["failed"][token.lower()] = f"exit {code}"
-                failures.append(token)
-            else:
-                done.add(token.lower())
-                checkpoint["done"] = sorted(done)
-                checkpoint["failed"].pop(token.lower(), None)
-                print(f"features directory: {out}", flush=True)
-        checkpoint_path.write_text(json.dumps(checkpoint, indent=2), encoding="utf-8")
-    print(
-        f"\nBatch finished: {len(done)} done, {len(failures)} failed this run. "
-        f"Checkpoint: {checkpoint_path}",
-        flush=True,
-    )
-    return 2 if failures else 0
+    counts = scrape.run(tokens)
+    return 2 if counts["failed"] or counts["partial"] else 0
 
 
 def _cover(args: argparse.Namespace) -> int:

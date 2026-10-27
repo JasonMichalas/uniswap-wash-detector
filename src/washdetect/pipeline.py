@@ -263,6 +263,7 @@ def load_token(
     include_forks: bool = False,
     cancel: Callable[[], bool] | None = None,
     hours: int | None = None,
+    use_v4_index: bool = False,
 ) -> LoadReport:
     """Fills the cache only. A wash score is a separate step."""
     raw_progress = progress or (lambda _msg: None)
@@ -322,6 +323,7 @@ def load_token(
             include_forks=include_forks,
             cancel=stop,
             rediscover=rediscover,
+            use_v4_index=use_v4_index,
         )
         if not pools:
             raise RpcError(

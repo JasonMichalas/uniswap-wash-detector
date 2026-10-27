@@ -157,6 +157,20 @@ CREATE TABLE IF NOT EXISTS chain_pools (
     hooks VARCHAR
 );
 
+CREATE TABLE IF NOT EXISTS batch_token (
+    token VARCHAR,
+    window_key VARCHAR,
+    status VARCHAR,
+    reason VARCHAR,
+    symbol VARCHAR,
+    pools INTEGER,
+    swaps INTEGER,
+    transfers INTEGER,
+    seconds DOUBLE,
+    updated_at VARCHAR,
+    PRIMARY KEY (token, window_key)
+);
+
 CREATE TABLE IF NOT EXISTS wallet_features (
     token VARCHAR,
     start_block BIGINT,
@@ -197,6 +211,8 @@ class Store:
         self.con.execute(
             "CREATE INDEX IF NOT EXISTS coverage_token_dataset ON coverage(token, dataset)"
         )
+        self.con.execute("CREATE INDEX IF NOT EXISTS chain_pools_token0 ON chain_pools(token0)")
+        self.con.execute("CREATE INDEX IF NOT EXISTS chain_pools_token1 ON chain_pools(token1)")
 
     def close(self) -> None:
         with self.lock:
@@ -592,6 +608,53 @@ class Store:
                 "INSERT OR REPLACE INTO chain_pools VALUES (?, ?, ?, ?, ?, ?, ?)",
                 rows,
             )
+
+    def batch_status(self, token: str, window: str) -> str | None:
+        with self.lock:
+            rows = self.con.execute(
+                "SELECT status FROM batch_token WHERE token = ? AND window_key = ?",
+                [token, window],
+            ).fetchall()
+        if not rows:
+            return None
+        return str(rows[0][0])
+
+    def save_batch(
+        self,
+        token: str,
+        window: str,
+        status: str,
+        reason: str,
+        symbol: str,
+        pools: int,
+        swaps: int,
+        transfers: int,
+        seconds: float,
+    ) -> None:
+        with self.lock:
+            self.con.execute(
+                "INSERT OR REPLACE INTO batch_token VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                [
+                    token,
+                    window,
+                    status,
+                    reason[:500],
+                    symbol,
+                    int(pools),
+                    int(swaps),
+                    int(transfers),
+                    float(seconds),
+                    datetime.now().isoformat(timespec="seconds"),
+                ],
+            )
+
+    def batch_rows(self, window: str) -> list[dict[str, Any]]:
+        with self.lock:
+            frame = self._df(
+                "SELECT * FROM batch_token WHERE window_key = ? ORDER BY token",
+                [window],
+            )
+        return frame.to_dict(orient="records")
 
     def chain_pools_for(self, token: str) -> list[dict[str, Any]]:
         with self.lock:
