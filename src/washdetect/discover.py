@@ -408,6 +408,7 @@ class _PoolScan:
         self.say = say
         self.width = max(1, head - start + 1)
         self.done = [0] * self.parts
+        self.shown = -1
         self.lock = threading.Lock()
 
     def seed(self, index: int, blocks: int) -> None:
@@ -420,8 +421,12 @@ class _PoolScan:
         with self.lock:
             self.done[index] = max(0, min(self.width, max(self.done[index], blocks)))
             scanned = sum(self.done)
-        total = self.width * self.parts
-        self.say(f"Finding pools · blocks {scanned:,} of {total:,} · chain {chain:,}")
+            if scanned < self.shown:
+                return
+            self.shown = scanned
+            total = self.width * self.parts
+            message = f"Finding pools · blocks {scanned:,} of {total:,} · chain {chain:,}"
+            self.say(message)
 
 
 def _topic_scan(
