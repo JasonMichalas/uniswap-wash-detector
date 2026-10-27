@@ -176,7 +176,9 @@ def _gap_blocks(gaps: list[tuple[int, int]]) -> int:
     return sum(end - start + 1 for start, end in gaps)
 
 
-_BLOCK_OF = re.compile(r"blocks ([\d,]+) of ([\d,]+)")
+_BLOCK_OF = re.compile(r"blocks? ([\d,]+) of ([\d,]+)")
+_PHASE_NOISE = re.compile(r":?\s*blocks? [\d,]+ of [\d,]+(?:\s*\(\d+%\))?")
+_EMBEDDED_PCT = re.compile(r"\s*\(\d+%\)")
 _SWAP_TOPICS = {topic.lower() for topic in (SWAP_V2, SWAP_V3, SWAP_V4)}
 
 
@@ -190,15 +192,42 @@ def format_load_line(
     elapsed: float,
     network: int,
     cached: int,
+    show_blocks: bool = True,
 ) -> str:
-    """One status line: phase, block X of Y, percent, counts, elapsed, cache versus network."""
+    """One status line. The phase does not carry its own percentage."""
+    counts = f"{swaps:,} swaps, {transfers:,} transfers found"
+    tail = f"{elapsed:.0f}s elapsed · {network:,} blocks from network, {cached:,} cached"
+    if not show_blocks or end <= 0:
+        return f"{phase} · {counts} · {tail}"
     width = max(1, end)
-    pct = min(100, max(0, int(100 * at / width))) if end else 0
-    return (
-        f"{phase} · block {at:,} of {end:,} ({pct}%) · "
-        f"{swaps:,} swaps, {transfers:,} transfers found · "
-        f"{elapsed:.0f}s elapsed · "
-        f"{network:,} blocks from network, {cached:,} cached"
+    pct = min(100, max(0, int(100 * at / width)))
+    return f"{phase} · block {at:,} of {end:,} ({pct}%) · {counts} · {tail}"
+
+
+def render_progress(
+    message: str,
+    stats: dict[str, int],
+    *,
+    elapsed: float,
+    network: int,
+    cached: int,
+) -> str:
+    """Turn a loader note into one phase and, when the note has a range, one percentage."""
+    found = _BLOCK_OF.search(message)
+    if found:
+        stats["at"] = int(found.group(1).replace(",", ""))
+        stats["end"] = int(found.group(2).replace(",", ""))
+    phase = _EMBEDDED_PCT.sub("", _PHASE_NOISE.sub("", message.split(" · ")[0])).strip(" :") or "Working"
+    return format_load_line(
+        phase=phase,
+        at=stats["at"],
+        end=stats["end"],
+        swaps=stats["swaps"],
+        transfers=stats["transfers"],
+        elapsed=elapsed,
+        network=network,
+        cached=cached,
+        show_blocks=found is not None,
     )
 
 
@@ -237,21 +266,11 @@ def load_token(
         "network": 0,
         "cached": 0,
     }
-    window_end = 0
-
     def say(message: str) -> None:
-        phase = message.split(" · ")[0].strip() or "Working"
-        found = _BLOCK_OF.search(message)
-        if found:
-            stats["at"] = int(found.group(1).replace(",", ""))
-            stats["end"] = int(found.group(2).replace(",", ""))
         raw_progress(
-            format_load_line(
-                phase=phase,
-                at=stats["at"],
-                end=stats["end"] or window_end,
-                swaps=stats["swaps"],
-                transfers=stats["transfers"],
+            render_progress(
+                message,
+                stats,
                 elapsed=time.perf_counter() - started,
                 network=stats["network"],
                 cached=stats["cached"],
@@ -273,7 +292,6 @@ def load_token(
         start_block, end_block, start_ts, end_ts = resolve_window(
             client, days=days, start=start, end=end, hours=hours
         )
-        window_end = end_block
         stats["end"] = end_block
         stats["at"] = start_block
         head_ts = end_ts
