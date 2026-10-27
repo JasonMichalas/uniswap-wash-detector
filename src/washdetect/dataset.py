@@ -5,6 +5,7 @@ from dataclasses import dataclass
 
 import pandas as pd
 
+from washdetect.config import HeuristicConfig
 from washdetect.detector import Detection, SwapEvent, TransferEvent, detect
 from washdetect.features import build_feature_frame, build_trade_frame
 from washdetect.synthetic import Injection, inject_wash_groups
@@ -99,11 +100,17 @@ def assemble_from_events(
         block_hi=hi,
     )
     augmented = detect(planted.swaps, planted.transfers, excluded=excluded)
+    wide = detect(
+        planted.swaps,
+        planted.transfers,
+        excluded=excluded,
+        config=HeuristicConfig(max_block_gap=8_000, max_group_size=32),
+    )
     wallets = build_feature_frame(planted.swaps, planted.transfers, augmented, excluded=excluded)
     trades = build_trade_frame(planted.swaps, planted.transfers, excluded=excluded, detection=augmented)
     wallets = _attach_wallet_labels(wallets, planted, token, symbol)
     trades = _attach_trade_labels(trades, planted, token, symbol)
-    groups = _group_frame(planted, token, symbol)
+    groups = _group_frame(planted, token, symbol, augmented, wide)
     return TokenTables(
         token=token.lower(),
         symbol=symbol,
@@ -155,7 +162,7 @@ def _attach_trade_labels(
     for index, group in enumerate(planted.groups):
         for key in group.swap_ids:
             group_of[key] = (index, group)
-    patterns, buyers, sellers, sizes, ids, injected = [], [], [], [], [], []
+    patterns, buyers, sellers, sizes, ids, injected, rules = [], [], [], [], [], [], []
     for row in out.itertuples(index=False):
         key = (str(row.tx_hash), int(row.log_index))
         found = group_of.get(key)
@@ -166,6 +173,7 @@ def _attach_trade_labels(
             sizes.append(0)
             ids.append(-1)
             injected.append(0)
+            rules.append("")
         else:
             gid, group = found
             patterns.append(group.pattern_type)
@@ -174,6 +182,7 @@ def _attach_trade_labels(
             sizes.append(group.n_wallets)
             ids.append(gid)
             injected.append(1)
+            rules.append(group.rule)
     out["token"] = token.lower()
     out["symbol"] = symbol
     out["injected"] = injected
@@ -182,24 +191,46 @@ def _attach_trade_labels(
     out["n_sellers"] = sellers
     out["n_wallets"] = sizes
     out["group_id"] = ids
+    out["rule"] = rules
     out["label"] = ((out["heuristic_label"].astype(int) == 1) | (out["injected"] == 1)).astype(int)
     return out
 
 
-def _group_frame(planted: Injection, token: str, symbol: str) -> pd.DataFrame:
+def _rule_caught(found: Detection, key: tuple[str, int], rule: str) -> bool:
+    if key not in found.flagged:
+        return False
+    if not rule:
+        return True
+    return rule in found.reasons.get(key, {}).get("rules", "").split(",")
+
+
+def _group_frame(
+    planted: Injection,
+    token: str,
+    symbol: str,
+    found: Detection,
+    wide: Detection,
+) -> pd.DataFrame:
     rows = []
     for index, group in enumerate(planted.groups):
+        source = wide if group.wide else found
+        hit = 0
+        if group.swap_ids and all(_rule_caught(source, key, group.rule) for key in group.swap_ids):
+            hit = 1
         rows.append(
             {
                 "token": token.lower(),
                 "symbol": symbol,
                 "group_id": index,
                 "pattern_type": group.pattern_type,
+                "rule": group.rule,
+                "wide": int(group.wide),
                 "n_buyers": group.n_buyers,
                 "n_sellers": group.n_sellers,
                 "n_wallets": group.n_wallets,
                 "n_swaps": len(group.swap_ids),
                 "injected": 1,
+                "rule_hit": hit,
             }
         )
     return pd.DataFrame(rows)

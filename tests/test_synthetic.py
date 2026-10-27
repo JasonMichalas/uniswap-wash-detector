@@ -1,5 +1,6 @@
 """Planted wash groups stay flagged, and the detector recovers each shape."""
 
+from washdetect.config import HeuristicConfig
 from washdetect.detector import SwapEvent, detect
 from washdetect.synthetic import DEFAULT_MENU, inject_wash_groups
 
@@ -33,9 +34,13 @@ def test_detector_recalls_each_planted_shape_including_the_2_plus_2_case():
         for cycle in found.cycles
     }
     for group in planted.groups:
+        if group.wide:
+            continue
         assert (group.pattern_type, group.n_buyers, group.n_sellers) in recovered, group
         for key in group.swap_ids:
             assert key in found.flagged
+    for decoy in planted.decoys:
+        assert (decoy.tx_hash, decoy.log_index) not in found.flagged
 
     student = next(group for group in planted.groups if group.buy_amount == 4 and group.n_buyers == 2)
     assert abs(student.sell_amount - 4.01) < 1e-9
@@ -48,6 +53,25 @@ def test_detector_recalls_each_planted_shape_including_the_2_plus_2_case():
     assert match.pattern_type == "many_to_one"
     assert match.n_wallets == 3
     assert abs(match.volume_usd - 8.01) < 1e-9
+
+
+def test_wide_plants_need_the_longer_window_and_a_longer_chain():
+    planted = inject_wash_groups([], [], seed=4, block_lo=1_000_000, block_hi=1_040_000)
+    narrow = detect(planted.swaps, planted.transfers)
+    wide_groups = [group for group in planted.groups if group.wide]
+    assert {group.n_wallets for group in wide_groups} >= {21, 6}
+    for group in wide_groups:
+        for key in group.swap_ids:
+            assert key not in narrow.flagged
+    caught = detect(
+        planted.swaps,
+        planted.transfers,
+        config=HeuristicConfig(max_block_gap=8_000, max_group_size=32),
+    )
+    for group in wide_groups:
+        for key in group.swap_ids:
+            assert key in caught.flagged
+            assert group.rule in caught.reasons[key]["rules"].split(",")
 
 
 def test_menu_covers_wide_group_sizes_and_buyer_seller_pairs():

@@ -168,6 +168,8 @@ def render_report(
     pattern_recall: pd.DataFrame,
     pair_recall: pd.DataFrame,
     group_level: pd.DataFrame,
+    rule_model: pd.DataFrame | None = None,
+    rule_detector: pd.DataFrame | None = None,
     comparison: pd.DataFrame,
     split: dict[str, list[str]],
     tokens: pd.DataFrame,
@@ -201,9 +203,12 @@ def render_report(
         f"Test tokens: {len(split['test'])}.",
         "",
         "Planted groups (kept separate from the chain cache, addresses start with `0x57`) "
-        "cover round trips, rings, one-to-many, many-to-one including a 2+2→4.01 fan-in, "
-        "many-to-many with an intermediate shuffle, and a wallet that both buys and sells. "
-        "Group sizes run from 1 to more than 10 wallets.",
+        "cover every rule: a same-wallet round trip (R1), a partial lot and fan-in / fan-out / "
+        "many-to-many flows (R2), a 16-wallet chain and a 21-wallet chain, a fan-in whose sell "
+        "is 3,000 blocks later, a shared funder (R3), rings (R4), a wallet that churns flat (R5), "
+        "and a buy and a sell in one transaction (R6). A negative decoy, two strangers buying 2 "
+        "and selling 2 about 40 blocks apart, is inserted and labelled not-wash. "
+        "Group sizes run from 1 to 21 wallets.",
         "",
         "## Features",
         "",
@@ -239,6 +244,27 @@ def render_report(
         _md_table(pattern_recall, percent={"recall"}),
         "",
         "![Recall by pattern](figures/recall_by_pattern.png)",
+        "",
+        "## Recall by rule",
+        "",
+        "Model recall is the fraction of planted test swaps of that rule with probability ≥ 0.5. "
+        "Detector recall is the fraction of planted groups, on every assembled token, whose swaps "
+        "the rule labelled with that rule id. A 21-wallet chain and the 3,000-block fan-in are "
+        "scored with a 8,000-block gap and a 32-wallet cap. The other plants use the 200-block, "
+        "16-wallet default.",
+        "",
+        "### Model, planted test swaps",
+        "",
+        _md_table(rule_model if rule_model is not None else pd.DataFrame(), percent={"recall"}),
+        "",
+        "### Detector, planted groups",
+        "",
+        _md_table(rule_detector if rule_detector is not None else pd.DataFrame(), percent={"recall"}),
+        "",
+        "The previous published run, before these extra plants, was 22 tokens over 2 days: "
+        "swap model precision 92.3%, recall 100%, F1 96.0%, PR-AUC 1.000 (644 / 5029); "
+        "wallet model precision 94.1%, recall 100%, F1 96.9%, PR-AUC 1.000 (602 / 1872); "
+        "rule agreement on real test swaps precision 92.6%, recall 27.6%, F1 42.6%.",
         "",
         "## Recall by buyers × sellers",
         "",

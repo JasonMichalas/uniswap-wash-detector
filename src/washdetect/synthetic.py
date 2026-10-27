@@ -24,6 +24,13 @@ DEFAULT_MENU: tuple[tuple[str, int, int, bool], ...] = (
     ("many_to_many", 4, 4, False),
     ("many_to_many", 5, 6, False),
     ("both_sides", 2, 3, False),
+    ("partial_lot", 1, 1, False),
+    ("churn", 1, 1, False),
+    ("same_tx", 1, 1, False),
+    ("controller", 1, 1, False),
+    ("chain", 16, 1, False),
+    ("chain", 21, 1, False),
+    ("fan_in_later", 5, 1, False),
 )
 
 
@@ -38,6 +45,8 @@ class InjectedGroup:
     buy_amount: float = 0.0
     sell_amount: float = 0.0
     injected: bool = True
+    rule: str = ""
+    wide: bool = False
 
     @property
     def group_size(self) -> int:
@@ -49,6 +58,7 @@ class Injection:
     swaps: list[SwapEvent]
     transfers: list[TransferEvent]
     groups: list[InjectedGroup]
+    decoys: list[SwapEvent] = field(default_factory=list)
 
     @property
     def swap_ids(self) -> set[tuple[str, int]]:
@@ -106,10 +116,12 @@ def inject_wash_groups(
         extra_swaps.extend(built[0])
         extra_transfers.extend(built[1])
         groups.append(built[2])
+    decoys = _decoys(ids, (block_hi + block_lo) // 2)
     return Injection(
-        swaps=list(swaps) + extra_swaps,
+        swaps=list(swaps) + extra_swaps + decoys,
         transfers=list(transfers) + extra_transfers,
         groups=groups,
+        decoys=decoys,
     )
 
 
@@ -153,6 +165,18 @@ def _build(
         return _many_to_many(ids, start, n_buyers, n_sellers)
     if kind == "both_sides":
         return _both_sides(ids, start)
+    if kind == "partial_lot":
+        return _partial_lot(ids, start)
+    if kind == "churn":
+        return _churn(ids, start)
+    if kind == "same_tx":
+        return _same_tx(ids, start)
+    if kind == "controller":
+        return _controller(ids, start)
+    if kind == "chain":
+        return _chain(ids, start, n_buyers)
+    if kind == "fan_in_later":
+        return _fan_in_later(ids, start, n_buyers)
     raise ValueError(f"unknown synthetic pattern {kind!r}")
 
 
@@ -200,7 +224,9 @@ def _round_trip(ids: _Ids, start: int):
         _swap(wallet, start, "buy", amount, price, ids),
         _swap(wallet, start + ids.rng.randint(5, 40), "sell", sell, price, ids),
     ]
-    return swaps, _fund(ids, [wallet], start), _group("round_trip", [wallet], swaps, n_buyers=1, n_sellers=1)
+    return swaps, _fund(ids, [wallet], start), _tag(
+        _group("round_trip", [wallet], swaps, n_buyers=1, n_sellers=1), "R1"
+    )
 
 
 def _ring(ids: _Ids, start: int, n_wallets: int):
@@ -217,7 +243,7 @@ def _ring(ids: _Ids, start: int, n_wallets: int):
     for index, wallet in enumerate(wallets):
         nxt = wallets[(index + 1) % n_wallets]
         transfers.append(TransferEvent(wallet, nxt, start + 5 + index, amount, ids.tx(), 0))
-    return swaps, transfers, _group("ring", wallets, swaps, n_buyers=1, n_sellers=1)
+    return swaps, transfers, _tag(_group("ring", wallets, swaps, n_buyers=1, n_sellers=1), "R4")
 
 
 def _one_to_many(ids: _Ids, start: int, n_sellers: int):
@@ -233,7 +259,9 @@ def _one_to_many(ids: _Ids, start: int, n_sellers: int):
         transfers.append(TransferEvent(buyer, seller, start + 10 + index, share, ids.tx(), 0))
         swaps.append(_swap(seller, start + 30 + index, "sell", sold, price, ids))
     wallets = [buyer, *sellers]
-    return swaps, transfers, _group("one_to_many", wallets, swaps, n_buyers=1, n_sellers=n_sellers)
+    return swaps, transfers, _tag(
+        _group("one_to_many", wallets, swaps, n_buyers=1, n_sellers=n_sellers), "R2"
+    )
 
 
 def _many_to_one(ids: _Ids, start: int, n_buyers: int, *, exact: bool):
@@ -253,7 +281,9 @@ def _many_to_one(ids: _Ids, start: int, n_buyers: int, *, exact: bool):
         transfers.append(TransferEvent(buyer, seller, start + 15 + index, amount, ids.tx(), 0))
     swaps.append(_swap(seller, start + 20 + n_buyers, "sell", sell, price, ids))
     wallets = [*buyers, seller]
-    return swaps, transfers, _group("many_to_one", wallets, swaps, n_buyers=n_buyers, n_sellers=1)
+    return swaps, transfers, _tag(
+        _group("many_to_one", wallets, swaps, n_buyers=n_buyers, n_sellers=1), "R2"
+    )
 
 
 def _many_to_many(ids: _Ids, start: int, n_buyers: int, n_sellers: int):
@@ -279,7 +309,7 @@ def _many_to_many(ids: _Ids, start: int, n_buyers: int, n_sellers: int):
     return (
         swaps,
         transfers,
-        _group("many_to_many", wallets, swaps, n_buyers=n_buyers, n_sellers=n_sellers),
+        _tag(_group("many_to_many", wallets, swaps, n_buyers=n_buyers, n_sellers=n_sellers), "R2"),
     )
 
 
@@ -303,7 +333,115 @@ def _both_sides(ids: _Ids, start: int):
             TransferEvent(buyer, seller_d, start + 14, 3, ids.tx(), 0),
         ]
     )
-    return swaps, transfers, _group("many_to_many", wallets, swaps, n_buyers=2, n_sellers=3)
+    return swaps, transfers, _tag(
+        _group("many_to_many", wallets, swaps, n_buyers=2, n_sellers=3), "R2"
+    )
+
+
+def _tag(group: InjectedGroup, rule: str, *, wide: bool = False) -> InjectedGroup:
+    group.rule = rule
+    group.wide = wide
+    return group
+
+
+def _partial_lot(ids: _Ids, start: int):
+    buyer, seller = ids.addr(), ids.addr()
+    price = ids.rng.uniform(0.5, 8)
+    swaps = [
+        _swap(buyer, start, "buy", 10, price, ids),
+        _swap(seller, start + 30, "sell", 1, price, ids),
+    ]
+    transfers = [TransferEvent(buyer, seller, start + 12, 1, ids.tx(), 0)]
+    return swaps, transfers, _tag(
+        _group("ring", [buyer, seller], swaps, n_buyers=1, n_sellers=1),
+        "R2",
+    )
+
+
+def _churn(ids: _Ids, start: int):
+    wallet = ids.addr()
+    price = ids.rng.uniform(0.5, 8)
+    swaps = [
+        _swap(wallet, start, "buy", 4, price, ids),
+        _swap(wallet, start + 8, "sell", 4, price, ids),
+        _swap(wallet, start + 16, "buy", 4, price, ids),
+        _swap(wallet, start + 24, "sell", 4, price, ids),
+    ]
+    return swaps, [], _tag(_group("round_trip", [wallet], swaps, n_buyers=1, n_sellers=1), "R5")
+
+
+def _same_tx(ids: _Ids, start: int):
+    wallet = ids.addr()
+    tx = ids.tx()
+    price = ids.rng.uniform(0.5, 8)
+    swaps = [
+        SwapEvent(wallet, start, "buy", 8, 8 * price, tx, 0),
+        SwapEvent(wallet, start, "sell", 8, 8 * price, tx, 1),
+    ]
+    return swaps, [], _tag(_group("round_trip", [wallet], swaps, n_buyers=1, n_sellers=1), "R6")
+
+
+def _controller(ids: _Ids, start: int):
+    funder, buyer, seller = ids.addr(), ids.addr(), ids.addr()
+    price = ids.rng.uniform(0.5, 8)
+    swaps = [
+        _swap(buyer, start, "buy", 5, price, ids),
+        _swap(seller, start + 20, "sell", 5, price, ids),
+    ]
+    transfers = [
+        TransferEvent(funder, buyer, start - 4, 1, ids.tx(), 0),
+        TransferEvent(funder, seller, start - 4, 1, ids.tx(), 0),
+    ]
+    return swaps, transfers, _tag(
+        _group("ring", [buyer, seller], swaps, n_buyers=1, n_sellers=1),
+        "R3",
+    )
+
+
+def _chain(ids: _Ids, start: int, n_wallets: int):
+    wallets = [ids.addr() for _ in range(n_wallets)]
+    price = ids.rng.uniform(0.5, 8)
+    amount = 5.0
+    swaps = [
+        _swap(wallets[0], start, "buy", amount, price, ids),
+        _swap(wallets[-1], start + 2 * (n_wallets - 1) + 4, "sell", amount, price, ids),
+    ]
+    transfers = [
+        TransferEvent(wallets[index], wallets[index + 1], start + 2 + 2 * index, amount, ids.tx(), 0)
+        for index in range(n_wallets - 1)
+    ]
+    wide = n_wallets > 16
+    return swaps, transfers, _tag(
+        _group("ring", wallets, swaps, n_buyers=1, n_sellers=1),
+        "R2",
+        wide=wide,
+    )
+
+
+def _fan_in_later(ids: _Ids, start: int, n_buyers: int):
+    buyers = [ids.addr() for _ in range(n_buyers)]
+    seller = ids.addr()
+    price = 1.0
+    swaps = [_swap(buyer, start + index, "buy", 2, price, ids) for index, buyer in enumerate(buyers)]
+    transfers = [
+        TransferEvent(buyer, seller, start + 10 + index, 2, ids.tx(), 0)
+        for index, buyer in enumerate(buyers)
+    ]
+    swaps.append(_swap(seller, start + 3_000, "sell", 2 * n_buyers, price, ids))
+    return swaps, transfers, _tag(
+        _group("many_to_one", [*buyers, seller], swaps, n_buyers=n_buyers, n_sellers=1),
+        "R2",
+        wide=True,
+    )
+
+
+def _decoys(ids: _Ids, start: int) -> list[SwapEvent]:
+    """Two strangers trading the same size a few minutes apart. Not a wash group."""
+    buyer, seller = ids.addr(), ids.addr()
+    return [
+        _swap(buyer, start, "buy", 2, 1, ids),
+        _swap(seller, start + 40, "sell", 2, 1, ids),
+    ]
 
 
 def _shares(ids: _Ids, count: int, total: float) -> list[float]:
