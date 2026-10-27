@@ -5,7 +5,7 @@ from datetime import datetime
 from washdetect.config import POOL_MANAGER
 from washdetect.discover import PoolMeta
 from washdetect.logs import _pool_topics
-from washdetect.pipeline import _fetch_one_gap, _fetch_swap_groups, _use_v4_bulk
+from washdetect.pipeline import _fetch_one_gap, _fetch_swap_groups
 from washdetect.rpc import RpcError
 from washdetect.store import Store
 
@@ -71,11 +71,6 @@ def _scan(store: Store, client: _Logs, pools: list[PoolMeta]) -> None:
     )
 
 
-def test_a_long_window_with_a_few_v4_pools_stays_filtered():
-    assert _use_v4_bulk(9, 100_000) is False
-    assert _use_v4_bulk(20, 300) is True
-
-
 def test_many_v4_pools_share_one_poolmanager_scan(tmp_path):
     store = Store(tmp_path / "scan.duckdb")
     pools = [_pool(i, "v4") for i in range(1, 21)]
@@ -83,7 +78,9 @@ def test_many_v4_pools_share_one_poolmanager_scan(tmp_path):
     _scan(store, client, pools)
     assert len(client.calls) == 1
     assert client.calls[0]["address"] == POOL_MANAGER
-    assert client.calls[0]["topics"] == _pool_topics("v4")
+    topics = client.calls[0]["topics"]
+    assert topics[0] == _pool_topics("v4")[0]
+    assert set(topics[1]) == {pool.pool_address for pool in pools}
     for pool in pools:
         assert store.range_covered(TOKEN, f"swaps:{pool.pool_address}", 100, 399)
     store.close()

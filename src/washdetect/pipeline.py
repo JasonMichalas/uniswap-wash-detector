@@ -75,6 +75,7 @@ class LoadReport:
     v4_pools: int
     swap_logs: int
     notes: list[str] = field(default_factory=list)
+    note_details: list[str] = field(default_factory=list)
 
     def as_dict(self) -> dict[str, Any]:
         return {
@@ -101,6 +102,7 @@ class LoadReport:
             "eth_usd": self.eth_usd,
             "used_subgraph": self.used_subgraph,
             "notes": self.notes,
+            "note_details": self.note_details,
             "analysis_ran": False,
         }
 
@@ -391,15 +393,18 @@ def load_token(
                 stats["at"] = to
 
             say(f"Reading transfers: blocks {gap_start:,} of {end_block:,}")
+            transfer_span = min(max(gap_end - gap_start + 1, 1), _LOG_SPAN)
             client.get_logs(
                 address=token,
                 topics=[TRANSFER],
                 start_block=gap_start,
                 end_block=gap_end,
-                workers=4,
+                init_span=transfer_span,
+                workers=4 if gap_end - gap_start + 1 > _LOG_SPAN else 1,
                 on_progress=on_progress,
                 on_chunk=on_transfer_chunk,
                 cancel=stop,
+                empty_limit=transfer_span,
             )
             blocks_fetched += gap_end - gap_start + 1
             stats["network"] = blocks_fetched
@@ -419,12 +424,13 @@ def load_token(
         try:
             balances = fetch_balances(client, token, wallets, end_block, decimals)
         except Exception as exc:
-            client.note(f"balanceOf at block {end_block} failed ({exc}); tried latest")
+            client.detail(f"balanceOf at block {end_block} failed ({exc}); tried latest")
             balances = fetch_balances(client, token, wallets, client.block_number(), decimals)
             balance_block = client.block_number()
         store.save_balances(token, balance_block, list(balances.items()))
         _rebuild_daily(store, token, balances, start_block, end_block, end_ts)
 
+        notes, details = _load_notes(client, pools)
         report = LoadReport(
             token=token,
             symbol=symbol,
@@ -448,7 +454,8 @@ def load_token(
             used_subgraph=used_subgraph,
             v4_pools=sum(1 for p in pools if protocol_family(p.protocol) == "v4"),
             swap_logs=swap_logs,
-            notes=_load_notes(client.notes, pools),
+            notes=notes,
+            note_details=details,
         )
         if report.swaps == 0:
             # The whole window was checked. blocks_fetched is only the part that was not cached.
@@ -519,19 +526,11 @@ def _fetch_swap_groups(
     return fetched, cached, raw
 
 
-# One PoolManager eth_getLogs for a short window is a few thousand logs. Past this
-# many pools, filtering eight ids at a time costs more round trips than reading them all.
-_V4_BULK_AT = 8
+# One filtered eth_getLogs for every pool of the token. A page of all v4 logs is what
+# made a one-day load sit for twenty minutes.
+_V4_ID_BATCH = 128
 _ADDRESS_BATCH = 400
-
-
-def _use_v4_bulk(pool_count: int, width: int) -> bool:
-    if pool_count <= _V4_BULK_AT:
-        return False
-    filtered = (pool_count + _V4_BULK_AT - 1) // _V4_BULK_AT * max(1, (width + 3_999) // 4_000)
-    # About 15 v4 logs per block on mainnet, and a page caps near 8,000 logs.
-    bulk = max(1, (width + 399) // 400)
-    return bulk < filtered
+_LOG_SPAN = 20_000
 
 
 def _too_many_addresses(message: str) -> bool:
@@ -596,12 +595,43 @@ def _fetch_one_gap(
         say(f"Reading swaps: blocks {at:,} of {end_block:,}")
 
     say(f"Reading swaps: blocks {gap_start:,} of {end_block:,}")
-    workers = 4 if gap_end - gap_start > 8_000 else 1
     width = gap_end - gap_start + 1
-    _scan_pool_addresses(
-        client, rest, gap_start, gap_end, workers, progress, cancel, consume, say
-    )
-    _scan_v4(client, v4, gap_start, gap_end, width, workers, progress, cancel, consume, say)
+    span = min(max(width, 1), _LOG_SPAN)
+    workers = 4 if width > _LOG_SPAN else 1
+    parallel = bool(rest and v4) and getattr(client, "_transport", None) is None
+    if not parallel:
+        _scan_pool_addresses(
+            client, rest, gap_start, gap_end, workers, span, progress, cancel, consume, say
+        )
+        _scan_v4(client, v4, gap_start, gap_end, workers, span, progress, cancel, consume, say)
+    else:
+        say(f"Reading swaps for {len(rest) + len(v4):,} pools on two requests at once")
+
+        def run_rest() -> None:
+            child = client.spawn()
+            try:
+                _scan_pool_addresses(
+                    child, rest, gap_start, gap_end, workers, span, progress, cancel, consume, say
+                )
+            finally:
+                client.notes.extend(child.notes)
+                client.details.extend(child.details)
+                child.close()
+
+        def run_v4() -> None:
+            child = client.spawn()
+            child._cursor = 1
+            try:
+                _scan_v4(child, v4, gap_start, gap_end, workers, span, progress, cancel, consume, say)
+            finally:
+                client.notes.extend(child.notes)
+                client.details.extend(child.details)
+                child.close()
+
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            done = [pool.submit(run_rest), pool.submit(run_v4)]
+            for future in done:
+                future.result()
     if stats is not None and group:
         stats["network"] += width
         stats["at"] = max(stats["at"], gap_end)
@@ -613,8 +643,8 @@ def _scan_v4(
     pools: list[PoolMeta],
     gap_start: int,
     gap_end: int,
-    width: int,
     workers: int,
+    span: int,
     progress: Callable[[int, int, int], None],
     cancel: Callable[[], bool],
     consume: Callable[[list[dict[str, Any]], list[PoolMeta], int, int], None],
@@ -622,28 +652,9 @@ def _scan_v4(
 ) -> None:
     if not pools:
         return
-    if _use_v4_bulk(len(pools), width):
-        say(
-            f"Reading Uniswap v4 Swap and ModifyLiquidity logs for {len(pools):,} pools "
-            "in one pass"
-        )
-
-        def on_bulk(frm: int, to: int, logs: list[dict[str, Any]]) -> None:
-            consume(logs, pools, frm, to)
-
-        client.get_logs(
-            address=POOL_MANAGER,
-            topics=_pool_topics("v4"),
-            start_block=gap_start,
-            end_block=gap_end,
-            workers=workers,
-            on_chunk=on_bulk,
-            on_progress=progress,
-            cancel=cancel,
-        )
-        return
-    for offset in range(0, len(pools), _V4_BULK_AT):
-        chunk = pools[offset : offset + _V4_BULK_AT]
+    say(f"Reading Uniswap v4 logs for {len(pools):,} pools in one filtered request")
+    for offset in range(0, len(pools), _V4_ID_BATCH):
+        chunk = pools[offset : offset + _V4_ID_BATCH]
 
         def on_v4(frm: int, to: int, logs: list[dict[str, Any]], chunk: list[PoolMeta] = chunk) -> None:
             consume(logs, chunk, frm, to)
@@ -653,10 +664,12 @@ def _scan_v4(
             topics=[_pool_topics("v4")[0], [pool.pool_address for pool in chunk]],
             start_block=gap_start,
             end_block=gap_end,
+            init_span=span,
             workers=workers,
             on_chunk=on_v4,
             on_progress=progress,
             cancel=cancel,
+            empty_limit=span,
         )
 
 
@@ -666,6 +679,7 @@ def _scan_pool_addresses(
     gap_start: int,
     gap_end: int,
     workers: int,
+    span: int,
     progress: Callable[[int, int, int], None],
     cancel: Callable[[], bool],
     consume: Callable[[list[dict[str, Any]], list[PoolMeta], int, int], None],
@@ -681,7 +695,9 @@ def _scan_pool_addresses(
     )
     if not parallel:
         for chunk in chunks:
-            _consume_address_chunk(client, chunk, gap_start, gap_end, workers, progress, cancel, consume)
+            _consume_address_chunk(
+                client, chunk, gap_start, gap_end, workers, span, progress, cancel, consume
+            )
         return
     say(f"Reading {len(pools):,} v2/v3 pools, {_ADDRESS_BATCH} addresses at a time")
     errors: list[BaseException] = []
@@ -689,8 +705,8 @@ def _scan_pool_addresses(
     def run(chunk: list[PoolMeta]) -> tuple[list[PoolMeta], list[dict[str, Any]], list[str]]:
         child = client.spawn()
         try:
-            logs = _load_address_chunk(child, chunk, gap_start, gap_end, 1, progress, cancel)
-            return chunk, logs, list(child.notes)
+            logs = _load_address_chunk(child, chunk, gap_start, gap_end, 1, progress, cancel, span)
+            return chunk, logs, list(child.notes) + list(child.details)
         finally:
             child.close()
 
@@ -714,6 +730,7 @@ def _consume_address_chunk(
     gap_start: int,
     gap_end: int,
     workers: int,
+    span: int,
     progress: Callable[[int, int, int], None],
     cancel: Callable[[], bool],
     consume: Callable[[list[dict[str, Any]], list[PoolMeta], int, int], None],
@@ -727,17 +744,19 @@ def _consume_address_chunk(
             topics=[_event_topics(chunk)],
             start_block=gap_start,
             end_block=gap_end,
+            init_span=span,
             workers=workers,
             on_chunk=on_chunk,
             on_progress=progress,
             cancel=cancel,
+            empty_limit=span,
         )
     except RpcError as exc:
         if len(chunk) <= 1 or not _too_many_addresses(str(exc)):
             raise
         mid = len(chunk) // 2
-        _consume_address_chunk(client, chunk[:mid], gap_start, gap_end, workers, progress, cancel, consume)
-        _consume_address_chunk(client, chunk[mid:], gap_start, gap_end, workers, progress, cancel, consume)
+        _consume_address_chunk(client, chunk[:mid], gap_start, gap_end, workers, span, progress, cancel, consume)
+        _consume_address_chunk(client, chunk[mid:], gap_start, gap_end, workers, span, progress, cancel, consume)
 
 
 def _load_address_chunk(
@@ -748,6 +767,7 @@ def _load_address_chunk(
     workers: int,
     progress: Callable[[int, int, int], None],
     cancel: Callable[[], bool],
+    span: int = _LOG_SPAN,
 ) -> list[dict[str, Any]]:
     try:
         return client.get_logs(
@@ -755,16 +775,18 @@ def _load_address_chunk(
             topics=[_event_topics(chunk)],
             start_block=gap_start,
             end_block=gap_end,
+            init_span=span,
             workers=workers,
             on_progress=progress,
             cancel=cancel,
+            empty_limit=span,
         )
     except RpcError as exc:
         if len(chunk) <= 1 or not _too_many_addresses(str(exc)):
             raise
         mid = len(chunk) // 2
-        left = _load_address_chunk(client, chunk[:mid], gap_start, gap_end, workers, progress, cancel)
-        right = _load_address_chunk(client, chunk[mid:], gap_start, gap_end, workers, progress, cancel)
+        left = _load_address_chunk(client, chunk[:mid], gap_start, gap_end, workers, progress, cancel, span)
+        right = _load_address_chunk(client, chunk[mid:], gap_start, gap_end, workers, progress, cancel, span)
         return left + right
 
 
@@ -797,12 +819,16 @@ def _keep_transfers(
     store.add_coverage(token, "transfers", frm, to)
 
 
-def _load_notes(notes: list[str], pools: list[PoolMeta]) -> list[str]:
+def _load_notes(client: RpcClient, pools: list[PoolMeta]) -> tuple[list[str], list[str]]:
     dexes = sorted({pool.dex for pool in pools})
     extra: list[str] = []
     if any(item != "uniswap" for item in dexes):
         extra.append("DEXes in this load: " + ", ".join(dexes) + ".")
-    return extra + list(notes)
+    details = list(getattr(client, "details", []))
+    notes = list(getattr(client, "notes", []))
+    if details:
+        notes.append("One free data server refused some requests; we used the others.")
+    return extra + notes, details
 
 
 def _empty_window_note(token: str, start_ts: datetime, raw_logs: int, blocks: int) -> str:
@@ -1058,7 +1084,7 @@ def _price_swaps(
         else:
             say(f"ETH/USD ≈ {eth_usd:,.0f} from the USDC/WETH 0.05% pool")
     except Exception as exc:
-        client.note(f"could not read ETH/USD ({exc})")
+        client.detail(f"could not read ETH/USD ({exc})")
         say("Could not read an ETH/USD price. Stable-quoted swaps are still priced.")
     pending = store.swaps_missing_price(token, start, end)
     updates: list[tuple[float, str, int]] = []
