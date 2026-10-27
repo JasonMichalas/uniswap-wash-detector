@@ -29,6 +29,7 @@ from washdetect.config import (
     V3_FEES,
     V4_START_BLOCK,
     ZERO_ADDRESS,
+    protocol_family,
 )
 from washdetect.rpc import RpcClient
 from washdetect.store import CHAIN, Store
@@ -93,9 +94,9 @@ def read_pool(
 ) -> PoolMeta:
     token0 = decode_address_word(client.eth_call(pool, calldata("token0")))
     token1 = decode_address_word(client.eth_call(pool, calldata("token1")))
-    if protocol == "v3":
+    if protocol_family(protocol) == "v3":
         try:
-            fee = int(decode_uint(client.eth_call(pool, calldata("fee"))))
+            fee = _fit_fee(int(decode_uint(client.eth_call(pool, calldata("fee")))))
         except Exception:
             pass
     return PoolMeta(
@@ -132,8 +133,29 @@ def discover_pools(
     found: list[PoolMeta] = []
     seen: set[str] = set()
     cache: dict[str, Any] = {}
+    meta = client.spawn()
+    meta._timeout = 10
+    meta._max_attempts = 3
+    try:
+        return _assemble_pools(meta, client, token, store, cache, found, seen, include_forks)
+    finally:
+        meta.close()
+
+
+def _assemble_pools(
+    meta: RpcClient,
+    client: RpcClient,
+    token: str,
+    store: Store | None,
+    cache: dict[str, Any],
+    found: list[PoolMeta],
+    seen: set[str],
+    include_forks: bool,
+) -> list[PoolMeta]:
     if store is not None:
-        for row in store.chain_pools_for(token):
+        rows = store.chain_pools_for(token)
+        _prefetch_meta(meta, [str(row["token0"]) for row in rows] + [str(row["token1"]) for row in rows], cache)
+        for row in rows:
             dex = str(row["dex"] or "uniswap")
             if dex != "uniswap" and not include_forks:
                 continue
@@ -141,7 +163,7 @@ def discover_pools(
             if address in seen:
                 continue
             seen.add(address)
-            found.append(_meta_from_chain(client, row, cache))
+            found.append(_meta_from_chain(meta, row, cache))
     venues: list[tuple[str, str, str]] = [("uniswap", "v2", V2_FACTORY), ("uniswap", "v3", V3_FACTORY)]
     if include_forks:
         venues.extend((dex, family, factory) for dex, family, factory, _start in FORK_VENUES)
@@ -154,7 +176,7 @@ def discover_pools(
                 protocol = "v2" if dex == "uniswap" else f"{dex}-v2"
                 if pair and pair not in seen:
                     seen.add(pair)
-                    found.append(read_pool(client, pair, protocol, 3000, cache, dex))
+                    found.append(read_pool(meta, pair, protocol, 3000, cache, dex))
             else:
                 for fee in V3_FEES:
                     pool = _call_address(
@@ -163,7 +185,7 @@ def discover_pools(
                     protocol = "v3" if dex == "uniswap" else f"{dex}-v3"
                     if pool and pool not in seen:
                         seen.add(pool)
-                        found.append(read_pool(client, pool, protocol, fee, cache, dex))
+                        found.append(read_pool(meta, pool, protocol, fee, cache, dex))
     return found
 
 
@@ -250,7 +272,7 @@ def parse_v4_initialize(log: dict[str, Any]) -> tuple | None:
         "uniswap",
         topic_address(topics[2]),
         topic_address(topics[3]),
-        int(fee),
+        _fit_fee(int(fee)),
         normalize_address(hooks) if hooks else ZERO_ADDRESS,
     )
 
@@ -300,7 +322,14 @@ def _parse_created(
         return None
     if is_zero(pool):
         return None
-    return (pool, protocol, dex, topic_address(topics[1]), topic_address(topics[2]), int(fee), "")
+    fee = _fit_fee(int(fee))
+    return (pool, protocol, dex, topic_address(topics[1]), topic_address(topics[2]), fee, "")
+
+
+def _fit_fee(value: int) -> int:
+    if 0 <= value <= 2**24:
+        return value
+    return 0
 
 
 def decode_initialize_words(data: str) -> tuple[Any, ...]:
@@ -318,13 +347,58 @@ def _meta_from_chain(client: RpcClient, row: dict[str, Any], cache: dict[str, An
         protocol=protocol,
         token0=token0,
         token1=token1,
-        fee=int(row["fee"] or 0),
+        fee=_fit_fee(int(row["fee"] or 0)),
         token0_decimals=_asset_decimals(client, token0, cache),
         token1_decimals=_asset_decimals(client, token1, cache),
         token0_symbol=_asset_symbol(client, token0, cache),
         token1_symbol=_asset_symbol(client, token1, cache),
         dex=str(row["dex"] or "uniswap"),
     )
+
+
+def _prefetch_meta(client: RpcClient, tokens: list[str], cache: dict[str, Any]) -> None:
+    """One multicall for decimals and symbols. A dead token must not stall discovery."""
+    from washdetect.abi import decode_aggregate3, encode_aggregate3
+    from washdetect.config import MULTICALL3
+
+    dec = cache.setdefault("dec", {})
+    sym = cache.setdefault("sym", {})
+    pending: list[str] = []
+    for token in tokens:
+        if is_zero(token):
+            dec[ZERO_ADDRESS] = 18
+            sym[ZERO_ADDRESS] = "ETH"
+            continue
+        if token not in dec or token not in sym:
+            pending.append(token)
+    pending = list(dict.fromkeys(pending))
+    raw_dec = bytes.fromhex(calldata("decimals").removeprefix("0x"))
+    raw_sym = bytes.fromhex(calldata("symbol").removeprefix("0x"))
+    for offset in range(0, len(pending), 80):
+        part = pending[offset : offset + 80]
+        calls = []
+        for token in part:
+            calls.append((token, True, raw_dec))
+            calls.append((token, True, raw_sym))
+        try:
+            decoded = decode_aggregate3(client.eth_call(MULTICALL3, encode_aggregate3(calls)))
+        except Exception:
+            for token in part:
+                dec.setdefault(token, 18)
+                sym.setdefault(token, token[:8])
+            continue
+        for index, token in enumerate(part):
+            ok_dec, ret_dec = decoded[index * 2] if index * 2 < len(decoded) else (False, b"")
+            ok_sym, ret_sym = decoded[index * 2 + 1] if index * 2 + 1 < len(decoded) else (False, b"")
+            if ok_dec and len(ret_dec) >= 32:
+                value = int.from_bytes(ret_dec[-32:], "big")
+                dec[token] = value if 0 <= value <= 36 else 18
+            else:
+                dec[token] = 18
+            if ok_sym and ret_sym:
+                sym[token] = decode_symbol("0x" + ret_sym.hex()) or token[:8]
+            else:
+                sym[token] = token[:8]
 
 
 def _asset_decimals(client: RpcClient, token: str, cache: dict[str, Any]) -> int:

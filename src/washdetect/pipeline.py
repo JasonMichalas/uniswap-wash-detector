@@ -426,8 +426,8 @@ def _fetch_one_gap(
     say(f"Scraping swaps from Ethereum: blocks {gap_start:,} of {end_block:,}")
     workers = 4 if gap_end - gap_start > 8_000 else 1
     width = gap_end - gap_start + 1
-    for offset in range(0, len(rest), 30):
-        chunk = rest[offset : offset + 30]
+    for offset in range(0, len(rest), 8):
+        chunk = rest[offset : offset + 8]
         topics: list[str] = []
         for pool in chunk:
             for topic in _pool_topics(pool.protocol)[0]:
@@ -448,8 +448,8 @@ def _fetch_one_gap(
             cancel=cancel,
         )
         scanned += width
-    for offset in range(0, len(v4), 30):
-        chunk = v4[offset : offset + 30]
+    for offset in range(0, len(v4), 8):
+        chunk = v4[offset : offset + 8]
 
         def on_v4(frm: int, to: int, logs: list[dict[str, Any]], chunk: list[PoolMeta] = chunk) -> None:
             consume(logs, chunk, frm, to)
