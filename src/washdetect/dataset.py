@@ -1,10 +1,3 @@
-"""Turn cached swaps into labelled wallet and swap frames.
-
-Real rows stay real. Synthetic groups from `inject_wash_groups` are appended
-and flagged `injected=1`. The training label is 1 when the row was planted
-or the rule flags it on the augmented book. That label is not a feature.
-"""
-
 from __future__ import annotations
 
 import zlib
@@ -92,7 +85,7 @@ def assemble_from_events(
     start_block: int = 0,
     end_block: int = 0,
 ) -> TokenTables:
-    """Label one token. Injection is in memory only."""
+    """The label is planted-or-rule. It is not a model feature."""
     excluded = excluded or set()
     real = detect(swaps, transfers, excluded=excluded)
     blocks = [swap.block for swap in swaps] or [start_block or 1]

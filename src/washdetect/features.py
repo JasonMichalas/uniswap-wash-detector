@@ -1,12 +1,3 @@
-"""Wallet-level features and the holder table.
-
-The feature columns are what the models train on. They are computed from
-swaps and transfers. Rule outputs stay on the frame for labelling and are
-excluded from the model matrix. The holder table is what the Wallets and
-Holders source boxes read. It is data, not a wash score: loading a token
-builds it, and nothing is shown until a graph asks.
-"""
-
 from __future__ import annotations
 
 import math
@@ -37,7 +28,6 @@ FEATURE_COLUMNS = [
     "volume_usd",
     "heuristic_label",
     "heuristic_confidence",
-    # Behavioural flow stats. These are not the detector's decision.
     "buy_fraction",
     "log_buy_amount",
     "log_sell_amount",
@@ -52,10 +42,7 @@ FEATURE_COLUMNS = [
     "both_sides",
 ]
 
-# What XGBoost and Isolation Forest actually see. The detector's own
-# outputs are absent on purpose: round_trip_count, wash_volume_usd,
-# heuristic_label, and heuristic_confidence would let the model recite
-# the rule. funding_source is a raw address, not a number.
+# Rule outputs are absent on purpose. Otherwise the model recites the detector.
 MODEL_FEATURE_COLUMNS = [
     "n_swaps",
     "n_buys",
@@ -87,7 +74,6 @@ RULE_OUTPUT_COLUMNS = (
     "heuristic_confidence",
 )
 
-# One row per swap. Wallet columns are context, still without rule outputs.
 TRADE_FEATURE_COLUMNS = [
     "log_usd",
     "log_amount",
@@ -142,7 +128,7 @@ def _cap_ratio(value: float, cap: float = 5.0) -> float:
 
 
 def model_matrix(frame: pd.DataFrame, columns: list[str]) -> pd.DataFrame:
-    """Numeric model input. Missing values become 0. Rule columns are refused."""
+    """Missing values become 0. Rule columns are refused."""
     banned = set(RULE_OUTPUT_COLUMNS) & set(columns)
     if banned:
         raise ValueError(f"model features must not include rule outputs: {sorted(banned)}")
@@ -159,11 +145,6 @@ def build_trade_frame(
     excluded: set[str] | None = None,
     detection: Detection | None = None,
 ) -> pd.DataFrame:
-    """One row per swap. Wallet context is attached; the rule's decision is not.
-
-    ``detection`` is optional and only used to store ``heuristic_label`` on
-    the side, for the training label. It is not one of TRADE_FEATURE_COLUMNS.
-    """
     wallet_frame = build_feature_frame(
         swaps,
         transfers,
@@ -244,7 +225,6 @@ def build_feature_frame(
     *,
     excluded: set[str] | None = None,
 ) -> pd.DataFrame:
-    """One row per wallet that swapped, with the columns the models will use."""
     excluded = {addr.lower() for addr in (excluded or set())}
     by_wallet: dict[str, list[SwapEvent]] = defaultdict(list)
     for swap in swaps:
@@ -349,15 +329,6 @@ def build_wallet_table(
     end_ts: datetime,
     window_start_ts: datetime,
 ) -> pd.DataFrame:
-    """Holder and wallet rows for the loaded window.
-
-    `held_days` is days since the first inbound transfer *inside the loaded
-    range*. It is a lower bound (`held_days_is_lower_bound`) because the
-    cache is not the token's full history. `acquired_before_window` is true
-    when a wallet still has a balance but received nothing in the range, so
-    `held_days` is left empty rather than invented. `ever_sold` / 
-    `days_since_sell` look only at sell swaps in the range.
-    """
     balances = {k.lower(): float(v) for k, v in (balances or {}).items()}
     wallets: set[str] = set()
 
@@ -415,8 +386,7 @@ def build_wallet_table(
         if balance is not None and balance > 0 and wallet in first_in and not acquired_before:
             delta = end_naive - first_in[wallet].replace(tzinfo=None)
             held_days = delta.total_seconds() / 86400.0
-            # The first inbound we can see is the start of the cache, not
-            # necessarily the true acquisition.
+            # First inbound in the cache may be the window edge, not the real acquisition.
             lower_bound = first_in[wallet] <= window_start_ts.replace(tzinfo=None) + _one_hour()
         days_since = None
         if wallet in last_sell:

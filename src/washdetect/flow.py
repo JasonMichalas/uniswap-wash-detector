@@ -1,25 +1,3 @@
-"""Multi-wallet wash groups from the token flow graph.
-
-A wash group is a connected set of wallets, inside one block window, whose
-buys from the pool and sells back to the pool nearly cancel. Connectivity
-is directed token flow: pool buy, wallet-to-wallet transfers, pool sell.
-The shape is read off the buyer and seller sets, so every combination is
-covered, not only the named pictures:
-
-* ``round_trip`` — one wallet buys and sells.
-* ``ring`` — one buyer and one seller spread across two or more wallets,
-  or any group whose transfers contain a directed cycle and that is not
-  already an M:N shape. A path pool → A → B → pool is a ring once the
-  pool is put back on the cycle.
-* ``one_to_many`` — one buyer, several sellers (fan-out).
-* ``many_to_one`` — several buyers, one seller (fan-in / consolidation).
-* ``many_to_many`` — several buyers and several sellers.
-
-``n_buyers`` and ``n_sellers`` count distinct wallets on each side. A wallet
-that both buys and sells is in both counts. ``n_wallets`` also includes
-intermediates that only forward the token.
-"""
-
 from __future__ import annotations
 
 from collections import defaultdict
@@ -37,7 +15,6 @@ PATTERN_TYPES = (
     "many_to_many",
 )
 
-# Safety stop. The box editor allows up to this many wallets in one group.
 MAX_GROUP_HARD_CAP = 64
 
 
@@ -57,12 +34,6 @@ class FlowGroup:
 
 
 def classify_pattern(n_wallets: int, n_buyers: int, n_sellers: int, *, has_cycle: bool) -> str:
-    """Map a group's shape onto the pattern_type vocabulary.
-
-    Buyer/seller counts win over the cycle flag: a 3-buyer 4-seller shuffle
-    is ``many_to_many`` even if an intermediate also loops. ``has_cycle``
-    marks a directed transfer cycle among the wallets.
-    """
     if n_wallets <= 1:
         return "round_trip"
     if n_buyers > 1 and n_sellers > 1:
@@ -96,7 +67,6 @@ def _has_directed_cycle(nodes: Iterable[str], edges: Sequence[tuple[str, str]]) 
 
 
 def _bfs(starts: Iterable[str], adj: dict[str, set[str]], limit: int) -> tuple[set[str], bool]:
-    """Forward or backward reachability. The second flag is set when `limit` binds."""
     seen: set[str] = set()
     stack: list[str] = []
     for start in starts:
@@ -116,7 +86,6 @@ def _bfs(starts: Iterable[str], adj: dict[str, set[str]], limit: int) -> tuple[s
 
 
 def _slice(events: Sequence, lo: int, hi: int, blocks: Sequence[int]) -> Sequence:
-    """`events` and `blocks` are sorted by block, so the window is a bisect."""
     from bisect import bisect_left, bisect_right
 
     left = bisect_left(blocks, lo)
@@ -130,14 +99,6 @@ def find_flow_groups(
     excluded: set[str],
     config: HeuristicConfig,
 ) -> list[FlowGroup]:
-    """Groups whose pooled buy amount and sell amount match within `net_ratio`.
-
-    Each buy is a seed. The window is `[seed.block, seed.block + max_block_gap]`.
-    An earlier buy in the same group is itself a seed, so its forward window
-    still sees the later legs. Hubs and excluded contracts are not edges.
-    A component bigger than `max_group_size` is skipped rather than trimmed:
-    a truncated subset would invent a match the full component does not have.
-    """
     if not swaps:
         return []
     limit = max(2, min(int(config.max_group_size), MAX_GROUP_HARD_CAP))
@@ -169,10 +130,8 @@ def find_flow_groups(
     for seed in buys:
         if len(found) >= max_groups:
             break
-        # One window on either side of the seed. A later buyer can be the
-        # wallet that reaches every seller, while an earlier buy still belongs
-        # to the group. The attributed swaps must themselves span at most
-        # max_block_gap, so the wide slice cannot glue two distant episodes.
+        # One window before the seed so an earlier buy can join. Attributed swaps
+        # must themselves span at most max_block_gap, or two episodes would glue together.
         lo = seed.block - config.max_block_gap
         hi = seed.block + config.max_block_gap
         window_transfers = _slice(ordered_transfers, lo, hi, transfer_blocks)
@@ -195,9 +154,8 @@ def find_flow_groups(
                 directed.append((src, dst))
 
         seller_here = any(swap.wallet == seed.wallet and swap.side == "sell" for swap in window_swaps)
+        # Nothing leaves this buyer and they do not sell. A lone round-trip is labelled elsewhere.
         if seed.wallet not in forward and not seller_here:
-            # Token does not move on from this buyer, and the buyer does not
-            # sell. A lone round-trip is labelled by find_round_trips.
             continue
 
         downstream, overflow = _bfs([seed.wallet], forward, limit)
@@ -270,7 +228,6 @@ def find_flow_groups(
 
 
 def _maximal(groups: list[FlowGroup]) -> list[FlowGroup]:
-    """Drop a group whose swaps are already covered by a larger group."""
     ranked = sorted(groups, key=lambda group: (-len(group.swaps), group.start_block, group.wallets))
     kept: list[FlowGroup] = []
     covered: list[frozenset[tuple[str, int]]] = []

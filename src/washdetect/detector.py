@@ -1,32 +1,3 @@
-"""Rule-based wash labels, in the style of Gan et al. 2024 (ACM TOIT).
-
-The paper's rule, as used here:
-
-* Look at sequences of 2 to 10 swaps that sit inside a 200-block window.
-* If the net change in the token position is at most 5% of the larger side
-  (buys nearly equal sells), those swaps are a round-trip.
-* A single wallet can round-trip with itself.
-* Several wallets count as one trader when they are linked by a token
-  transfer of one or two hops, or funded by the same non-hub address, and
-  the link is close in time to the swaps.
-
-Native ETH transfers, which the paper uses for the hop graph, are not
-visible to `eth_getLogs`. The link graph is built from the target token's
-ERC-20 transfers instead. Hubs (airdrop senders, routers, pools) are not
-allowed to glue unrelated wallets together.
-
-The output is a hard label plus a heuristic confidence in [0, 1]. That
-confidence is not a probability. Trained models replace it with
-`predict_proba`, and `probability_weighted_wash_percent` turns those
-probabilities into a percentage and a bootstrap interval.
-
-Besides the pairwise Gan pass, `washdetect.flow` labels a connected flow
-group whenever the wallets' pooled buys and sells cancel within tolerance.
-That is what catches fan-in, fan-out, and M:N shuffles whose pairs do not
-each net out. Each cycle carries `pattern_type`, `n_buyers`, `n_sellers`,
-and `n_wallets`.
-"""
-
 from __future__ import annotations
 
 from collections import defaultdict
@@ -48,11 +19,7 @@ from washdetect.events import Cycle, Detection, SwapEvent, TransferEvent, Wallet
 ZERO = "0x" + "00" * 20
 
 class WashDetector:
-    """Rule labeler for one tolerance, block window, and group-size cap.
-
-    `tolerance` is the fraction by which buys and sells may differ (the
-    paper uses 5%). `window_blocks` is how far apart those trades may sit.
-    """
+    """`tolerance` is how far buys and sells may differ. The paper uses 5% inside 200 blocks."""
 
     def __init__(
         self,
@@ -98,7 +65,7 @@ def detect(
     excluded: set[str] | None = None,
     config: HeuristicConfig | None = None,
 ) -> Detection:
-    """Run the heuristic. Pure function: no database and no network."""
+    """No database and no network."""
     return WashDetector(config=config).find_groups(swaps, transfers, excluded)
 
 
@@ -166,8 +133,7 @@ def _find_groups(
         group = _in_blocks(books.get(link.a, []), lo, hi) + _in_blocks(books.get(link.b, []), lo, hi)
         consider(group)
 
-    # Triangles, so a three-wallet ring whose pairs do not each net out can
-    # still be caught when the three books together do.
+    # A three-wallet ring can net out together when no pair does.
     neighbours: dict[str, set[str]] = defaultdict(set)
     for link in links:
         neighbours[link.a].add(link.b)
@@ -240,7 +206,7 @@ def _find_groups(
 
     for wallets, start, end, amount in transfer_cycles:
         span = end - start
-        ratio = 0.0  # amounts were already within tolerance; the cycle stores the tight match
+        ratio = 0.0  # cycle amounts already matched within tolerance
         confidence = score_confidence(
             ratio,
             span,
@@ -291,10 +257,7 @@ def _find_groups(
         by_swaps.setdefault(frozenset(cycle.swap_ids), cycle)
     for group in flow_groups:
         keys = frozenset((swap.tx_hash, swap.log_index) for swap in group.swaps)
-        # A pairwise round-trip can be the swap set of a larger flow (the
-        # intermediates do not themselves trade). Keep one cycle and record
-        # the fuller shape. A strict subset is dropped so the same volume
-        # is not listed twice; the swaps stay flagged.
+        # Same swap set keeps the fuller shape. A strict subset is dropped so volume is not listed twice.
         if keys in by_swaps:
             current = by_swaps[keys]
             current.pattern_type = group.pattern_type
@@ -337,9 +300,8 @@ def _find_groups(
         for swap in group.swaps:
             flag_swap(swap, confidence, cycle_id)
 
-    # Wallet rollup. Every wallet that swapped is listed, with confidence 0
-    # when none of its swaps were flagged, so a filter can threshold it.
     wallet_rows: list[WalletWash] = []
+    # Every swapper is listed. Confidence 0 lets a threshold filter drop them.
     for wallet, wallet_swaps in books.items():
         buy = sum(s.amount for s in wallet_swaps if s.side == "buy")
         sell = sum(s.amount for s in wallet_swaps if s.side == "sell")

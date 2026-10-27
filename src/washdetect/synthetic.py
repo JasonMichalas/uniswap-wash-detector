@@ -1,25 +1,3 @@
-"""Synthetic wash groups planted into real swap and transfer lists.
-
-There is no public ground truth for wash trading, so recall is measured on
-rings we insert ourselves. Inserted wallets, transactions, and groups are
-marked ``injected`` and use addresses starting with ``0x57``. They are not
-written back to the chain cache.
-
-The menu covers every buyer/seller combination the detector scores:
-
-* round_trip — one wallet
-* ring — one buyer, one seller, tokens cycled across N wallets
-* one_to_many — one buyer, many sellers
-* many_to_one — many buyers, one seller, including the 2 + 2 → 4.01 case
-* many_to_many — M buyers, intermediate shuffle, N sellers
-* a group in which one wallet both buys and sells
-
-Sizes run from 1 wallet up past 10. Amounts match within 4%, which is inside
-the default 5% tolerance, and the whole group sits inside 200 blocks. A
-common funder pays each participant 500 blocks earlier so the funding
-feature is real without pulling the funder into the group's block window.
-"""
-
 from __future__ import annotations
 
 import random
@@ -27,7 +5,6 @@ from dataclasses import dataclass, field
 
 from washdetect.detector import SwapEvent, TransferEvent
 
-# (builder name, n_buyers or ring length, n_sellers, exact student amounts)
 DEFAULT_MENU: tuple[tuple[str, int, int, bool], ...] = (
     ("round_trip", 1, 1, False),
     ("ring", 3, 1, False),
@@ -105,7 +82,7 @@ def inject_wash_groups(
     block_hi: int | None = None,
     menu: tuple[tuple[str, int, int, bool], ...] | None = None,
 ) -> Injection:
-    """Return real events plus planted groups. Real rows are not relabelled."""
+    """Planted rows use 0x57 addresses and are not written back to the chain cache."""
     menu = menu or DEFAULT_MENU
     ids = _Ids(seed)
     if block_lo is None or block_hi is None:
@@ -122,6 +99,7 @@ def inject_wash_groups(
     extra_swaps: list[SwapEvent] = []
     extra_transfers: list[TransferEvent] = []
     groups: list[InjectedGroup] = []
+    # Groups may overlap in time: each one has its own wallets.
     for spec, start in zip(menu, starts, strict=True):
         kind, n_buyers, n_sellers, exact = spec
         built = _build(kind, ids, start, n_buyers, n_sellers, exact=exact)
@@ -136,7 +114,6 @@ def inject_wash_groups(
 
 
 def _schedule(count: int, lo: int, hi: int) -> list[int]:
-    """Start blocks inside [lo, hi], leaving 500 blocks of room for funding."""
     lead = 520
     tail = 90
     first = lo + lead
@@ -148,7 +125,6 @@ def _schedule(count: int, lo: int, hi: int) -> list[int]:
     step = max(120, (last - first) // max(count - 1, 1))
     starts = [first + i * step for i in range(count)]
     if starts[-1] > last:
-        # Overlap in time is safe: each group has its own wallets.
         span = max(120, (last - first) // max(count - 1, 1))
         starts = [first + i * span for i in range(count)]
         if starts[-1] > last:
@@ -308,10 +284,9 @@ def _many_to_many(ids: _Ids, start: int, n_buyers: int, n_sellers: int):
 
 
 def _both_sides(ids: _Ids, start: int):
-    """A buys and sells; B only buys; C and D only sell. Counts are 2 x 3."""
     buyer_seller, buyer, seller_c, seller_d = (ids.addr() for _ in range(4))
     price = ids.rng.uniform(0.5, 8)
-    # Buys 6+4=10. Sells 3 + 4 + 3.05 = 10.05.
+    # Buys 6+4. Sells 3+4+3.05, just inside the 5% tolerance, and one wallet does both.
     swaps = [
         _swap(buyer_seller, start, "buy", 6, price, ids),
         _swap(buyer, start + 2, "buy", 4, price, ids),

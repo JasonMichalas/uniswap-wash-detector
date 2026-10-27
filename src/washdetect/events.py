@@ -1,5 +1,3 @@
-"""Swap, transfer, and detection records shared by the rule labeler."""
-
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -39,12 +37,7 @@ class Cycle:
     end_block: int
     swap_ids: list[tuple[str, int]] = field(default_factory=list)
     token_amount: float = 0.0
-    # pattern_type is the stable label the editor filters on:
-    # round_trip, ring, one_to_many, many_to_one, many_to_many.
-    # n_wallets counts intermediates that only forward tokens.
-    # n_buyers and n_sellers count wallets that trade that side
-    # (a wallet that does both is in each set).
-    pattern_type: str = ""
+    pattern_type: str = ""  # editor filter; a wallet that buys and sells is counted in both sets
     n_buyers: int = 0
     n_sellers: int = 0
     n_wallets: int = 0
@@ -66,7 +59,6 @@ class WalletWash:
 class Detection:
     cycles: list[Cycle]
     wallets: list[WalletWash]
-    # (tx_hash, log_index) -> (confidence, cycle_id)
     flagged: dict[tuple[str, int], tuple[float, str]]
 
     @property
@@ -85,4 +77,3 @@ class Detection:
         if self._total_volume <= 0:
             return 0.0
         return 100.0 * self._wash_volume / self._total_volume
-

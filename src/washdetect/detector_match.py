@@ -1,5 +1,3 @@
-"""Round-trips, transfer links, and transfer cycles for the rule labeler."""
-
 from __future__ import annotations
 
 from collections import defaultdict
@@ -35,11 +33,7 @@ def score_confidence(
     limit_ratio: float,
     limit_span: int,
 ) -> float:
-    """Map a match onto [0, 1]. A bare Gan match scores about 0.5; a tight one scores higher.
-
-    tightness is 1 when the two sides match exactly and 0 at the 5% boundary.
-    freshness is 1 when the window is a single block and 0 at 200 blocks.
-    """
+    """A bare match is about 0.5; a tighter net and a shorter span score higher."""
     tightness = 1.0 - min(max(net_ratio, 0.0) / limit_ratio, 1.0) if limit_ratio else 0.0
     freshness = 1.0 - min(max(block_span, 0) / limit_span, 1.0) if limit_span else 0.0
     base = 0.45 * tightness + 0.25 * freshness + 0.50
@@ -64,12 +58,7 @@ def _amounts_close(amounts: list[float], tol: float) -> bool:
 
 
 def find_round_trips(swaps: list[SwapEvent], config: HeuristicConfig) -> list[_Cluster]:
-    """Greedy smallest-window round-trips.
-
-    Swaps must already be restricted to the wallets (one wallet, or a linked
-    group) the caller wants to treat as a single trader. The inner window
-    stops at `max_swaps`, so this is linear in the number of swaps.
-    """
+    """Smallest window that nets out. The caller has already limited this to one trader."""
     clusters: list[_Cluster] = []
     ordered = sorted(swaps, key=lambda s: (s.block, s.log_index, s.tx_hash))
     i = 0
@@ -131,13 +120,7 @@ def find_transfer_cycles(
     excluded: set[str],
     config: HeuristicConfig,
 ) -> list[tuple[tuple[str, ...], int, int, float]]:
-    """Directed token-transfer cycles of length 2..max_cycle_len.
-
-    Edges must be in non-decreasing block order and the whole cycle must fit
-    in `max_block_gap`. Amounts along the cycle must agree within `net_ratio`.
-    Hub addresses (very high degree) are removed so an airdrop does not
-    invent a cycle through the sender.
-    """
+    """Hubs are removed so an airdrop sender does not invent a cycle."""
     degree: dict[str, int] = defaultdict(int)
     usable: list[TransferEvent] = []
     for transfer in transfers:
@@ -212,7 +195,6 @@ def _build_links(
     excluded: set[str],
     config: HeuristicConfig,
 ) -> list[_Link]:
-    """1-hop, 2-hop, and shared-funder links between wallets that actually swapped."""
     degree: dict[str, int] = defaultdict(int)
     cleaned: list[TransferEvent] = []
     for transfer in transfers:
@@ -225,7 +207,6 @@ def _build_links(
         cleaned.append(transfer)
     hubs = {node for node, count in degree.items() if count > config.hub_degree}
 
-    # Outgoing edges that do not touch a hub, grouped for the 2-hop walk.
     out: dict[str, list[TransferEvent]] = defaultdict(list)
     links: list[_Link] = []
     for transfer in cleaned:
@@ -252,7 +233,7 @@ def _build_links(
                     continue
                 links.append(_Link(src, dst, first.block, second.block))
 
-    # Shared funder: the earliest inbound transfer from a non-hub.
+    # Earliest inbound from a non-hub: wallets that share a funder.
     first_in: dict[str, tuple[str, int]] = {}
     for transfer in sorted(cleaned, key=lambda item: (item.block, item.log_index)):
         if transfer.dst in active and transfer.dst not in first_in and transfer.src not in hubs:
@@ -268,10 +249,8 @@ def _build_links(
                 if abs(b1 - b2) <= config.max_block_gap:
                     links.append(_Link(w1, w2, min(b1, b2), max(b1, b2)))
 
-    # Cap, preferring links whose endpoints both trade a lot is unnecessary;
-    # a hard cap keeps a busy token inside the time budget. Stable order.
     links.sort(key=lambda link: (link.start_block, link.a, link.b))
-    if len(links) > config.max_links:
+    if len(links) > config.max_links:  # hard cap; ranking by volume is not worth the time
         links = links[: config.max_links]
     return links
 
@@ -303,4 +282,3 @@ def _shape(swaps: list[SwapEvent], wallets: tuple[str, ...] | set[str], *, has_c
         len(sellers),
         n_wallets,
     )
-
