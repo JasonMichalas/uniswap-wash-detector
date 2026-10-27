@@ -716,9 +716,10 @@ button.theme { flex: none; border: 1px solid var(--line); background: var(--pane
   max-width: 420px;
   vertical-align: top;
 }
-.rule-kinds { border: 0; margin: 0 0 12px; padding: 0; display: grid; gap: 6px; }
-.rule-kinds legend { font-size: 13px; margin-bottom: 4px; }
-.rule-kinds label { display: flex; gap: 8px; align-items: flex-start; }
+.rule-kinds { border: 0; margin: 0 0 8px; padding: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 4px 10px; }
+.rule-kinds legend, .rule-kinds .hint { grid-column: 1 / -1; }
+.rule-kinds legend { font-size: 13px; margin-bottom: 2px; }
+.rule-kinds label { display: flex; gap: 6px; align-items: flex-start; font-size: 13px; color: var(--ink); }
 table { border-collapse: collapse; width: 100%; font-size: 13px; }
 th, td { text-align: left; padding: 4px 8px; border-bottom: 1px solid var(--line); white-space: nowrap; }
 th { color: var(--muted); font-weight: 600; }

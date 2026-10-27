@@ -73,6 +73,9 @@ export function Inspector({
     <aside className="inspector">
       <h2>{title}</h2>
       {technical && <p className="tech-name">{technical}</p>}
+      {node.data.nodeType === "detect_cycles" && (
+        <CycleSettings params={node.data.params} onUpdate={update} />
+      )}
       <h3>What this box does</h3>
       <p>{whatItDoes(node.data.nodeType, node.data.params)}</p>
       <h3>How to use it</h3>
@@ -94,9 +97,6 @@ export function Inspector({
       )}
       {node.data.nodeType === "condition" && (
         <ConditionFields node={node} fields={fields} onUpdate={update} />
-      )}
-      {node.data.nodeType === "detect_cycles" && (
-        <CycleSettings params={node.data.params} onUpdate={update} />
       )}
       {node.data.nodeType === "time_window" && (
         <NumberField
