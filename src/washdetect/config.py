@@ -1,14 +1,7 @@
-"""Addresses, heuristic parameters, and RPC defaults.
-
-Everything the detector treats as "not a trader" lives here so a student can
-extend the router list without hunting through the pipeline.
-"""
-
 from __future__ import annotations
 
 from dataclasses import dataclass
 
-# Uniswap factories on Ethereum mainnet.
 V2_FACTORY = "0x5c69bee701ef814a2b6a3edd4b1652cb9cc5aa6f"
 V3_FACTORY = "0x1f98431c8ad98523631ae4a59f267346ea31f984"
 
@@ -17,14 +10,10 @@ USDC = "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48"
 USDT = "0xdac17f958d2ee523a2206206994597c13d831ec7"
 DAI = "0x6b175474e89094c44da98b954eedeac495271d0f"
 
-# Quote assets used by on-demand pool discovery. getPair / getPool against
-# these covers the pools that carry almost all retail volume. Exotic quote
-# tokens are a later extension (factory-log scan).
 QUOTE_TOKENS = (WETH, USDC, USDT, DAI)
 STABLECOINS = frozenset({USDC, USDT, DAI})
 
-# Canonical ETH/USD source: Uniswap v3 USDC/WETH 0.05% pool. token0 is USDC.
-WETH_USDC_POOL = "0x88e6a0c2ddd26feeb64f039a2c41296fcb3f5640"
+WETH_USDC_POOL = "0x88e6a0c2ddd26feeb64f039a2c41296fcb3f5640"  # token0 is USDC
 
 V3_FEES = (100, 500, 3000, 10000)
 
@@ -32,10 +21,8 @@ MULTICALL3 = "0xca11bde05977b3631167028862be2a173976ca11"
 ZERO_ADDRESS = "0x" + "00" * 20
 BURN_ADDRESS = "0x" + "00" * 19 + "dead"
 
-# Routers and other contracts that show up as Swap.sender / Transfer parties
-# but are not the economic trader. tx.from is the trader we keep; these
-# addresses are excluded from wallet-linking so every user of the router is
-# not glued into one giant component.
+# tx.from is the trader. These show up as Swap.sender, but linking through
+# them would glue every user of a router into one wallet.
 ROUTERS = frozenset(
     {
         "0x7a250d5630b4cf539739df2c5dacb4c659f2488d",  # UniswapV2Router02
@@ -49,11 +36,7 @@ ROUTERS = frozenset(
     }
 )
 
-# Public Ethereum mainnet endpoints. No API key. The client rotates through
-# this list when one of them rate-limits or rejects a log range.
-# Order is the ones that answered eth_getLogs without an API key on
-# 26 Oct 2026. llamarpc sits behind a browser challenge (403 HTML) and
-# Ankr's public URL now requires a key, so they are not in the list.
+# llamarpc answers with a browser challenge, and Ankr's public URL needs a key.
 DEFAULT_RPCS = (
     "https://eth.drpc.org",
     "https://rpc.mevblocker.io",
@@ -63,8 +46,6 @@ DEFAULT_RPCS = (
     "https://1rpc.io/eth",
 )
 
-# The Graph decentralized network. Used only when GRAPH_API_KEY is set.
-# IDs are the ones published in Uniswap's subgraph docs.
 UNISWAP_V3_SUBGRAPH = "5zvR82QoaXYFyDEKLZ9t6v9adgnptxYpKpSbxtgVENFV"
 UNISWAP_V2_SUBGRAPH = "A3Np3RQbaBA6oKJgiwDJeo5T3zrYfGHPWFYayMwtNDum"
 GRAPH_GATEWAY = "https://gateway.thegraph.com/api"
@@ -73,21 +54,12 @@ MAX_WINDOW_DAYS = 90
 DEFAULT_DB = "data/washdetect.duckdb"
 BALANCE_CAP = 800
 
-# Blocks per day on post-merge Ethereum is about 7200 (12s). Used only as a
-# hint; the loader binary-searches real timestamps.
-APPROX_BLOCK_TIME = 12
+APPROX_BLOCK_TIME = 12  # hint only; the loader binary-searches timestamps
 
 
 @dataclass(frozen=True)
 class HeuristicConfig:
-    """Parameters of the rule-based wash labeler.
-
-    They follow Gan et al. 2024 (ACM TOIT): a wash sequence is 2 to 10 swaps
-    inside 200 blocks whose net token-position change is at most 5 percent.
-    Wallets are linked when a token transfer (or a shared funder) connects
-    them within two hops, which stands in for the paper's ETH-transfer hops.
-    Public eth_getLogs cannot see native ETH transfers; see the README.
-    """
+    """Gan et al. 2024: 2–10 swaps in 200 blocks, net within 5%. Token transfers stand in for ETH hops eth_getLogs cannot see."""
 
     max_block_gap: int = 200
     min_swaps: int = 2
@@ -100,10 +72,6 @@ class HeuristicConfig:
     max_cycles: int = 500
     max_links: int = 2_000
     max_triangles: int = 400
-    # Flow groups: a connected set of wallets whose pooled buys and sells
-    # net out. Covers one-to-many, many-to-one, many-to-many, and rings,
-    # not only pairwise round-trips. Capped so a busy component cannot
-    # glue the whole token into one group.
-    max_group_size: int = 16
+    max_group_size: int = 16  # larger components are skipped; a trimmed subset would invent a match
     max_flow_groups: int = 500
     max_flow_seeds: int = 20_000

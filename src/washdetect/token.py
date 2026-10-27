@@ -1,9 +1,3 @@
-"""One token's cached window: pools, swaps, transfers, and wallets.
-
-Loading this does not score wash trading. It only reads what `load_token`
-already stored.
-"""
-
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -17,7 +11,7 @@ from washdetect.store import Store
 
 @dataclass
 class TokenData:
-    """Address, block window, and the frames the query engine reads."""
+    """A cache read. It does not score wash trading."""
 
     address: str
     start_block: int

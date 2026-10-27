@@ -1,13 +1,3 @@
-"""Token names for the editor's search box.
-
-GeckoTerminal's public API needs no key. We ask for Ethereum pools, keep
-Uniswap v2 and v3, and return the token address (the pool address is never
-used). Lists are cached for five minutes so a click does not hit their
-roughly 30-calls-a-minute courtesy limit. If the API is down or has no
-Uniswap pool we can use, a bundled list of well-known tokens is returned
-instead. This module does not open the chain cache.
-"""
-
 from __future__ import annotations
 
 import threading
@@ -22,19 +12,16 @@ _TIMEOUT = 8.0
 _CACHE_TTL = 300.0
 _LIST_CAP = 12
 
-# Quote assets. A pool of WETH/USDC is not a project token, so when one side
-# is one of these we keep the other side.
+# If one side is a quote asset, the project token is the other side.
 _QUOTES = frozenset(
     {
-        "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2",  # WETH
-        "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",  # USDC
-        "0xdac17f958d2ee523a2206206994597c13d831ec7",  # USDT
-        "0x6b175474e89094c44da98b954eedeac495271d0f",  # DAI
+        "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2",
+        "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
+        "0xdac17f958d2ee523a2206206994597c13d831ec7",
+        "0x6b175474e89094c44da98b954eedeac495271d0f",
     }
 )
 
-# Same contracts as examples/tokens.train.txt. Logos stay empty; the editor
-# draws a letter. Addresses are the verified mainnet contracts.
 CURATED: list[dict[str, Any]] = [
     {"name": "Ethereum Name Service", "symbol": "ENS", "address": "0xc18360217d8f7ab5e7c516566761ea12ce7f9d72"},
     {"name": "Uniswap", "symbol": "UNI", "address": "0x1f9840a85d5af5bf1d1762f925bdaddc4201f984"},
@@ -72,7 +59,6 @@ def clear_cache() -> None:
 
 
 def suggest_tokens(query: str = "", client: Client | None = None) -> dict[str, Any]:
-    """Trending and top-volume tokens, plus search results when query is set."""
     fetch = client or http_get
     source, trending, top = _lists(fetch)
     body: dict[str, Any] = {"source": source, "trending": trending, "top_volume": top}
@@ -142,7 +128,6 @@ _TRENDING = f"{_API}/networks/eth/trending_pools?include=base_token,quote_token,
 
 
 def _top_pools(fetch: Client) -> list[dict[str, Any]]:
-    """Two pages. The first page is often quote pairs and Uniswap v4, which we skip."""
     merged: dict[str, dict[str, Any]] = {}
     for page in (1, 2):
         url = (
@@ -160,7 +145,6 @@ def _top_pools(fetch: Client) -> list[dict[str, Any]]:
 
 
 def pools_to_tokens(payload: dict[str, Any]) -> list[dict[str, Any]]:
-    """Uniswap v2/v3 tokens in a GeckoTerminal pool payload, highest volume first."""
     if not isinstance(payload, dict):
         return []
     included = _index_tokens(payload.get("included") or [])

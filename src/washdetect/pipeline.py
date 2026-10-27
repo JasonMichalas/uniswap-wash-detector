@@ -1,15 +1,3 @@
-"""Load one token into the local cache.
-
-The loader never runs the wash detector. It discovers pools, fills the gaps
-in the swap and transfer logs, resolves `tx.from` as the trader, marks USD
-values, and snapshots balances. A second call with a wider window fetches
-only the missing blocks.
-
-Block ranges are inclusive. Coverage is recorded only after a gap has been
-written, so a crashed run retries that gap instead of leaving a hole that
-looks cached.
-"""
-
 from __future__ import annotations
 
 import time
@@ -101,11 +89,9 @@ class LoadReport:
         }
 
 
-
 def fetch_balances(
     client: RpcClient, token: str, wallets: list[str], block: int, decimals: int
 ) -> dict[str, float]:
-    """`balanceOf` for many wallets via Multicall3, with a per-call fallback."""
     found: dict[str, float] = {}
     step = 150
     for offset in range(0, len(wallets), step):
@@ -139,12 +125,6 @@ def _rebuild_daily(
     end: int,
     end_ts: datetime,
 ) -> None:
-    """Anchor a daily balance path on the end-of-window `balanceOf`.
-
-    Replaying transfers gives the net flow. The absolute level is
-    `balanceOf(end) - net_after(day)`, so the last point matches the chain
-    and earlier points are that balance walked backwards through the window.
-    """
     frame = store.read_transfers(token, start, end)
     running: dict[str, float] = defaultdict(float)
     daily: dict[tuple[str, str], tuple[int, float]] = {}
@@ -191,7 +171,7 @@ def load_token(
     store: Store | None = None,
     rediscover: bool = False,
 ) -> LoadReport:
-    """Fetch and cache one token. Does not compute a wash percentage."""
+    """Fills the cache only. A wash score is a separate step."""
     say = progress or (lambda _msg: None)
     started = time.perf_counter()
     token = normalize_address(token)
@@ -253,7 +233,6 @@ def load_token(
             )
             say(f"Found {len(pools)} pools")
 
-        # Optional subgraph accelerator for swaps. Failures are notes, not errors.
         if api_key():
             try:
                 say("Trying the Uniswap subgraph for swaps")
@@ -282,6 +261,7 @@ def load_token(
                 )
                 blocks_fetched += gap_end - gap_start + 1
                 _store_pool_logs(store, client, token, pool, logs, end_block, head_ts)
+                # Coverage follows a successful write, so a crash retries this gap.
                 store.add_coverage(token, dataset, gap_start, gap_end)
 
         transfer_gaps = store.missing(token, "transfers", start_block, end_block)
@@ -398,11 +378,7 @@ def _fill_swaps_from_subgraph(
                 )
             )
         store.insert_swaps(rows)
-        # Only mark the window covered when the subgraph returned rows, or the
-        # pool was quiet. An empty response on an active pool is treated as a
-        # failure so RPC can fill the gap. We cannot tell those apart here, so
-        # coverage is marked only when at least one swap was returned. Quiet
-        # pools fall through to a (cheap, empty) RPC scan.
+        # An empty subgraph page is not proof the pool was quiet.
         if rows:
             store.add_coverage(token, dataset, start_block, end_block)
             say(f"Subgraph returned {len(rows)} swaps for {pool.pool_address[:10]}")
@@ -524,6 +500,7 @@ def _resolve_traders(
     results = client.batch(calls, batch_size=20) if need else []
     for tx, result in zip(need, results, strict=False):
         if isinstance(result, dict) and result.get("from"):
+            # tx.from is the trader. Swap.sender is often the router.
             sender = normalize_address(str(result["from"]))
             known[tx] = sender
             fetched.append((tx, sender))

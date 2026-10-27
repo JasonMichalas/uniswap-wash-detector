@@ -1,10 +1,3 @@
-"""Event and call encoding for the small slice of the ABI we actually use.
-
-The pipeline does not depend on web3.py. Selectors and topics are keccak
-hashes of canonical signatures, which is the whole of what a student needs
-in order to add another event later.
-"""
-
 from __future__ import annotations
 
 from typing import Any
@@ -110,7 +103,6 @@ def decode_uint(data: str) -> int:
 
 
 def decode_symbol(data: str) -> str:
-    """ERC-20 symbol() is a string, except on a few old tokens (MKR) that return bytes32."""
     raw = _bytes(data)
     if not raw:
         return ""
@@ -127,8 +119,7 @@ def decode_symbol(data: str) -> str:
 
 def decode_slot0_sqrt(data: str) -> int:
     raw = _bytes(data)
-    # sqrtPriceX96, tick, observationIndex, observationCardinality,
-    # observationCardinalityNext, feeProtocol, unlocked
+    # slot0: sqrtPriceX96, tick, then observation and fee fields we ignore.
     sqrt_price, *_rest = decode(
         ["uint160", "int24", "uint16", "uint16", "uint16", "uint8", "bool"], raw
     )
@@ -155,7 +146,7 @@ def decode_v2_mint_amounts(data: str) -> tuple[int, int]:
 
 
 def decode_v3_mint_amounts(data: str) -> tuple[int, int]:
-    # amount (liquidity), amount0, amount1 — sender is not indexed, so it is in data.
+    # sender is not indexed on v3 Mint, so it sits in the data.
     _sender, _amount, a0, a1 = decode(["address", "uint128", "uint256", "uint256"], _bytes(data))
     return int(a0), int(a1)
 
@@ -198,12 +189,6 @@ def classify_leg(
     amount0_signed: int,
     amount1_signed: int,
 ) -> dict[str, Any] | None:
-    """Interpret pool-signed amounts from the searched token's point of view.
-
-    Positive means the pool received the token (the trader sold it). Negative
-    means the pool sent the token (the trader bought it). This matches both
-    Uniswap v3's signed Swap amounts and the v2 net (amountIn - amountOut).
-    """
     token = token.lower()
     token0 = token0.lower()
     token1 = token1.lower()

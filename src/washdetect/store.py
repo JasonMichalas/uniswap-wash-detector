@@ -1,13 +1,3 @@
-"""DuckDB storage.
-
-One file holds pools, swaps, transfers, liquidity events, block timestamps,
-coverage ranges, and end-of-window balances. Analysis results are not written
-here by the UI. The UI reads a snapshot and runs the detector in memory, so
-executing a graph cannot modify the cache. The CLI's `detect` and `batch`
-commands are the exception: they store weak labels and the feature frame,
-which is the training set for the later models.
-"""
-
 from __future__ import annotations
 
 import threading
@@ -164,6 +154,8 @@ CREATE TABLE IF NOT EXISTS wallet_features (
 
 
 class Store:
+    """The editor only reads this file. CLI detect and batch are what write labels."""
+
     def __init__(self, path: str | Path = "data/washdetect.duckdb") -> None:
         self.path = str(path)
         if self.path != ":memory:":
@@ -309,7 +301,6 @@ class Store:
         return {h: sender for h, sender in rows}
 
     def apply_traders(self, token: str, rows: list[tuple[str, str]]) -> None:
-        """Set trader = tx.from for swaps that do not have one yet."""
         if not rows:
             return
         with self.lock:
@@ -450,7 +441,6 @@ class Store:
         return {w: float(b) for w, b in rows}
 
     def latest_balances(self, token: str, end_block: int) -> dict[str, float]:
-        """Balances recorded at the newest snapshot at or before `end_block`."""
         with self.lock:
             row = self.con.execute(
                 """

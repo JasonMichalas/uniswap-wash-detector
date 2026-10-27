@@ -1,5 +1,3 @@
-"""Decode Uniswap v2 and v3 pool logs into swap and liquidity rows."""
-
 from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
@@ -104,7 +102,6 @@ def _swap_tuple(
 def decode_pool_log(
     log: dict[str, Any], pool: PoolMeta, token: str
 ) -> tuple[str, dict[str, Any]] | None:
-    """Return ('swap', fields) or ('liq', fields) or None if the log is irrelevant."""
     topics = [str(t).lower() for t in (log.get("topics") or [])]
     if not topics:
         return None
@@ -158,4 +155,3 @@ def _pool_topics(protocol: str) -> list[Any]:
     if protocol == "v2":
         return [[SWAP_V2, MINT_V2, BURN_V2]]
     return [[SWAP_V3, MINT_V3, BURN_V3]]
-

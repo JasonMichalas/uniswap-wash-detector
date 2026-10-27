@@ -1,10 +1,3 @@
-"""Read a loaded window out of DuckDB for the query engine.
-
-Running a graph uses this snapshot and then a throwaway connection. It does
-not write the cache. If the window was never loaded, the caller gets a
-sentence explaining that, not a partial answer.
-"""
-
 from __future__ import annotations
 
 from datetime import datetime
@@ -14,6 +7,7 @@ from washdetect.token import TokenData
 
 
 def window_ready(store: Store, token: str, start: int, end: int) -> str | None:
+    """A sentence when the window is missing, never a partial frame."""
     pools = store.pools_for(token)
     if not pools:
         return "No pools are cached for this token. Load it before running a graph."

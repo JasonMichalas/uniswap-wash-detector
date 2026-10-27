@@ -1,5 +1,3 @@
-"""Turn a requested history length into inclusive block numbers."""
-
 from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
@@ -37,7 +35,6 @@ def resolve_window(
     start: str | None = None,
     end: str | None = None,
 ) -> tuple[int, int, datetime, datetime]:
-    """Turn a user window into inclusive blocks. There is no default length."""
     if days is None and not (start and end):
         raise ValueError(
             "Choose a window: pass days (1-90) or both start and end (YYYY-MM-DD). "
@@ -71,4 +68,3 @@ def resolve_window(
     if start_block > end_block:
         raise ValueError("The window does not cover any blocks.")
     return start_block, end_block, start_ts, end_ts
-
