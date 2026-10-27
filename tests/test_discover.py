@@ -33,6 +33,21 @@ def _client(log_calls: list, eth_calls: list) -> RpcClient:
     )
 
 
+def test_a_v4_pool_id_is_kept():
+    from washdetect.discover import _add_rows
+
+    pool_id = "0x" + "ab" * 32
+    found = []
+    _add_rows(
+        _client([], []),
+        [(pool_id, "v4", "uniswap", TOKEN, "0x" + "11" * 20, 500, "")],
+        found,
+        set(),
+        {},
+    )
+    assert [pool.pool_address for pool in found] == [pool_id]
+
+
 def test_one_token_does_not_scan_the_whole_factory():
     logs: list = []
     calls: list = []

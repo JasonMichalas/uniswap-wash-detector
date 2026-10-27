@@ -463,7 +463,9 @@ def _add_rows(
     fresh = []
     for row in rows:
         pool = str(row[0])
-        if is_zero(pool) or pool in seen:
+        # A v4 pool id is 32 bytes. is_zero() only accepts 20-byte addresses, so it
+        # would drop every Initialize result.
+        if pool in seen or not pool.removeprefix("0x").strip("0"):
             continue
         seen.add(pool)
         fresh.append(row)
