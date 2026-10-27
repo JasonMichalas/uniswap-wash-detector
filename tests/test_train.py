@@ -1,8 +1,11 @@
 """Train/test is by token, and planted shapes on the held-out token are scored."""
 
+import pandas as pd
+
 from washdetect.cli import _cold_fetch_seconds
 from washdetect.dataset import assemble_from_events
 from washdetect.detector import SwapEvent
+from washdetect.evaluate import rule_metric_table
 from washdetect.features import RULE_OUTPUT_COLUMNS
 from washdetect.train import split_token_ids, train_tables
 
@@ -29,6 +32,20 @@ def test_cold_fetch_log_keeps_successful_scrapes_only(tmp_path):
     )
     found = _cold_fetch_seconds(str(tmp_path / "washdetect.duckdb"))
     assert found == {"0xaa": 12.5}
+
+
+def test_rule_metrics_leave_other_plants_out_of_the_negatives():
+    frame = pd.DataFrame(
+        {
+            "injected": [1, 1, 0, 0],
+            "rule": ["R1", "R2", "", ""],
+            "ml_score": [0.9, 0.1, 0.2, 0.8],
+        }
+    )
+    table = rule_metric_table(frame).set_index("rule")
+    assert table.loc["R1", "recall"] == 1.0
+    assert table.loc["R1", "precision"] == 0.5
+    assert table.loc["R2", "recall"] == 0.0
 
 
 def test_split_keeps_tokens_disjoint():

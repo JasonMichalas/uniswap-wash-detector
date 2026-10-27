@@ -11,6 +11,7 @@ from washdetect.evaluate import (
     group_recall,
     recall_table,
     render_report,
+    rule_metric_table,
     wash_percent_row,
     write_plots,
 )
@@ -142,9 +143,9 @@ def train_tables(
 
     pattern_recall = recall_table(test_trades, ["pattern_type"])
     pair_recall = recall_table(test_trades, ["n_buyers", "n_sellers"])
-    rule_model = recall_table(test_trades, ["rule"]) if "rule" in test_trades.columns else pd.DataFrame()
+    rule_model = rule_metric_table(test_trades) if "rule" in test_trades.columns else pd.DataFrame()
     groups = group_recall(test_trades)
-    rule_detector = _detector_rule_table(tables)
+    rule_detector = _detector_rule_table(test)
 
     role = {}
     for name, ids in split.items():
