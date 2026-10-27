@@ -335,7 +335,14 @@ class RpcClient:
     def _pick_log_endpoint(self, width: int | None, tried: set[str]) -> str | None:
         archive = [url for url in self.endpoints if _trusts_empty(url)]
         others = [url for url in self.endpoints if not _trusts_empty(url)]
-        for url in archive + others:
+        ordered = archive + others
+        if not ordered:
+            return None
+        # Workers set _cursor to their index so parallel chunks do not all start
+        # on the first endpoint. Cursor 0 keeps the original order.
+        start = self._cursor % len(ordered)
+        rotated = ordered[start:] + ordered[:start]
+        for url in rotated:
             if url in tried or not self.spans.allows(url, width):
                 continue
             return url

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 import time
 from collections import defaultdict
 from collections.abc import Callable
@@ -9,6 +10,9 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from washdetect.abi import (
+    SWAP_V2,
+    SWAP_V3,
+    SWAP_V4,
     TRANSFER,
     calldata,
     decode_slot0_sqrt,
@@ -172,6 +176,41 @@ def _gap_blocks(gaps: list[tuple[int, int]]) -> int:
     return sum(end - start + 1 for start, end in gaps)
 
 
+_BLOCK_OF = re.compile(r"blocks ([\d,]+) of ([\d,]+)")
+_SWAP_TOPICS = {topic.lower() for topic in (SWAP_V2, SWAP_V3, SWAP_V4)}
+
+
+def format_load_line(
+    *,
+    phase: str,
+    at: int,
+    end: int,
+    swaps: int,
+    transfers: int,
+    elapsed: float,
+    network: int,
+    cached: int,
+) -> str:
+    """One status line: phase, block X of Y, percent, counts, elapsed, cache versus network."""
+    width = max(1, end)
+    pct = min(100, max(0, int(100 * at / width))) if end else 0
+    return (
+        f"{phase} · block {at:,} of {end:,} ({pct}%) · "
+        f"{swaps:,} swaps, {transfers:,} transfers found · "
+        f"{elapsed:.0f}s elapsed · "
+        f"{network:,} blocks from network, {cached:,} cached"
+    )
+
+
+def _count_swap_logs(logs: list[dict[str, Any]]) -> int:
+    found = 0
+    for log in logs:
+        topics = log.get("topics") or []
+        if topics and str(topics[0]).lower() in _SWAP_TOPICS:
+            found += 1
+    return found
+
+
 def load_token(
     token: str,
     *,
@@ -188,8 +227,37 @@ def load_token(
     hours: int | None = None,
 ) -> LoadReport:
     """Fills the cache only. A wash score is a separate step."""
-    say = progress or (lambda _msg: None)
+    raw_progress = progress or (lambda _msg: None)
     started = time.perf_counter()
+    stats: dict[str, int] = {
+        "at": 0,
+        "end": 0,
+        "swaps": 0,
+        "transfers": 0,
+        "network": 0,
+        "cached": 0,
+    }
+    window_end = 0
+
+    def say(message: str) -> None:
+        phase = message.split(" · ")[0].strip() or "Working"
+        found = _BLOCK_OF.search(message)
+        if found:
+            stats["at"] = int(found.group(1).replace(",", ""))
+            stats["end"] = int(found.group(2).replace(",", ""))
+        raw_progress(
+            format_load_line(
+                phase=phase,
+                at=stats["at"],
+                end=stats["end"] or window_end,
+                swaps=stats["swaps"],
+                transfers=stats["transfers"],
+                elapsed=time.perf_counter() - started,
+                network=stats["network"],
+                cached=stats["cached"],
+            )
+        )
+
     token = normalize_address(token)
     own_client = client is None
     client = client or RpcClient()
@@ -205,6 +273,9 @@ def load_token(
         start_block, end_block, start_ts, end_ts = resolve_window(
             client, days=days, start=start, end=end, hours=hours
         )
+        window_end = end_block
+        stats["end"] = end_block
+        stats["at"] = start_block
         head_ts = end_ts
         span_blocks = end_block - start_block + 1
         say(
@@ -256,22 +327,27 @@ def load_token(
                 say(f"Subgraph unavailable ({exc}). Using RPC for swaps.")
 
         fetched, cached, swap_logs = _fetch_swap_groups(
-            store, client, token, pools, start_block, end_block, span_blocks, head_ts, say, stop
+            store, client, token, pools, start_block, end_block, span_blocks, head_ts, say, stop, stats
         )
         blocks_fetched += fetched
         blocks_cached += cached
+        stats["cached"] = blocks_cached
+        stats["network"] = blocks_fetched
 
         transfer_gaps = store.missing(token, "transfers", start_block, end_block)
-        blocks_cached += span_blocks - _gap_blocks(transfer_gaps)
+        transfer_cached = span_blocks - _gap_blocks(transfer_gaps)
+        blocks_cached += transfer_cached
+        stats["cached"] = blocks_cached
         for gap_start, gap_end in transfer_gaps:
             def on_progress(at: int, _end: int, count: int, *, gap_end: int = gap_end) -> None:
-                pct = _window_pct(start_block, end_block, at)
-                say(
-                    f"Scraping transfers from Ethereum: blocks {at:,} of {end_block:,} "
-                    f"({pct}%) · {count:,} logs"
-                )
+                say(f"Reading transfers: blocks {at:,} of {end_block:,}")
 
-            say(f"Scraping transfers from Ethereum: blocks {gap_start:,} of {end_block:,}")
+            def on_transfer_chunk(frm: int, to: int, chunk: list[dict[str, Any]], *, gap_end: int = gap_end) -> None:
+                _keep_transfers(store, client, token, decimals, chunk, end_block, head_ts, frm, to)
+                stats["transfers"] += len(chunk)
+                stats["at"] = to
+
+            say(f"Reading transfers: blocks {gap_start:,} of {end_block:,}")
             client.get_logs(
                 address=token,
                 topics=[TRANSFER],
@@ -279,12 +355,12 @@ def load_token(
                 end_block=gap_end,
                 workers=4,
                 on_progress=on_progress,
-                on_chunk=lambda frm, to, chunk, gap_end=gap_end: _keep_transfers(
-                    store, client, token, decimals, chunk, end_block, head_ts, frm, to
-                ),
+                on_chunk=on_transfer_chunk,
                 cancel=stop,
             )
             blocks_fetched += gap_end - gap_start + 1
+            stats["network"] = blocks_fetched
+            stats["cached"] = blocks_cached
 
         say("Resolving traders from transaction senders")
         _resolve_traders(store, client, token, start_block, end_block, say)
@@ -362,6 +438,7 @@ def _fetch_swap_groups(
     head_ts: datetime,
     say: Progress,
     cancel: Callable[[], bool],
+    stats: dict[str, int] | None = None,
 ) -> tuple[int, int, int]:
     pending: list[tuple[PoolMeta, tuple[tuple[int, int], ...]]] = []
     cached = 0
@@ -374,12 +451,25 @@ def _fetch_swap_groups(
     groups: dict[tuple[tuple[int, int], ...], list[PoolMeta]] = defaultdict(list)
     for pool, gaps in pending:
         groups[gaps].append(pool)
+    if stats is not None:
+        stats["cached"] = cached
     fetched = 0
     raw = 0
     for gaps, group in groups.items():
         for gap_start, gap_end in gaps:
             got_raw, got_blocks = _fetch_one_gap(
-                store, client, token, group, gap_start, gap_end, start_block, end_block, head_ts, say, cancel
+                store,
+                client,
+                token,
+                group,
+                gap_start,
+                gap_end,
+                start_block,
+                end_block,
+                head_ts,
+                say,
+                cancel,
+                stats,
             )
             raw += got_raw
             fetched += got_blocks
@@ -427,6 +517,7 @@ def _fetch_one_gap(
     head_ts: datetime,
     say: Progress,
     cancel: Callable[[], bool],
+    stats: dict[str, int] | None = None,
 ) -> tuple[int, int]:
     raw = 0
     v4 = [pool for pool in group if protocol_family(pool.protocol) == "v4"]
@@ -442,6 +533,8 @@ def _fetch_one_gap(
             if pool is not None:
                 bucket[pool.pool_address].append(log)
         raw += sum(len(rows) for rows in bucket.values())
+        if stats is not None:
+            stats["swaps"] += _count_swap_logs([log for rows in bucket.values() for log in rows])
         for address, rows in bucket.items():
             _store_pool_logs(
                 store, client, token, by_addr[address], rows, end_block, head_ts, allow_rpc=False
@@ -454,18 +547,18 @@ def _fetch_one_gap(
                 store.add_coverage(row[0], row[1], row[2], row[3])
 
     def progress(at: int, _range_end: int, count: int) -> None:
-        say(
-            f"Scraping swaps from Ethereum: blocks {at:,} of {end_block:,} "
-            f"({_window_pct(start_block, end_block, at)}%) · {count:,} logs"
-        )
+        say(f"Reading swaps: blocks {at:,} of {end_block:,}")
 
-    say(f"Scraping swaps from Ethereum: blocks {gap_start:,} of {end_block:,}")
+    say(f"Reading swaps: blocks {gap_start:,} of {end_block:,}")
     workers = 4 if gap_end - gap_start > 8_000 else 1
     width = gap_end - gap_start + 1
     _scan_pool_addresses(
         client, rest, gap_start, gap_end, workers, progress, cancel, consume, say
     )
     _scan_v4(client, v4, gap_start, gap_end, width, workers, progress, cancel, consume, say)
+    if stats is not None and group:
+        stats["network"] += width
+        stats["at"] = max(stats["at"], gap_end)
     return raw, width if group else 0
 
 

@@ -1,3 +1,5 @@
+import time
+
 import httpx
 
 from washdetect.rpc import RpcClient, RpcRangeError, RpcRateError, fetch_logs_adaptive
@@ -112,6 +114,54 @@ def test_empty_log_page_from_a_pruned_endpoint_is_not_the_answer():
         init_span=100,
     )
     assert logs == [{"blockNumber": "0x10"}]
+
+
+def test_log_chunks_rotate_across_endpoints():
+    client = RpcClient(
+        ["https://one.example", "https://two.example"],
+        transport=lambda _url, payload: payload,
+        sleep=lambda _seconds: None,
+    )
+    assert client._pick_log_endpoint(100, set()).endswith("one.example")
+    client._cursor = 1
+    assert client._pick_log_endpoint(100, set()).endswith("two.example")
+
+
+def test_adaptive_regrows_the_chunk_after_a_small_page():
+    widths: list[int] = []
+
+    def fetch(start: int, end: int) -> list[dict]:
+        width = end - start + 1
+        widths.append(width)
+        if width > 80:
+            raise RpcRangeError("too wide")
+        return [{"i": start}]
+
+    fetch_logs_adaptive(0, 400, fetch, init_span=200, min_span=20, max_logs=40)
+    first_ok = next(index for index, width in enumerate(widths) if width <= 80)
+    assert any(width > widths[first_ok] for width in widths[first_ok + 1 :])
+
+
+def test_batched_transaction_lookups_are_faster_than_one_by_one():
+    def transport(url: str, payload: dict | list) -> dict | list:
+        time.sleep(0.01)
+        if isinstance(payload, list):
+            return [
+                {"jsonrpc": "2.0", "id": item["id"], "result": {"from": "0x" + "ab" * 20}}
+                for item in payload
+            ]
+        return {"jsonrpc": "2.0", "id": payload["id"], "result": {"from": "0x" + "ab" * 20}}
+
+    client = RpcClient(["https://a.example"], transport=transport, sleep=lambda _seconds: None)
+    calls = [("eth_getTransactionByHash", [f"0x{index:064x}"]) for index in range(40)]
+    started = time.perf_counter()
+    client.batch(calls, batch_size=20)
+    batched = time.perf_counter() - started
+    started = time.perf_counter()
+    for method, params in calls:
+        client.call(method, params)
+    serial = time.perf_counter() - started
+    assert batched < serial / 4, f"batch {batched:.3f}s vs one-by-one {serial:.3f}s"
 
 
 def test_http_status_is_classified_without_a_network():
