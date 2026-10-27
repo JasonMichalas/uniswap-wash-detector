@@ -42,13 +42,13 @@
     "wallet_both_sides"
   ],
   "wallet_calibrator": {
-    "coef": 0.9755658282141939,
-    "intercept": 0.005113337805684223,
+    "coef": 0.9136702966649444,
+    "intercept": -0.17049548070161327,
     "enabled": true
   },
   "trade_calibrator": {
-    "coef": 0.8819119303249746,
-    "intercept": -1.2141765807365739,
+    "coef": 0.8537260977133284,
+    "intercept": -1.0603606523424014,
     "enabled": true
   },
   "manifest": {
@@ -85,7 +85,7 @@
     },
     "swap_pr_auc": 1.0,
     "swap_recall": 1.0,
-    "swap_precision": 0.9226361031518625,
-    "swap_f1": 0.9597615499254845
+    "swap_precision": 0.9191090269636577,
+    "swap_f1": 0.9578497251069029
   }
 }
