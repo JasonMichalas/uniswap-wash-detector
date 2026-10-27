@@ -50,6 +50,7 @@ class Detect:
     net_ratio: float | None = None
     max_block_gap: int | None = None
     max_group_size: int | None = None
+    rules: str | None = None
 
     def to_text(self) -> str:
         head = f"detect_cycles({self.swaps}, {self.transfers}"

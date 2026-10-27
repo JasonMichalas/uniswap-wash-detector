@@ -55,6 +55,9 @@ TYPES: dict[str, list[tuple[str, str]]] = {
         ("confidence", "number"),
         ("start_block", "number"),
         ("end_block", "number"),
+        ("rules", "string"),
+        ("why", "string"),
+        ("path", "string"),
     ],
     "pools": [
         ("pool_address", "string"),
@@ -88,6 +91,9 @@ TYPES["swaps_flagged"] = TYPES["swaps"] + [
     ("is_wash", "bool"),
     ("confidence", "number"),
     ("cycle_id", "string"),
+    ("rules", "string"),
+    ("why", "string"),
+    ("path", "string"),
 ]
 
 ROW_TYPES = (
@@ -186,16 +192,17 @@ NODE_DEFS: list[dict[str, Any]] = [
         "label": "Cycle detector",
         "category": "detector",
         "description": (
-            "Flags round-trips and connected flow groups whose pooled buys and sells "
-            "cancel: one-to-many, many-to-one, many-to-many, and rings. "
-            "Filter the cycles output on pattern_type, n_buyers, n_sellers, or n_wallets. "
-            "Tolerance is the allowed |buys-sells|/max gap, the window is in blocks, "
-            "and max group size caps how many wallets one group may contain."
+            "Finds wash groups and writes a plain-English Why and a path on each flagged swap. "
+            "Kinds: same wallet buys and sells; tokens passed along then sold; wallets funded "
+            "or paid together; a circle; many trades with nothing left; buy and sell in one "
+            "transaction. How close the amounts must be, the longest time between buy and sell, "
+            "and the most wallets in a chain are settings on the box."
         ),
         "params": [
-            {"name": "tolerance", "label": "Amount tolerance (0–0.5)", "kind": "number"},
-            {"name": "window_blocks", "label": "Time window (blocks)", "kind": "number"},
-            {"name": "max_group_size", "label": "Max wallets in a group", "kind": "number"},
+            {"name": "tolerance", "label": "How close buys and sells must be", "kind": "number"},
+            {"name": "window_blocks", "label": "Longest time between buy and sell", "kind": "number"},
+            {"name": "max_group_size", "label": "Most wallets in a chain", "kind": "number"},
+            {"name": "rules", "label": "Which kinds of wash trading", "kind": "text"},
         ],
         "inputs": [
             {"id": "in_swaps", "label": "swaps", "type": "swaps"},
@@ -398,7 +405,12 @@ PALETTE: list[dict[str, Any]] = [
         "label": "Cycle detector",
         "category": "detector",
         "blurb": "Round-trips, rings, and M:N flow groups.",
-        "data": {"tolerance": 0.05, "window_blocks": 200, "max_group_size": 16},
+        "data": {
+            "tolerance": 0.05,
+            "window_blocks": 7200,
+            "max_group_size": 24,
+            "rules": "R1,R2,R3,R4,R5,R6",
+        },
     },
     {
         "node_type": "ml_score",

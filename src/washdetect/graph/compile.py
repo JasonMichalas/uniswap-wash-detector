@@ -93,6 +93,7 @@ def _lower(graph: dict[str, Any]) -> Program:
                         net_ratio=_optional_float(data.get("tolerance")),
                         max_block_gap=_optional_int(data.get("window_blocks")),
                         max_group_size=_optional_int(data.get("max_group_size")),
+                        rules=str(data.get("rules")) if data.get("rules") else None,
                     ),
                 )
             )

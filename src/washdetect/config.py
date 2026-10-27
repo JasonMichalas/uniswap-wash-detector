@@ -42,6 +42,36 @@ ROUTERS = frozenset(
     }
 )
 
+# Public hot wallets. They are hops, not traders: a transfer through one of them
+# does not make two users the same wash group. Addresses are the well-known
+# deposit wallets published by the exchanges.
+CEX_HOT = frozenset(
+    {
+        "0x28c6c06298d514db089934071355e5743bf21d60",  # Binance 14
+        "0xbe0eb53f46cd790cd13851d5eff43d12404d33e8",  # Binance 7
+        "0x71660c4005ba85c37ccec55d0c4493e66fe775d3",  # Coinbase
+        "0x2910543af39aba0cd09dbb2d50200b3e800a63d2",  # Kraken
+    }
+)
+
+# Public aggregator contracts. A transfer through one is a route, not a wash hop.
+AGGREGATORS = frozenset(
+    {
+        "0x1111111254eeb25477b68fb85ed929f73a960582",  # 1inch v5
+        "0x111111125421ca6dc452d289314280a0f8842a65",  # 1inch v6
+        "0xdef1c0ded9bec7f1a1670819833240f027b25eff",  # 0x Exchange Proxy
+    }
+)
+
+# Public MEV searchers. They touch many users in one block and are not a shared controller.
+MEV_ACTORS = frozenset(
+    {
+        "0xae2fc483527b8ef99eb5d9b44875f005ba1fae13",  # jaredfromsubway.eth
+    }
+)
+
+RULE_IDS = ("R1", "R2", "R3", "R4", "R5", "R6")
+
 # The first three accept multi-thousand-block eth_getLogs. dRPC's free plan rejects
 # those and says "10000" while actually capping near 100 blocks; Blast caps at 10.
 DEFAULT_RPCS = (
@@ -106,3 +136,4 @@ class HeuristicConfig:
     max_group_size: int = 16  # larger components are skipped; a trimmed subset would invent a match
     max_flow_groups: int = 500
     max_flow_seeds: int = 20_000
+    enabled_rules: tuple[str, ...] = RULE_IDS

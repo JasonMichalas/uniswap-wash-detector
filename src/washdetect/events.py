@@ -41,6 +41,9 @@ class Cycle:
     n_buyers: int = 0
     n_sellers: int = 0
     n_wallets: int = 0
+    rules: str = ""
+    why: str = ""
+    path: str = ""
 
 
 @dataclass
@@ -60,6 +63,10 @@ class Detection:
     cycles: list[Cycle]
     wallets: list[WalletWash]
     flagged: dict[tuple[str, int], tuple[float, str]]
+    # Token amount of a swap that the rules called wash. Missing means the whole swap.
+    washed_amount: dict[tuple[str, int], float] = field(default_factory=dict)
+    # rules, why, and path for each flagged swap.
+    reasons: dict[tuple[str, int], dict[str, str]] = field(default_factory=dict)
 
     @property
     def wash_volume_usd(self) -> float:

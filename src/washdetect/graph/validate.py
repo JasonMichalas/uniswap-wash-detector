@@ -335,10 +335,21 @@ def _check_detector_params(data: dict[str, Any], node_id: str, label: str, error
             )
     window = data.get("window_blocks")
     if window not in (None, ""):
-        if isinstance(window, bool) or not isinstance(window, (int, float)) or int(window) != window or not 1 <= int(window) <= 50_000:
+        if isinstance(window, bool) or not isinstance(window, (int, float)) or int(window) != window or not 1 <= int(window) <= 120_000:
             errors.append(
                 GraphErrorItem(
-                    f"{label} window must be a whole number of blocks from 1 to 50000.",
+                    f"{label} window must be a whole number of blocks from 1 to 120000.",
+                    node_id,
+                    code="param",
+                )
+            )
+    rules = data.get("rules")
+    if rules not in (None, ""):
+        names = [part.strip() for part in str(rules).split(",") if part.strip()]
+        if not names or any(name not in {"R1", "R2", "R3", "R4", "R5", "R6"} for name in names):
+            errors.append(
+                GraphErrorItem(
+                    f"{label} kinds of wash trading must be chosen from R1 through R6.",
                     node_id,
                     code="param",
                 )

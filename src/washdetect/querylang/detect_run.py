@@ -15,15 +15,22 @@ from washdetect.querylang.sqlutil import _run
 
 
 def _detector_config(expr: Detect) -> HeuristicConfig:
-    kwargs: dict[str, float | int] = {}
+    kwargs: dict[str, float | int | tuple[str, ...]] = {}
     if expr.net_ratio is not None:
         if not 0 < float(expr.net_ratio) <= 0.5:
             raise QueryError("detect_cycles tolerance must be greater than 0 and at most 0.5.")
         kwargs["net_ratio"] = float(expr.net_ratio)
     if expr.max_block_gap is not None:
         gap = int(expr.max_block_gap)
-        if not 1 <= gap <= 50_000:
-            raise QueryError("detect_cycles window must be a whole number of blocks from 1 to 50000.")
+        if not 1 <= gap <= 120_000:
+            raise QueryError("detect_cycles window must be a whole number of blocks from 1 to 120000.")
+    raw_rules = getattr(expr, "rules", None)
+    if raw_rules:
+        names = tuple(part.strip() for part in str(raw_rules).split(",") if part.strip())
+        unknown = [name for name in names if name not in {"R1", "R2", "R3", "R4", "R5", "R6"}]
+        if unknown or not names:
+            raise QueryError("detect_cycles rules must be chosen from R1, R2, R3, R4, R5, and R6.")
+        kwargs["enabled_rules"] = names
         kwargs["max_block_gap"] = gap
     if expr.max_group_size is not None:
         size = int(expr.max_group_size)
@@ -98,10 +105,19 @@ def _register_detection(
 ) -> _Bundle:
     flags = pd.DataFrame(
         [
-            {"tx_hash": tx, "log_index": int(log_index), "is_wash": True, "confidence": conf, "cycle_id": cid}
+            {
+                "tx_hash": tx,
+                "log_index": int(log_index),
+                "is_wash": True,
+                "confidence": conf,
+                "cycle_id": cid,
+                "rules": detection.reasons.get((tx, log_index), {}).get("rules", ""),
+                "why": detection.reasons.get((tx, log_index), {}).get("why", ""),
+                "path": detection.reasons.get((tx, log_index), {}).get("path", ""),
+            }
             for (tx, log_index), (conf, cid) in detection.flagged.items()
         ],
-        columns=["tx_hash", "log_index", "is_wash", "confidence", "cycle_id"],
+        columns=["tx_hash", "log_index", "is_wash", "confidence", "cycle_id", "rules", "why", "path"],
     )
     wallets = pd.DataFrame(
         [
@@ -134,6 +150,9 @@ def _register_detection(
                 "confidence": row.confidence,
                 "start_block": row.start_block,
                 "end_block": row.end_block,
+                "rules": row.rules,
+                "why": row.why,
+                "path": row.path,
             }
             for row in detection.cycles
         ],
@@ -163,7 +182,10 @@ def _register_detection(
             s.log_index,
             COALESCE(f.is_wash, FALSE) AS is_wash,
             COALESCE(f.confidence, 0) AS confidence,
-            f.cycle_id AS cycle_id
+            f.cycle_id AS cycle_id,
+            COALESCE(f.rules, '') AS rules,
+            COALESCE(f.why, '') AS why,
+            COALESCE(f.path, '') AS path
         FROM {swaps_view} s
         LEFT JOIN flags_{id(detection)} f
           ON s.tx_hash = f.tx_hash AND s.log_index = f.log_index
