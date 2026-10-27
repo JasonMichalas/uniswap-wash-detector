@@ -647,7 +647,7 @@ button.theme { flex: none; border: 1px solid var(--line); background: var(--pane
   display: flex;
   flex-direction: column;
   gap: 4px;
-  max-height: 72px;
+  max-height: 120px;
   overflow: auto;
   flex: none;
 }
@@ -655,11 +655,15 @@ button.theme { flex: none; border: 1px solid var(--line); background: var(--pane
 .problems button, .problems li {
   color: var(--banner-error-ink);
   font-size: 13px;
+  line-height: 1.4;
   text-align: left;
   background: none;
   border: 0;
   padding: 0;
 }
+
+.problems button { cursor: pointer; }
+.problems button:hover { text-decoration: underline; text-underline-offset: 2px; }
 
 .code {
   margin: 0;

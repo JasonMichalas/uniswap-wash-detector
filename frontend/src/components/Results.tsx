@@ -6,6 +6,7 @@ export function Results({
   sql,
   run,
   errors,
+  problemText,
   runError,
   checking,
   tab,
@@ -20,6 +21,7 @@ export function Results({
   sql: string;
   run: RunResult | null;
   errors: GraphError[];
+  problemText: (error: GraphError) => string;
   runError: string | null;
   checking: boolean;
   tab: "query" | "sql" | "result";
@@ -85,10 +87,10 @@ export function Results({
             <li key={`${error.node_id ?? ""}-${error.edge_id ?? ""}-${index}`}>
               {error.node_id ? (
                 <button type="button" onClick={() => onFocusNode(error.node_id!)}>
-                  {error.message}
+                  {problemText(error)}
                 </button>
               ) : (
-                error.message
+                problemText(error)
               )}
             </li>
           ))}

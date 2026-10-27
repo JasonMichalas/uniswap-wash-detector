@@ -21,6 +21,7 @@ import {
   runGraph,
   startLoad,
 } from "../api";
+import { describeProblem } from "../editor/boxCopy";
 import { actionStatus, addressProblem, numericSuffix, sleep, slug, stepHint } from "../editor/ui";
 import {
   connectionAllowed,
@@ -490,6 +491,10 @@ export function Editor({ catalog }: { catalog: Catalog }) {
         sql={sql}
         run={run}
         errors={errors}
+        problemText={(error) => {
+          const node = nodes.find((item) => item.id === error.node_id);
+          return describeProblem(error.message, node?.data.nodeType);
+        }}
         runError={runError}
         checking={checking}
         tab={tab}
