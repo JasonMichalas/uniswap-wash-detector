@@ -60,3 +60,37 @@ def test_one_token_does_not_scan_the_whole_factory():
     discover_pools(_client(again, []), TOKEN, store=store, head=head)
     assert again == []
     store.close()
+
+
+def test_a_quote_pool_skips_the_factory_log_walk():
+    from washdetect.abi import calldata
+
+    logs: list = []
+    pair = "0x" + "11" * 20
+    pair_word = "0x" + pair.removeprefix("0x").rjust(64, "0")
+    quoted = {calldata("get_pair")[:10], calldata("get_pool")[:10]}
+
+    def transport(_url: str, payload: dict | list):
+        items = payload if isinstance(payload, list) else [payload]
+        bodies = []
+        for item in items:
+            if item["method"] == "eth_getLogs":
+                logs.append(item["params"][0])
+                result = []
+            elif item["params"][0]["data"][:10] in quoted:
+                result = pair_word
+            else:
+                result = "0x" + "0" * 62 + "12"
+            bodies.append({"jsonrpc": "2.0", "id": item["id"], "result": result})
+        return bodies if isinstance(payload, list) else bodies[0]
+
+    client = RpcClient(
+        ["https://rpc.mevblocker.io"],
+        transport=transport,
+        sleep=lambda _seconds: None,
+        max_attempts=2,
+    )
+    pools = discover_pools(client, TOKEN, store=Store(":memory:"), head=V4_START_BLOCK + 20)
+    assert pools
+    assert all(item["address"] == POOL_MANAGER for item in logs)
+    assert all(item["topics"][0] == INITIALIZE_V4 for item in logs)

@@ -165,7 +165,11 @@ def discover_pools(
                 _save_found(store, token, found)
                 store.add_coverage(token, "direct-quotes", 0, 0)
         _v4_pools(client, meta, token, head, store, found, seen, cache, say, cancel)
-        _odd_quote_pools(client, meta, token, head, store, include_forks, found, seen, cache, say, cancel)
+        # PairCreated/PoolCreated from the factory start is only for a token that
+        # has no pool against WETH, the stables, WBTC, USDe, or USDS. Those logs
+        # are filtered by the token, and they are still a long walk on a public RPC.
+        if not any(protocol_family(pool.protocol) in {"v2", "v3"} for pool in found):
+            _odd_quote_pools(client, meta, token, head, store, include_forks, found, seen, cache, say, cancel)
         if store is not None:
             _save_found(store, token, found)
         say(f"Found {len(found)} pools")
