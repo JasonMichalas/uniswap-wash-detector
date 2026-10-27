@@ -4,7 +4,7 @@ The detector flags a swap only when a named rule can follow the tokens. Each fla
 
 Liquidity adds and removes are not swaps. They land in `liquidity_events` and never become a wash leg. A pool address passed in as excluded cannot be a hop, so a transfer into or out of the pool is not a link between two traders.
 
-Routers, aggregators (1inch v5, 1inch v6, 0x Exchange Proxy), public MEV searchers (`jaredfromsubway.eth`), and the published Binance, Coinbase, and Kraken hot wallets are hops only. A transfer through one of them does not join the two sides into a wash group.
+Routers, aggregators (1inch v5, 1inch v6, 0x Exchange Proxy), public MEV searchers (`jaredfromsubway.eth`), the published Binance, Coinbase, and Kraken hot wallets, and the Uniswap v4 PoolManager are hops only. A transfer through one of them does not join the two sides into a wash group. The PoolManager holds the tokens for every v4 pool, so a transfer into it is the pool, not a wallet in the chain.
 
 ## What the older detector did
 

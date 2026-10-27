@@ -1,6 +1,6 @@
 """One test per wash rule, plus the case that must stay unmarked."""
 
-from washdetect.config import CEX_HOT, MEV_ACTORS, ROUTERS, HeuristicConfig
+from washdetect.config import CEX_HOT, MEV_ACTORS, POOL_MANAGER, ROUTERS, HeuristicConfig
 from washdetect.detector import SwapEvent, TransferEvent, detect
 
 DAY = 7_200
@@ -188,6 +188,14 @@ def test_a_cex_an_mev_bot_and_a_pool_are_not_hops():
             excluded=excluded,
         )
         assert found.flagged == {}, mid
+
+
+def test_the_v4_pool_manager_is_not_a_hop():
+    found = detect(
+        [swap("0xa", 10, "buy", 5, 5, "0xbuy"), swap("0xb", 40, "sell", 5, 5, "0xsell")],
+        [transfer("0xa", POOL_MANAGER, 20, 5, "0xt1"), transfer(POOL_MANAGER, "0xb", 21, 5, "0xt2")],
+    )
+    assert found.flagged == {}
 
 
 def test_turning_rules_off_drops_that_kind():

@@ -12,7 +12,14 @@ from __future__ import annotations
 from collections import defaultdict
 from dataclasses import dataclass, field
 
-from washdetect.config import AGGREGATORS, CEX_HOT, MEV_ACTORS, ROUTERS, HeuristicConfig
+from washdetect.config import (
+    AGGREGATORS,
+    CEX_HOT,
+    MEV_ACTORS,
+    POOL_MANAGER,
+    ROUTERS,
+    HeuristicConfig,
+)
 from washdetect.events import SwapEvent, TransferEvent
 
 RULE_NAMES = {
@@ -59,6 +66,9 @@ def hop_blocklist(excluded: set[str]) -> set[str]:
     blocked.update(addr.lower() for addr in AGGREGATORS)
     blocked.update(addr.lower() for addr in CEX_HOT)
     blocked.update(addr.lower() for addr in MEV_ACTORS)
+    # Uniswap v4 keeps every pool's tokens in one contract. A transfer through it is
+    # the pool, not a hop between two traders.
+    blocked.add(POOL_MANAGER.lower())
     return blocked
 
 

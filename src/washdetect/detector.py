@@ -2,7 +2,14 @@ from __future__ import annotations
 
 from collections import defaultdict
 
-from washdetect.config import AGGREGATORS, CEX_HOT, MEV_ACTORS, ROUTERS, HeuristicConfig
+from washdetect.config import (
+    AGGREGATORS,
+    CEX_HOT,
+    MEV_ACTORS,
+    POOL_MANAGER,
+    ROUTERS,
+    HeuristicConfig,
+)
 from washdetect.detector_match import (
     _build_links,
     _Cluster,
@@ -84,6 +91,7 @@ def _find_groups(
     excluded.update(addr.lower() for addr in AGGREGATORS)
     excluded.update(addr.lower() for addr in CEX_HOT)
     excluded.update(addr.lower() for addr in MEV_ACTORS)
+    excluded.add(POOL_MANAGER.lower())
 
     norm_swaps = [
         SwapEvent(
