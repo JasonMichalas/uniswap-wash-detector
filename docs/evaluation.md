@@ -4,7 +4,7 @@ Milestone 2 of the Uniswap Wash Detector (ECM3401, University of Exeter). There 
 
 ## Dataset
 
-Window: the cached scrape already in the database, blocks 26,264,761–26,279,564 (2026-10-24 20:00 through 2026-10-26 21:30 UTC), Ethereum mainnet, public RPC, no API key. That is the same 22 tokens and about 2 days as the previous run. `washdetect batch --top 40 --days 2` was still indexing Uniswap factory logs for its first new token when this model was fit, so those tokens are not in this table. Fetch s is the cold public-RPC scrape recorded beside the original database.
+Window: the cached scrape already in the database, blocks 26,264,761–26,279,564 (2026-10-24 20:00 through 2026-10-26 21:30 UTC), Ethereum mainnet, public RPC, no API key. That is the same 22 tokens and about 2 days as the previous run. `washdetect batch --top 40 --days 2` was still indexing Uniswap factory logs for its first new token when this model was fit, so those tokens are not in this table. Fetch s is the cold public-RPC scrape recorded beside the original database. A transfer through the Uniswap v4 PoolManager is not a hop between wallets.
 
 | Symbol | Token | Real swaps | Real transfers | Fetch s | Split |
 |---|---|---:|---:|---:|---|
@@ -151,28 +151,28 @@ Rule % is the Gan-style hard label on the real swaps only (plants removed). ML %
 
 | Symbol | Split | Rule % | ML % | ML 95% CI | Real swaps |
 |---|---|---:|---:|---|---:|
-| ENS | train | 0.3 | 5.7 | [4.9, 6.5] | 131 |
-| UNI | calib | 6.1 | 5.4 | [4.9, 5.9] | 5845 |
-| LINK | train | 7.2 | 8.2 | [6.9, 9.8] | 3173 |
+| ENS | train | 0.3 | 5.6 | [4.8, 6.4] | 131 |
+| UNI | calib | 6.1 | 5.3 | [4.8, 5.9] | 5845 |
+| LINK | train | 7.2 | 8.1 | [6.9, 9.8] | 3173 |
 | AAVE | train | 13.1 | 13.9 | [6.8, 22.0] | 2657 |
-| MKR | test | 0.4 | 2.5 | [2.1, 2.9] | 157 |
+| MKR | test | 0.4 | 2.4 | [2.0, 2.8] | 157 |
 | LDO | train | 13.1 | 12.8 | [11.0, 15.2] | 1253 |
-| CRV | test | 5.2 | 9.1 | [7.9, 10.4] | 788 |
+| CRV | test | 5.2 | 9.0 | [7.8, 10.3] | 788 |
 | COMP | train | 4.3 | 4.1 | [3.3, 5.1] | 1339 |
-| SUSHI | train | 0.3 | 2.7 | [2.1, 3.5] | 181 |
-| 1INCH | test | 0.0 | 1.7 | [1.4, 2.3] | 67 |
+| SUSHI | train | 0.3 | 2.6 | [2.0, 3.4] | 181 |
+| 1INCH | test | 0.0 | 1.6 | [1.4, 2.2] | 67 |
 | GRT | test | 8.0 | 7.1 | [2.9, 18.3] | 361 |
-| BAL | train | 0.0 | 1.3 | [0.6, 2.1] | 11 |
-| SNX | train | 0.1 | 2.7 | [2.0, 3.5] | 122 |
-| RPL | test | 0.8 | 4.5 | [3.8, 5.2] | 653 |
-| APE | train | 0.0 | 1.7 | [1.3, 2.3] | 116 |
-| TURBO | train | 0.0 | 0.7 | [0.6, 0.9] | 126 |
-| PEPE | test | 1.5 | 3.5 | [3.1, 3.9] | 2018 |
-| SHIB | test | 2.4 | 8.0 | [6.2, 10.1] | 377 |
-| LADYS | train | 18.8 | 16.8 | [13.3, 22.0] | 210 |
-| Mog | train | 2.5 | 3.6 | [3.3, 4.0] | 632 |
-| BITCOIN | train | 0.4 | 2.2 | [1.8, 2.8] | 486 |
-| CULT | train | 0.0 | 7.1 | [1.2, 13.1] | 18 |
+| BAL | train | 0.0 | 1.2 | [0.6, 2.1] | 11 |
+| SNX | train | 0.1 | 2.6 | [1.9, 3.4] | 122 |
+| RPL | test | 0.8 | 4.4 | [3.8, 5.1] | 653 |
+| APE | train | 0.0 | 1.7 | [1.3, 2.2] | 116 |
+| TURBO | train | 0.0 | 0.7 | [0.5, 0.9] | 126 |
+| PEPE | test | 1.5 | 3.4 | [3.0, 3.9] | 2018 |
+| SHIB | test | 2.4 | 7.9 | [6.1, 10.0] | 377 |
+| LADYS | train | 18.8 | 16.7 | [13.2, 22.0] | 210 |
+| Mog | train | 2.5 | 3.6 | [3.2, 4.0] | 632 |
+| BITCOIN | train | 0.4 | 2.1 | [1.7, 2.7] | 486 |
+| CULT | train | 0.0 | 7.0 | [1.1, 13.0] | 18 |
 
 ![Rule vs ML wash percent](figures/wash_percent_comparison.png)
 
