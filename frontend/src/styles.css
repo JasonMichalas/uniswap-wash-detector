@@ -365,6 +365,8 @@ button.theme { flex: none; border: 1px solid var(--line); background: var(--pane
   flex-wrap: wrap;
   border-bottom: 1px solid var(--line);
   background: var(--bg);
+  position: relative;
+  z-index: 5;
 }
 
 .tool-group { display: flex; flex-direction: row; align-items: center; gap: 6px; flex: none; }
@@ -386,12 +388,42 @@ button.theme { flex: none; border: 1px solid var(--line); background: var(--pane
 .tool-chips { display: flex; gap: 6px; }
 
 .chip {
+  position: relative;
   width: auto;
   margin: 0;
   white-space: nowrap;
   background: var(--panel);
   font-size: 13px;
   font-weight: 600;
+}
+
+.chip-tip {
+  position: absolute;
+  z-index: 6;
+  top: calc(100% + 6px);
+  left: 0;
+  width: 240px;
+  padding: 8px 10px;
+  background: var(--panel);
+  color: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  box-shadow: var(--shadow);
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 1.4;
+  text-align: left;
+  white-space: normal;
+  pointer-events: none;
+  opacity: 0;
+  visibility: hidden;
+}
+
+.chip:hover .chip-tip,
+.chip:focus-visible .chip-tip {
+  opacity: 1;
+  visibility: visible;
+  transition: opacity 0.1s linear 0.4s, visibility 0s linear 0.4s;
 }
 
 .chip.cat-data { box-shadow: inset 3px 0 0 var(--cat-data); }
@@ -555,6 +587,22 @@ button.theme { flex: none; border: 1px solid var(--line); background: var(--pane
 .box .sockets { display: flex; justify-content: space-between; gap: 12px; margin-top: 10px; }
 .box .sockets ul { list-style: none; margin: 0; padding: 0; font-size: 12px; color: var(--muted); }
 .box .sockets .right { text-align: right; }
+
+.box-tip {
+  position: fixed;
+  z-index: 40;
+  width: 260px;
+  margin: 0;
+  padding: 8px 10px;
+  background: var(--panel);
+  color: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  box-shadow: var(--shadow);
+  font-size: 13px;
+  line-height: 1.4;
+  pointer-events: none;
+}
 
 .react-flow__handle {
   width: 10px;

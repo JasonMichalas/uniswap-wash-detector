@@ -1,7 +1,11 @@
+import { useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { Handle, Position, type NodeProps } from "@xyflow/react";
-import { boxTitle, faceLine, portLabel, portTip, technicalName } from "../editor/boxCopy";
+import { boxTitle, faceLine, portLabel, portTip, technicalName, whatItDoes } from "../editor/boxCopy";
 import { nodeDef, type BoxNode } from "../flow";
 import { useCatalog } from "./catalog";
+
+const TIP_DELAY_MS = 450;
 
 export function BoxNodeView({ data }: NodeProps<BoxNode>) {
   const catalog = useCatalog();
@@ -10,8 +14,29 @@ export function BoxNodeView({ data }: NodeProps<BoxNode>) {
   const outputs = def?.outputs ?? [];
   const title = boxTitle(data.nodeType, data.params);
   const technical = technicalName(data.nodeType);
+  const articleRef = useRef<HTMLElement>(null);
+  const timer = useRef<number | null>(null);
+  const [open, setOpen] = useState(false);
+
+  function arm() {
+    if (timer.current !== null) window.clearTimeout(timer.current);
+    timer.current = window.setTimeout(() => setOpen(true), TIP_DELAY_MS);
+  }
+
+  function dismiss() {
+    if (timer.current !== null) window.clearTimeout(timer.current);
+    timer.current = null;
+    setOpen(false);
+  }
+
   return (
-    <article className={`box cat-${def?.category ?? "other"}`}>
+    <article
+      ref={articleRef}
+      className={`box cat-${def?.category ?? "other"}`}
+      onMouseEnter={arm}
+      onMouseLeave={dismiss}
+      onPointerDown={dismiss}
+    >
       <header>
         <span className="cat">{friendlyCategory(def?.category)}</span>
         <strong>{title}</strong>
@@ -54,7 +79,24 @@ export function BoxNodeView({ data }: NodeProps<BoxNode>) {
           ))}
         </ul>
       </div>
+      {open && articleRef.current
+        ? createPortal(
+            <BoxTip anchor={articleRef.current} text={whatItDoes(data.nodeType, data.params)} />,
+            document.body,
+          )
+        : null}
     </article>
+  );
+}
+
+function BoxTip({ anchor, text }: { anchor: HTMLElement; text: string }) {
+  const rect = anchor.getBoundingClientRect();
+  const left = Math.max(8, Math.min(rect.left, window.innerWidth - 276));
+  const top = Math.min(rect.bottom + 8, window.innerHeight - 72);
+  return (
+    <p className="box-tip" role="tooltip" style={{ left, top }}>
+      {text}
+    </p>
   );
 }
 
