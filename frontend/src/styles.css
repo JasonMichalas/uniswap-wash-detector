@@ -638,6 +638,13 @@ button.theme { flex: none; border: 1px solid var(--line); background: var(--pane
 }
 
 .bottom.collapsed { height: auto; }
+.bottom.full {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  height: 100vh;
+  width: 100vw;
+}
 
 .resize-handle {
   height: 8px;
@@ -709,7 +716,30 @@ button.theme { flex: none; border: 1px solid var(--line); background: var(--pane
 
 .number-card p { margin: 0; font-size: 40px; letter-spacing: -0.04em; }
 
-.table-scroll { overflow: auto; max-height: 280px; }
+.table-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.table-head h3 { margin: 0; }
+.table-scroll { overflow: auto; }
+th button.sort {
+  background: none;
+  border: 0;
+  padding: 0;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+.addr { display: inline-flex; gap: 6px; align-items: center; }
+.addr a { color: var(--accent); }
+.wrap-text {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  white-space: normal;
+}
+.wrap-text.open { display: block; -webkit-line-clamp: unset; }
+.pager { display: flex; gap: 12px; align-items: center; color: var(--muted); font-size: 13px; }
+.error-details { margin-top: 6px; font-size: 13px; color: var(--muted); }
+.error-details summary { cursor: pointer; }
 .table-scroll th.wrap, .table-scroll td.wrap {
   white-space: normal;
   min-width: 220px;

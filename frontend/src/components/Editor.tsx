@@ -76,7 +76,7 @@ export function Editor({ catalog }: { catalog: Catalog }) {
     document.documentElement.dataset.theme === "dark" ? "dark" : "light",
   );
   const [examplesAt, setExamplesAt] = useState<"toolbar" | "canvas" | null>(null);
-  const [panelHeight, setPanelHeight] = useState(140);
+  const [panelHeight, setPanelHeight] = useState(420);
   const [panelCollapsed, setPanelCollapsed] = useState(false);
   const idRef = useRef(1);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -531,6 +531,7 @@ export function Editor({ catalog }: { catalog: Catalog }) {
         onCollapsed={setPanelCollapsed}
         onHeight={setPanelHeight}
         noSwaps={loaded !== null && loaded.swaps === 0}
+        symbol={loaded?.symbol ?? ""}
       />
     </div>
   );
