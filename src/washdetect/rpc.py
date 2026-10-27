@@ -435,12 +435,12 @@ class RpcClient:
             return result
         # An empty page is only an answer from an endpoint that stores the history.
         # Flashbots returns [] for ranges it does not keep; saving that would hide pools.
-        if last_other is not None and last_range is None:
-            raise last_other
-        if last_range is not None:
+        if last_range is not None and last_other is None:
             raise last_range
         if last_other is not None:
-            raise last_other
+            if isinstance(last_other, RpcError):
+                raise last_other
+            raise RpcError(str(last_other)) from last_other
         if untrusted_empty is not None:
             raise RpcError("eth_getLogs returned no logs from an endpoint that does not keep this history")
         raise RpcError(f"eth_getLogs failed after {attempts} attempts: {last_other}")

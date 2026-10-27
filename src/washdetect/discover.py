@@ -428,9 +428,10 @@ def _topic_scan(
                 progress(f"Finding pools · blocks {at:,} of {end:,}")
 
             progress(f"Finding pools · blocks {gap_start:,} of {head:,}")
-            # mevblocker answers a filtered 200k-block page. The other public RPCs
-            # either cap out at a handful of blocks or return an empty page for history
-            # they do not store, which used to hide v4 pools.
+            # mevblocker answers a filtered 200k-block page. One worker: parallel
+            # chunks made that endpoint answer [] for ranges that do have logs.
+            # The other public RPCs cap out at a handful of blocks or return an
+            # empty page for history they do not store.
             logs_client = client.spawn()
             archive = [url for url in client.endpoints if "mevblocker" in url]
             if archive:
@@ -442,7 +443,7 @@ def _topic_scan(
                     start_block=gap_start,
                     end_block=gap_end,
                     init_span=_FILTERED_SPAN,
-                    workers=2,
+                    workers=1,
                     on_chunk=on_chunk,
                     on_progress=on_progress,
                     cancel=cancel,
