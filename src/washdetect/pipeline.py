@@ -332,7 +332,8 @@ def load_token(
             notes=_load_notes(client.notes, pools),
         )
         if report.swaps == 0:
-            report.notes.insert(0, _empty_window_note(token, start_ts, report.swap_logs, blocks_fetched))
+            # The whole window was checked. blocks_fetched is only the part that was not cached.
+            report.notes.insert(0, _empty_window_note(token, start_ts, report.swap_logs, span_blocks))
         say(
             f"Cached {report.swaps:,} swaps and {report.transfers:,} transfers "
             f"in {report.seconds:.1f}s. No analysis was run."
