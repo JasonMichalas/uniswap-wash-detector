@@ -85,7 +85,7 @@ def execute_frames(
     window_end: datetime | None = None,
     model_dir: str | None = None,
 ) -> ExecResult:
-    """Execute `program`. Frames are the loaded window, already filtered to it."""
+    """Frames are the loaded window, already filtered to it."""
     end_ts = end_ts or datetime(2026, 1, 1)
     window_start = window_start or end_ts
     window_end = window_end or end_ts
@@ -212,7 +212,7 @@ class QueryEngine:
     """Compile query text and run it on a loaded window."""
 
     def compile(self, text: str) -> Program:
-        """Parse a short query or a full program into one AST."""
+        """Short queries and full programs share one AST."""
         return parse(text)
 
     def run(
@@ -229,7 +229,7 @@ class QueryEngine:
         window_end: datetime | None = None,
         model_dir: str | None = None,
     ) -> ExecResult:
-        """Execute a compiled program. Same path as `execute_frames`."""
+        """Same path as `execute_frames`."""
         return execute_frames(
             program,
             swaps=swaps,

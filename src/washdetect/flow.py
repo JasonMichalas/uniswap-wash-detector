@@ -116,7 +116,7 @@ def _bfs(starts: Iterable[str], adj: dict[str, set[str]], limit: int) -> tuple[s
 
 
 def _slice(events: Sequence, lo: int, hi: int, blocks: Sequence[int]) -> Sequence:
-    """Events with block in [lo, hi]. `events` and `blocks` are sorted by block."""
+    """`events` and `blocks` are sorted by block, so the window is a bisect."""
     from bisect import bisect_left, bisect_right
 
     left = bisect_left(blocks, lo)

@@ -48,8 +48,6 @@ def is_zero(address: str | None) -> bool:
         return True
 
 
-# --- signatures -----------------------------------------------------------
-
 SIG_GET_PAIR = "getPair(address,address)"
 SIG_GET_POOL = "getPool(address,address,uint24)"
 SIG_TOKEN0 = "token0()"

@@ -160,7 +160,6 @@ def _find_groups(
             cluster.kind = "linked_pair"
             clusters.append(cluster)
 
-    # Pairs.
     for link in links:
         lo = link.start_block - config.max_block_gap
         hi = link.end_block + config.max_block_gap

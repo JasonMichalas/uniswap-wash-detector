@@ -66,7 +66,6 @@ def _error_text(body: Any, status: int) -> str:
 
 
 def classify_error(status: int, body: Any) -> RpcError:
-    """Turn an HTTP/JSON-RPC failure into a range error or a rate error."""
     text = _error_text(body, status)
     if status in {408, 429, 502, 503, 504} or "rate" in text or "too many request" in text:
         return RpcRateError(text)

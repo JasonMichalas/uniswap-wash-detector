@@ -134,7 +134,6 @@ def fetch_swaps(
     start_ts: int,
     key: str | None = None,
 ) -> list[dict[str, Any]]:
-    """Return raw subgraph swap objects for the given pools."""
     key = key if key is not None else api_key()
     if not key:
         raise SubgraphError("GRAPH_API_KEY is not set")
