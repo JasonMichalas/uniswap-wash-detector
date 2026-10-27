@@ -193,9 +193,13 @@ def format_load_line(
     network: int,
     cached: int,
     show_blocks: bool = True,
+    swaps_started: bool = False,
+    transfers_started: bool = False,
 ) -> str:
     """One status line. The phase does not carry its own percentage."""
-    counts = f"{swaps:,} swaps, {transfers:,} transfers found"
+    swap_bit = f"{swaps:,} swaps found" if swaps_started else "swaps not started yet"
+    transfer_bit = f"{transfers:,} transfers found" if transfers_started else "transfers not started yet"
+    counts = f"{swap_bit} · {transfer_bit}"
     tail = f"{elapsed:.0f}s elapsed · {network:,} blocks from network, {cached:,} cached"
     if not show_blocks or end <= 0:
         return f"{phase} · {counts} · {tail}"
@@ -218,6 +222,10 @@ def render_progress(
         stats["at"] = int(found.group(1).replace(",", ""))
         stats["end"] = int(found.group(2).replace(",", ""))
     phase = _EMBEDDED_PCT.sub("", _PHASE_NOISE.sub("", message.split(" · ")[0])).strip(" :") or "Working"
+    if phase.startswith("Reading swaps"):
+        stats["swaps_started"] = 1
+    if phase.startswith("Reading transfers"):
+        stats["transfers_started"] = 1
     return format_load_line(
         phase=phase,
         at=stats["at"],
@@ -228,6 +236,8 @@ def render_progress(
         network=network,
         cached=cached,
         show_blocks=found is not None,
+        swaps_started=bool(stats.get("swaps_started")),
+        transfers_started=bool(stats.get("transfers_started")),
     )
 
 

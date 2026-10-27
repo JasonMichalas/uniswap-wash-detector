@@ -11,13 +11,39 @@ def test_load_line_names_phase_blocks_counts_and_cache():
         elapsed=12.2,
         network=10,
         cached=90,
+        swaps_started=True,
+        transfers_started=True,
     )
     assert line == (
         "Reading swaps · block 50 of 100 (50%) · "
-        "3 swaps, 4 transfers found · "
+        "3 swaps found · 4 transfers found · "
         "12s elapsed · "
         "10 blocks from network, 90 cached"
     )
+
+
+def test_steps_that_have_not_run_are_not_shown_as_zero():
+    stats = {"at": 100, "end": 200, "swaps": 0, "transfers": 0}
+    line = render_progress(
+        "Finding pools · blocks 100 of 200",
+        stats,
+        elapsed=3,
+        network=0,
+        cached=0,
+    )
+    assert "swaps not started yet" in line
+    assert "transfers not started yet" in line
+    assert "0 swaps" not in line
+    assert "0 transfers" not in line
+    reading = render_progress(
+        "Reading swaps: blocks 150 of 200",
+        stats,
+        elapsed=4,
+        network=1,
+        cached=0,
+    )
+    assert "0 swaps found" in reading
+    assert "transfers not started yet" in reading
 
 
 def test_a_phase_that_already_has_a_percentage_keeps_only_one():
