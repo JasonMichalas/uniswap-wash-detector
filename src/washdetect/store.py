@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import threading
+from collections import defaultdict
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -175,6 +176,9 @@ class Store:
         self.con = duckdb.connect(self.path)
         self.lock = threading.RLock()
         self.con.execute(SCHEMA)
+        self.con.execute(
+            "CREATE INDEX IF NOT EXISTS coverage_token_dataset ON coverage(token, dataset)"
+        )
 
     def close(self) -> None:
         with self.lock:
@@ -220,6 +224,18 @@ class Store:
                 [token, dataset],
             ).fetchall()
         return [(int(a), int(b)) for a, b in rows]
+
+    def coverage_by_dataset(self, token: str) -> dict[str, list[tuple[int, int]]]:
+        """Every cached span for a token, in one read. A large pool set uses this once."""
+        with self.lock:
+            rows = self.con.execute(
+                "SELECT dataset, start_block, end_block FROM coverage WHERE token = ?",
+                [token],
+            ).fetchall()
+        grouped: dict[str, list[tuple[int, int]]] = defaultdict(list)
+        for dataset, start, end in rows:
+            grouped[str(dataset)].append((int(start), int(end)))
+        return grouped
 
     def missing(self, token: str, dataset: str, start: int, end: int) -> list[tuple[int, int]]:
         return missing_intervals(self.coverage(token, dataset), start, end)

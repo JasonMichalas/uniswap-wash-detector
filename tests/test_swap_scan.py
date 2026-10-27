@@ -5,7 +5,7 @@ from datetime import datetime
 from washdetect.config import POOL_MANAGER
 from washdetect.discover import PoolMeta
 from washdetect.logs import _pool_topics
-from washdetect.pipeline import _fetch_one_gap, _use_v4_bulk
+from washdetect.pipeline import _fetch_one_gap, _fetch_swap_groups, _use_v4_bulk
 from washdetect.rpc import RpcError
 from washdetect.store import Store
 
@@ -98,6 +98,29 @@ def test_a_handful_of_v4_pools_filters_by_pool_id(tmp_path):
     topics = client.calls[0]["topics"]
     assert topics[0] == _pool_topics("v4")[0]
     assert set(topics[1]) == {pool.pool_address for pool in pools}
+    store.close()
+
+
+def test_many_pools_read_cached_ranges_once(tmp_path):
+    store = Store(tmp_path / "scan.duckdb")
+    pools = [_pool(i, "v4") for i in range(1, 31)]
+    store.add_coverage(TOKEN, f"swaps:{pools[0].pool_address}", 100, 399)
+    client = _Logs()
+    _fetch_swap_groups(
+        store,
+        client,  # type: ignore[arg-type]
+        TOKEN,
+        pools,
+        100,
+        399,
+        300,
+        datetime(2026, 10, 27),
+        lambda _message: None,
+        lambda: False,
+    )
+    assert len(client.calls) == 1
+    assert client.calls[0]["address"] == POOL_MANAGER
+    assert store.range_covered(TOKEN, f"swaps:{pools[-1].pool_address}", 100, 399)
     store.close()
 
 
