@@ -415,6 +415,50 @@ def _shape(swaps: list[SwapEvent], wallets: tuple[str, ...] | set[str], *, has_c
     )
 
 
+class WashDetector:
+    """Rule labeler for one tolerance, block window, and group-size cap.
+
+    `tolerance` is the fraction by which buys and sells may differ (the
+    paper uses 5%). `window_blocks` is how far apart those trades may sit.
+    """
+
+    def __init__(
+        self,
+        tolerance: float | None = None,
+        window_blocks: int | None = None,
+        max_group_size: int | None = None,
+        *,
+        config: HeuristicConfig | None = None,
+    ) -> None:
+        from dataclasses import replace
+
+        base = config or HeuristicConfig()
+        changes: dict[str, float | int] = {}
+        if tolerance is not None:
+            changes["net_ratio"] = tolerance
+        if window_blocks is not None:
+            changes["max_block_gap"] = window_blocks
+        if max_group_size is not None:
+            changes["max_group_size"] = max_group_size
+        self.config = replace(base, **changes) if changes else base
+
+    def find_groups(
+        self,
+        swaps: list[SwapEvent],
+        transfers: list[TransferEvent],
+        excluded: set[str] | None = None,
+    ) -> Detection:
+        return _find_groups(swaps, transfers, excluded=excluded, config=self.config)
+
+    def wash_percent(
+        self,
+        swaps: list[SwapEvent],
+        transfers: list[TransferEvent],
+        excluded: set[str] | None = None,
+    ) -> float:
+        return self.find_groups(swaps, transfers, excluded).wash_pct
+
+
 def detect(
     swaps: list[SwapEvent],
     transfers: list[TransferEvent],
@@ -423,6 +467,16 @@ def detect(
     config: HeuristicConfig | None = None,
 ) -> Detection:
     """Run the heuristic. Pure function: no database and no network."""
+    return WashDetector(config=config).find_groups(swaps, transfers, excluded)
+
+
+def _find_groups(
+    swaps: list[SwapEvent],
+    transfers: list[TransferEvent],
+    *,
+    excluded: set[str] | None = None,
+    config: HeuristicConfig | None = None,
+) -> Detection:
     config = config or HeuristicConfig()
     excluded = {addr.lower() for addr in (excluded or set())}
     excluded.add(ZERO)

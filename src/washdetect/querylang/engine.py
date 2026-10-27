@@ -19,7 +19,7 @@ import duckdb
 import pandas as pd
 
 from washdetect.config import MAX_WINDOW_DAYS, ROUTERS, HeuristicConfig
-from washdetect.detector import Detection, SwapEvent, TransferEvent, detect
+from washdetect.detector import Detection, SwapEvent, TransferEvent, WashDetector
 from washdetect.features import WALLET_COLUMNS, build_wallet_table
 from washdetect.graph.catalog import TYPES, field_map
 from washdetect.querylang.ast import (
@@ -711,7 +711,7 @@ def _run_detect(
         for src, dst, block, amount, tx_hash, log_index in transfer_rows
         if src and dst
     ]
-    return detect(events, transfers, excluded=excluded, config=config)
+    return WashDetector(config=config).find_groups(events, transfers, excluded)
 
 
 def _register_detection(
