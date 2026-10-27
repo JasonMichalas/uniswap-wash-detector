@@ -268,11 +268,11 @@ def _eval(
         transfers_stream = _need_stream(env, expr.transfers)
         if swaps_stream.type_name != "swaps":
             raise QueryError(
-                "detect_cycles wants a swaps stream that has not already been flagged. "
+                "find_wash_groups wants a swaps stream that has not already been flagged. "
                 "Connect the Swaps source, not the detector's own output."
             )
         if transfers_stream.type_name != "transfers":
-            raise QueryError("detect_cycles wants a transfers stream as its second input.")
+            raise QueryError("find_wash_groups wants a transfers stream as its second input.")
         detection = _run_detect(
             con,
             swaps_stream.view,
@@ -293,7 +293,7 @@ def _eval(
         if not isinstance(bundle, _Bundle):
             raise QueryError(
                 f"{expr.name} is not a detector result. "
-                "project is only valid on detect_cycles(...)."
+                "project is only valid on find_wash_groups(...)."
             )
         chosen = {"swaps": bundle.swaps, "wallets": bundle.wallets, "cycles": bundle.cycles}.get(
             expr.kind

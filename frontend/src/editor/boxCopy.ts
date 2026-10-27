@@ -21,7 +21,7 @@ const TITLE: Record<string, string> = {
 
 const TECHNICAL: Record<string, string> = {
   condition: "Condition",
-  detect_cycles: "Cycle detector",
+  detect_cycles: "Groups whose buys and sells cancel",
   ml_score: "ML wash score",
   anomaly_score: "Anomaly score",
   explain: "Explain",

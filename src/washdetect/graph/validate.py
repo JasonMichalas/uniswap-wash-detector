@@ -123,7 +123,7 @@ def validate_graph(graph: dict[str, Any]) -> list[GraphErrorItem]:
         errors.append(
             GraphErrorItem(
                 "This graph has a loop. Data-flow graphs have to be acyclic. "
-                "Wash-trading cycles are found by the Cycle detector box, not by wiring a box back into itself.",
+                "Wash-trading cycles are found by the Find wash groups box, not by wiring a box back into itself.",
                 code="cycle",
             )
         )

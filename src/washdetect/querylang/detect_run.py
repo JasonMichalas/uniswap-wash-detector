@@ -18,24 +18,24 @@ def _detector_config(expr: Detect) -> HeuristicConfig:
     kwargs: dict[str, float | int | tuple[str, ...]] = {}
     if expr.net_ratio is not None:
         if not 0 < float(expr.net_ratio) <= 0.5:
-            raise QueryError("detect_cycles tolerance must be greater than 0 and at most 0.5.")
+            raise QueryError("find_wash_groups tolerance must be greater than 0 and at most 0.5.")
         kwargs["net_ratio"] = float(expr.net_ratio)
     if expr.max_block_gap is not None:
         gap = int(expr.max_block_gap)
         if not 1 <= gap <= 120_000:
-            raise QueryError("detect_cycles window must be a whole number of blocks from 1 to 120000.")
+            raise QueryError("find_wash_groups window must be a whole number of blocks from 1 to 120000.")
     raw_rules = getattr(expr, "rules", None)
     if raw_rules:
         names = tuple(part.strip() for part in str(raw_rules).split(",") if part.strip())
         unknown = [name for name in names if name not in {"R1", "R2", "R3", "R4", "R5", "R6"}]
         if unknown or not names:
-            raise QueryError("detect_cycles rules must be chosen from R1, R2, R3, R4, R5, and R6.")
+            raise QueryError("find_wash_groups rules must be chosen from R1, R2, R3, R4, R5, and R6.")
         kwargs["enabled_rules"] = names
         kwargs["max_block_gap"] = gap
     if expr.max_group_size is not None:
         size = int(expr.max_group_size)
         if not 2 <= size <= 64:
-            raise QueryError("detect_cycles max group size must be a whole number from 2 to 64.")
+            raise QueryError("find_wash_groups max group size must be a whole number from 2 to 64.")
         kwargs["max_group_size"] = size
     return HeuristicConfig(**kwargs)
 

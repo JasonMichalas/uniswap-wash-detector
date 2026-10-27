@@ -53,7 +53,7 @@ def test_transfers_cannot_feed_the_ml_score():
 def test_wash_percent_template_uses_general_boxes():
     graph = _load(ROOT / "examples" / "graphs" / "01-wash-percent.json")
     text = compile_graph(graph)[1]
-    assert "detect_cycles" in text
+    assert "find_wash_groups" in text
     assert "ratio " in text
     assert "is_wash = true" in text
     assert "format percent" in text
@@ -94,7 +94,7 @@ def test_graph_loops_are_rejected():
     }
     errors = validate_graph(graph)
     assert any(error.code == "cycle" for error in errors)
-    assert any("Cycle detector" in error.message for error in errors)
+    assert any("Find wash groups" in error.message for error in errors)
 
 
 def test_bad_field_names_the_available_columns():

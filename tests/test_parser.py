@@ -6,7 +6,7 @@ from washdetect.querylang.parser import parse
 
 def test_short_queries_lower_to_programs():
     percent = parse("wash_percent")
-    assert "detect_cycles" in percent.to_text()
+    assert "find_wash_groups" in percent.to_text()
     assert "ratio" in percent.to_text()
     assert "format percent" in percent.to_text()
 
@@ -78,8 +78,19 @@ def test_scoring_statements_round_trip():
 def test_detect_cycles_accepts_tolerance_window_and_group_size():
     program = parse("s = source swaps\nt = source transfers\nd = detect_cycles(s, t, 0.05, 200, 12)\noutput table d as \"x\"\n")
     text = program.to_text()
-    assert "detect_cycles(s, t, 0.05, 200, 12)" in text
+    assert "find_wash_groups(s, t, 0.05, 200, 12)" in text
     assert parse(text).to_text() == text
+
+
+def test_find_wash_groups_is_the_name_written_back():
+    written = parse(
+        "s = source swaps\nt = source transfers\nd = find_wash_groups(s, t, 0.05, 7200, 24)\noutput table d as \"x\"\n"
+    )
+    assert "find_wash_groups(s, t, 0.05, 7200, 24)" in written.to_text()
+    older = parse(
+        "s = source swaps\nt = source transfers\nd = detect_cycles(s, t)\noutput table d as \"x\"\n"
+    )
+    assert "find_wash_groups(s, t)" in older.to_text()
 
 
 def test_comments_and_hours():

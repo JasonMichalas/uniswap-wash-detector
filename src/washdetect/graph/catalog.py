@@ -189,7 +189,7 @@ NODE_DEFS: list[dict[str, Any]] = [
     },
     {
         "type": "detect_cycles",
-        "label": "Cycle detector",
+        "label": "Find wash groups",
         "category": "detector",
         "description": (
             "Finds wash groups and writes a plain-English Why and a path on each flagged swap. "
@@ -402,7 +402,7 @@ PALETTE: list[dict[str, Any]] = [
     },
     {
         "node_type": "detect_cycles",
-        "label": "Cycle detector",
+        "label": "Find wash groups",
         "category": "detector",
         "blurb": "Round-trips, rings, and M:N flow groups.",
         "data": {

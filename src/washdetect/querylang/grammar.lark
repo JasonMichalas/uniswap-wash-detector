@@ -35,7 +35,7 @@ expr: source
     | explainstmt
 
 source: "source" SOURCE_KIND
-detect: "detect_cycles" "(" NAME "," NAME ("," NUMBER "," NUMBER "," NUMBER)? ")"
+detect: ("find_wash_groups" | "detect_cycles") "(" NAME "," NAME ("," NUMBER "," NUMBER "," NUMBER)? ")"
 project: "project" NAME PROJ_KIND
 filter: "filter" NAME "where" cond ("and" cond)*
 timewin: "window" NAME "last" NUMBER UNIT

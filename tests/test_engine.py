@@ -51,7 +51,7 @@ def test_wash_percent_on_a_planted_round_trip():
     assert abs(value - (1000 / 1050 * 100)) < 0.01
     assert result.outputs[0].format == "percent"
     assert "CREATE VIEW" in result.sql
-    assert "detect_cycles" in result.query
+    assert "find_wash_groups" in result.query
 
 
 def test_confidence_filter_keeps_only_the_round_trip_wallet():

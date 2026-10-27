@@ -53,7 +53,7 @@ class Detect:
     rules: str | None = None
 
     def to_text(self) -> str:
-        head = f"detect_cycles({self.swaps}, {self.transfers}"
+        head = f"find_wash_groups({self.swaps}, {self.transfers}"
         if self.net_ratio is None and self.max_block_gap is None and self.max_group_size is None:
             return head + ")"
         tolerance = 0.05 if self.net_ratio is None else self.net_ratio

@@ -50,7 +50,7 @@ On Debian or Ubuntu, `python3 -m venv` needs the distro package: `sudo apt insta
 
 1. Click the token box and choose **ENS** from the list (or paste `0xC18360217D8F7Ab5e7c516566761Ea12Ce7F9D72`).
 2. The **7d** chip is already selected. For a quicker first fetch, clear it and set a custom window of one day (start and end on the same date). Seven days works too; it just takes longer the first time. Press **Load token**. The status line says **No analysis has been run.**
-3. Open **Examples** and choose **Wash volume percent**. That graph is Swaps + Transfers → Cycle detector → Condition `is_wash = true` → Percent of `usd_value` → Number, format percent. Press **Run**. That number is the rule.
+3. Open **Examples** and choose **Wash volume percent**. That graph is Swaps + Transfers → Find wash groups → Condition `is_wash = true` → Percent of `usd_value` → Number, format percent. Press **Run**. That number is the rule.
 4. Open **ML wash volume percent**. Swaps → ML wash score → Percent of `ml_weighted_usd` divided by `usd_value` → Number, format percent. Press **Run**. The card is the probability-weighted wash percent, with a 95% bootstrap interval under the figure.
 5. Open **Top 10 wallets by wash probability**, then **Explain the top wallets**. Explain lists the SHAP features that push each wallet's score up or down.
 
@@ -82,7 +82,7 @@ A group is a connected flow inside a block window: pool buys, wallet-to-wallet t
 
 Filterable fields on the cycles stream: `pattern_type`, `n_buyers`, `n_sellers`, `n_wallets` (intermediates count), and `size` (same as `n_wallets`). The example **Groups with at least 3 wallets** filters `n_wallets >= 3` and `pattern_type = many_to_many`.
 
-The Cycle detector box takes three parameters. Defaults are tolerance `0.05`, window `200` blocks, max group size `16`. The hard cap is 64 wallets. A component larger than the cap is skipped whole, so a trimmed subset cannot invent a match. Hubs (more than 25 counterparties), routers, pools, and the zero and burn addresses are not edges.
+The Find wash groups box takes three parameters. Defaults are tolerance `0.05`, window `200` blocks, max group size `16`. The hard cap is 64 wallets. A component larger than the cap is skipped whole, so a trimmed subset cannot invent a match. Hubs (more than 25 counterparties), routers, pools, and the zero and burn addresses are not edges.
 
 The older Gan-style pair matcher is still there (`kind` is `self`, `linked_pair`, or `transfer_cycle`). `confidence` is a heuristic in `[0, 1]`, not a probability. A bare match is about 0.50. A tight round-trip can clear `confidence > 0.8`.
 
@@ -240,7 +240,7 @@ reasons = explain top
 output table reasons as "Why these wallets score high"
 ```
 
-`detect_cycles(swaps, transfers, tolerance, window_blocks, max_group_size)` takes the three detector parameters. Omit them to use the defaults.
+`find_wash_groups(swaps, transfers, tolerance, window_blocks, max_group_size)` takes the three detector parameters. Omit them to use the defaults. `detect_cycles(...)` is the same function.
 
 SQL identifiers are whitelisted. String literals are quoted by doubling single quotes. A second belt rejects `drop`, `delete`, `insert`, `update`, `alter`, `attach`, `copy`, and `pragma` outside strings and comments. Limits are 1–1000 rows. The browser shows at most 1000.
 
