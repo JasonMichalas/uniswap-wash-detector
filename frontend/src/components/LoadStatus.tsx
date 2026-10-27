@@ -6,6 +6,7 @@ export function LoadStatus({
   customProblem,
   showCustomProblem,
   loadError,
+  loadErrorDetail,
   loading,
   progress,
   loaded,
@@ -15,6 +16,7 @@ export function LoadStatus({
   customProblem: string | null;
   showCustomProblem: boolean;
   loadError: string | null;
+  loadErrorDetail: string | null;
   loading: boolean;
   progress: string;
   loaded: LoadResult | null;
@@ -26,7 +28,17 @@ export function LoadStatus({
         <div className="notices">
           {typedAddressProblem && <p className="banner error">{typedAddressProblem}</p>}
           {showCustomProblem && customProblem && <p className="banner error">{customProblem}</p>}
-          {loadError && <p className="banner error">{loadError}</p>}
+          {loadError && (
+            <p className="banner error">
+              {loadError}
+              {loadErrorDetail && (
+                <details className="error-details">
+                  <summary>Details</summary>
+                  <p>{loadErrorDetail}</p>
+                </details>
+              )}
+            </p>
+          )}
           {loading && <p className="banner load-progress">{progress || "Starting"}</p>}
         </div>
       )}
@@ -57,6 +69,16 @@ export function LoadStatus({
           {loaded.notes.slice(0, 3).map((note) => (
             <p key={note} className={loaded.swaps === 0 ? "banner warn" : "quiet"}>
               {note}
+              {note.startsWith("One free data server") && loaded.note_details && loaded.note_details.length > 0 && (
+                <details className="error-details">
+                  <summary>Details</summary>
+                  <ul>
+                    {loaded.note_details.map((item) => (
+                      <li key={item}>{item}</li>
+                    ))}
+                  </ul>
+                </details>
+              )}
             </p>
           ))}
           {loaded.balances_truncated && <span className="quiet">Balances capped at the most active wallets.</span>}

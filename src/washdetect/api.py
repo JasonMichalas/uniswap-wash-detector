@@ -193,8 +193,9 @@ def start_load(body: LoadRequest) -> dict[str, str]:
         except Exception as exc:
             with _jobs_lock:
                 _jobs[job_id]["status"] = "error"
-                _jobs[job_id]["error"] = str(exc)
-                _jobs[job_id]["message"] = str(exc)
+                _jobs[job_id]["error"] = "The free data servers could not finish this load."
+                _jobs[job_id]["error_detail"] = str(exc)
+                _jobs[job_id]["message"] = "The free data servers could not finish this load."
 
     threading.Thread(target=work, daemon=True).start()
     return {"job_id": job_id}

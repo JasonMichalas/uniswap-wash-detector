@@ -61,6 +61,7 @@ export function Editor({ catalog }: { catalog: Catalog }) {
   const [forks, setForks] = useState(false);
   const jobRef = useRef<string | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [loadErrorDetail, setLoadErrorDetail] = useState<string | null>(null);
   const [loaded, setLoaded] = useState<LoadResult | null>(null);
   const [query, setQuery] = useState("");
   const [sql, setSql] = useState("");
@@ -211,6 +212,7 @@ export function Editor({ catalog }: { catalog: Catalog }) {
 
   async function onLoad() {
     setLoadError(null);
+    setLoadErrorDetail(null);
     setBanner(null);
     setLoading(true);
     setProgress("Starting");
@@ -234,11 +236,13 @@ export function Editor({ catalog }: { catalog: Catalog }) {
         }
         if (job.status === "cancelled") {
           setLoadError(null);
+          setLoadErrorDetail(null);
           setLoading(false);
           return;
         }
         if (job.status === "error") {
-          setLoadError(job.error || job.message || "The load failed.");
+          setLoadError(job.error || "The free data servers could not finish this load.");
+          setLoadErrorDetail(typeof job.error_detail === "string" ? job.error_detail : job.message || null);
           setLoading(false);
           return;
         }
@@ -246,7 +250,8 @@ export function Editor({ catalog }: { catalog: Catalog }) {
       }
     } catch (error) {
       if (!alive.current) return;
-      setLoadError(error instanceof Error ? error.message : "The load failed.");
+      setLoadError("The free data servers could not finish this load.");
+      setLoadErrorDetail(error instanceof Error ? error.message : "The load failed.");
       setLoading(false);
     }
   }
@@ -406,6 +411,7 @@ export function Editor({ catalog }: { catalog: Catalog }) {
         customProblem={customProblem}
         showCustomProblem={preset === null}
         loadError={loadError}
+        loadErrorDetail={loadErrorDetail}
         loading={loading}
         progress={progress}
         loaded={loaded}

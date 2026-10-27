@@ -102,6 +102,7 @@ export type LoadResult = {
   eth_usd: number | null;
   used_subgraph: boolean;
   notes: string[];
+  note_details?: string[];
   analysis_ran: boolean;
 };
 
