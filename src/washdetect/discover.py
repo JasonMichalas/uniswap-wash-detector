@@ -428,17 +428,27 @@ def _topic_scan(
                 progress(f"Finding pools · blocks {at:,} of {end:,}")
 
             progress(f"Finding pools · blocks {gap_start:,} of {head:,}")
-            client.get_logs(
-                address=address,
-                topics=topics,
-                start_block=gap_start,
-                end_block=gap_end,
-                init_span=_FILTERED_SPAN,
-                workers=2,
-                on_chunk=on_chunk,
-                on_progress=on_progress,
-                cancel=cancel,
-            )
+            # mevblocker answers a filtered 200k-block page. The other public RPCs
+            # either cap out at a handful of blocks or return an empty page for history
+            # they do not store, which used to hide v4 pools.
+            logs_client = client.spawn()
+            archive = [url for url in client.endpoints if "mevblocker" in url]
+            if archive:
+                logs_client.endpoints = archive
+            try:
+                logs_client.get_logs(
+                    address=address,
+                    topics=topics,
+                    start_block=gap_start,
+                    end_block=gap_end,
+                    init_span=_FILTERED_SPAN,
+                    workers=2,
+                    on_chunk=on_chunk,
+                    on_progress=on_progress,
+                    cancel=cancel,
+                )
+            finally:
+                logs_client.close()
         _add_rows(meta, rows, found, seen, cache)
 
 
