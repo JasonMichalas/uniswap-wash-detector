@@ -336,7 +336,6 @@ export function Editor({ catalog }: { catalog: Catalog }) {
     try {
       localStorage.setItem("washdetect-theme", next);
     } catch {
-      /* private mode */
     }
   }
 
