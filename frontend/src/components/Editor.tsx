@@ -22,7 +22,7 @@ import {
   startLoad,
 } from "../api";
 import { describeProblem } from "../editor/boxCopy";
-import { freePosition } from "../editor/place";
+import { BOX_STRIDE_X, freePosition } from "../editor/place";
 import { actionStatus, addressProblem, numericSuffix, sleep, slug, stepHint } from "../editor/ui";
 import {
   connectionAllowed,
@@ -82,7 +82,7 @@ export function Editor({ catalog }: { catalog: Catalog }) {
   const edgesRef = useRef(edges);
   nodesRef.current = nodes;
   edgesRef.current = edges;
-  const { screenToFlowPosition, fitView, setCenter } = useReactFlow();
+  const { screenToFlowPosition, fitView, setCenter, getViewport } = useReactFlow();
 
   const key = useMemo(() => logicKey(nodes, edges), [nodes, edges]);
   const latestKey = useRef(key);
@@ -197,7 +197,9 @@ export function Editor({ catalog }: { catalog: Catalog }) {
     const preferred = rect
       ? screenToFlowPosition({ x: rect.left + 48, y: rect.top + 64 })
       : { x: 48, y: 48 };
-    return freePosition(nodesRef.current, preferred);
+    const zoom = getViewport().zoom || 1;
+    const columns = rect ? Math.floor((rect.width - 64) / (BOX_STRIDE_X * zoom)) : 3;
+    return freePosition(nodesRef.current, preferred, columns);
   }
 
   function placeChip(item: PaletteItem) {
@@ -457,7 +459,6 @@ export function Editor({ catalog }: { catalog: Catalog }) {
             nodeTypes={nodeTypes}
             deleteKeyCode={["Backspace", "Delete"]}
             proOptions={{ hideAttribution: false }}
-            fitView
             colorMode={theme}
           >
             <Background gap={22} color={theme === "dark" ? "#3a372f" : "#e4ddd0"} />

@@ -1,7 +1,9 @@
 const BOX_W = 280;
-const BOX_H = 176;
+const BOX_H = 220;
 const GAP_X = 32;
 const GAP_Y = 24;
+
+export const BOX_STRIDE_X = BOX_W + GAP_X;
 
 type Placed = {
   position: { x: number; y: number };
@@ -9,10 +11,15 @@ type Placed = {
   height?: number | null;
 };
 
-export function freePosition(nodes: Placed[], preferred: { x: number; y: number }): { x: number; y: number } {
+export function freePosition(
+  nodes: Placed[],
+  preferred: { x: number; y: number },
+  columns = 3,
+): { x: number; y: number } {
   const origin = { x: Math.max(24, preferred.x), y: Math.max(24, preferred.y) };
+  const cols = Math.max(1, Math.floor(columns));
   for (let row = 0; row < 12; row++) {
-    for (let col = 0; col < 6; col++) {
+    for (let col = 0; col < cols; col++) {
       const next = {
         x: origin.x + col * (BOX_W + GAP_X),
         y: origin.y + row * (BOX_H + GAP_Y),

@@ -492,7 +492,7 @@ button.theme { flex: none; border: 1px solid var(--line); background: var(--pane
   min-height: 0;
   min-width: 0;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 240px;
+  grid-template-columns: minmax(0, 1fr) 300px;
 }
 
 .inspector {
