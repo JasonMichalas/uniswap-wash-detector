@@ -247,6 +247,14 @@ class Store:
                 [(token, dataset, a, b) for a, b in merged],
             )
 
+    def add_coverage_many(self, rows: list[tuple[str, str, int, int]]) -> None:
+        """Insert many coverage spans. Readers merge overlaps, so a bulk scan can write once."""
+        kept = [row for row in rows if row[2] <= row[3]]
+        if not kept:
+            return
+        with self.lock:
+            self.con.executemany("INSERT INTO coverage VALUES (?, ?, ?, ?)", kept)
+
     def insert_swaps(self, rows: list[tuple[Any, ...]]) -> None:
         if not rows:
             return

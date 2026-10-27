@@ -333,6 +333,7 @@ def _cover(args: argparse.Namespace) -> int:
     failed: list[str] = []
     started = datetime.now()
     swap_total = 0
+    window_blocks = 0
     for symbol, address in tokens:
         print(f"\n=== {symbol} {address}", flush=True)
         try:
@@ -348,16 +349,18 @@ def _cover(args: argparse.Namespace) -> int:
             failed.append(f"{symbol}: {exc}")
             continue
         swap_total += report.swaps
+        window_blocks += max(0, report.end_block - report.start_block + 1)
         _print_report(report)
         if report.swaps > 0:
             ok += 1
         else:
             failed.append(f"{symbol}: 0 swaps ({'; '.join(report.notes[:2])})")
-    elapsed = (datetime.now() - started).total_seconds()
+    elapsed = max((datetime.now() - started).total_seconds(), 0.001)
     print(
         f"\nCoverage: {ok}/{len(tokens)} tokens had swaps "
         f"({(100 * ok / len(tokens)) if tokens else 0:.1f}%). "
-        f"{swap_total} swaps in {elapsed:.1f}s."
+        f"{swap_total} swaps in {elapsed:.1f}s "
+        f"({swap_total / elapsed:.2f} swaps/s, {window_blocks / elapsed:.1f} window-blocks/s)."
     )
     if failed:
         print("Still empty or failed:")

@@ -3,6 +3,7 @@ from __future__ import annotations
 import time
 from collections import defaultdict
 from collections.abc import Callable
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from typing import Any
@@ -382,6 +383,35 @@ def _fetch_swap_groups(
     return fetched, cached, raw
 
 
+# One PoolManager eth_getLogs for a short window is a few thousand logs. Past this
+# many pools, filtering eight ids at a time costs more round trips than reading them all.
+_V4_BULK_AT = 8
+_ADDRESS_BATCH = 48
+
+
+def _use_v4_bulk(pool_count: int, width: int) -> bool:
+    if pool_count <= _V4_BULK_AT:
+        return False
+    filtered = (pool_count + _V4_BULK_AT - 1) // _V4_BULK_AT * max(1, (width + 3_999) // 4_000)
+    # About 15 v4 logs per block on mainnet, and a page caps near 8,000 logs.
+    bulk = max(1, (width + 399) // 400)
+    return bulk < filtered
+
+
+def _too_many_addresses(message: str) -> bool:
+    text = message.lower()
+    return "address" in text and any(hint in text for hint in ("maximum", "too many", "limit", "allowed", "exceed"))
+
+
+def _event_topics(chunk: list[PoolMeta]) -> list[str]:
+    topics: list[str] = []
+    for pool in chunk:
+        for topic in _pool_topics(pool.protocol)[0]:
+            if topic not in topics:
+                topics.append(topic)
+    return topics
+
+
 def _fetch_one_gap(
     store: Store,
     client: RpcClient,
@@ -396,13 +426,11 @@ def _fetch_one_gap(
     cancel: Callable[[], bool],
 ) -> tuple[int, int]:
     raw = 0
-    scanned = 0
     v4 = [pool for pool in group if protocol_family(pool.protocol) == "v4"]
     rest = [pool for pool in group if protocol_family(pool.protocol) != "v4"]
 
     def consume(logs: list[dict[str, Any]], pools_in_call: list[PoolMeta], frm: int, to: int) -> None:
         nonlocal raw
-        raw += len(logs)
         by_addr = {pool.pool_address: pool for pool in pools_in_call}
         by_id = {pool.pool_address.lower(): pool for pool in pools_in_call}
         bucket: dict[str, list[dict[str, Any]]] = defaultdict(list)
@@ -410,12 +438,17 @@ def _fetch_one_gap(
             pool = _match_pool(log, by_addr, by_id)
             if pool is not None:
                 bucket[pool.pool_address].append(log)
-        for pool in pools_in_call:
+        raw += sum(len(rows) for rows in bucket.values())
+        for address, rows in bucket.items():
             _store_pool_logs(
-                store, client, token, pool, bucket.get(pool.pool_address, []), end_block, head_ts,
-                allow_rpc=False,
+                store, client, token, by_addr[address], rows, end_block, head_ts, allow_rpc=False
             )
-            store.add_coverage(token, f"swaps:{pool.pool_address}", frm, to)
+        spans = [(token, f"swaps:{pool.pool_address}", frm, to) for pool in pools_in_call]
+        if len(spans) > 16:
+            store.add_coverage_many(spans)
+        else:
+            for row in spans:
+                store.add_coverage(row[0], row[1], row[2], row[3])
 
     def progress(at: int, _range_end: int, count: int) -> None:
         say(
@@ -426,30 +459,49 @@ def _fetch_one_gap(
     say(f"Scraping swaps from Ethereum: blocks {gap_start:,} of {end_block:,}")
     workers = 4 if gap_end - gap_start > 8_000 else 1
     width = gap_end - gap_start + 1
-    for offset in range(0, len(rest), 8):
-        chunk = rest[offset : offset + 8]
-        topics: list[str] = []
-        for pool in chunk:
-            for topic in _pool_topics(pool.protocol)[0]:
-                if topic not in topics:
-                    topics.append(topic)
+    _scan_pool_addresses(
+        client, rest, gap_start, gap_end, workers, progress, cancel, consume, say
+    )
+    _scan_v4(client, v4, gap_start, gap_end, width, workers, progress, cancel, consume, say)
+    return raw, width if group else 0
 
-        def on_chunk(frm: int, to: int, logs: list[dict[str, Any]], chunk: list[PoolMeta] = chunk) -> None:
-            consume(logs, chunk, frm, to)
+
+def _scan_v4(
+    client: RpcClient,
+    pools: list[PoolMeta],
+    gap_start: int,
+    gap_end: int,
+    width: int,
+    workers: int,
+    progress: Callable[[int, int, int], None],
+    cancel: Callable[[], bool],
+    consume: Callable[[list[dict[str, Any]], list[PoolMeta], int, int], None],
+    say: Progress,
+) -> None:
+    if not pools:
+        return
+    if _use_v4_bulk(len(pools), width):
+        say(
+            f"Reading Uniswap v4 Swap and ModifyLiquidity logs for {len(pools):,} pools "
+            "in one pass"
+        )
+
+        def on_bulk(frm: int, to: int, logs: list[dict[str, Any]]) -> None:
+            consume(logs, pools, frm, to)
 
         client.get_logs(
-            address=[pool.pool_address for pool in chunk],
-            topics=[topics],
+            address=POOL_MANAGER,
+            topics=_pool_topics("v4"),
             start_block=gap_start,
             end_block=gap_end,
             workers=workers,
-            on_chunk=on_chunk,
+            on_chunk=on_bulk,
             on_progress=progress,
             cancel=cancel,
         )
-        scanned += width
-    for offset in range(0, len(v4), 8):
-        chunk = v4[offset : offset + 8]
+        return
+    for offset in range(0, len(pools), _V4_BULK_AT):
+        chunk = pools[offset : offset + _V4_BULK_AT]
 
         def on_v4(frm: int, to: int, logs: list[dict[str, Any]], chunk: list[PoolMeta] = chunk) -> None:
             consume(logs, chunk, frm, to)
@@ -464,8 +516,114 @@ def _fetch_one_gap(
             on_progress=progress,
             cancel=cancel,
         )
-        scanned += width
-    return raw, scanned
+
+
+def _scan_pool_addresses(
+    client: RpcClient,
+    pools: list[PoolMeta],
+    gap_start: int,
+    gap_end: int,
+    workers: int,
+    progress: Callable[[int, int, int], None],
+    cancel: Callable[[], bool],
+    consume: Callable[[list[dict[str, Any]], list[PoolMeta], int, int], None],
+    say: Progress,
+) -> None:
+    if not pools:
+        return
+    chunks = [pools[offset : offset + _ADDRESS_BATCH] for offset in range(0, len(pools), _ADDRESS_BATCH)]
+    parallel = (
+        len(chunks) > 1
+        and workers == 1
+        and getattr(client, "_transport", None) is None
+    )
+    if not parallel:
+        for chunk in chunks:
+            _consume_address_chunk(client, chunk, gap_start, gap_end, workers, progress, cancel, consume)
+        return
+    say(f"Reading {len(pools):,} v2/v3 pools, {_ADDRESS_BATCH} addresses at a time")
+    errors: list[BaseException] = []
+
+    def run(chunk: list[PoolMeta]) -> tuple[list[PoolMeta], list[dict[str, Any]], list[str]]:
+        child = client.spawn()
+        try:
+            logs = _load_address_chunk(child, chunk, gap_start, gap_end, 1, progress, cancel)
+            return chunk, logs, list(child.notes)
+        finally:
+            child.close()
+
+    with ThreadPoolExecutor(max_workers=4) as pool:
+        futures = [pool.submit(run, chunk) for chunk in chunks]
+        for future in futures:
+            try:
+                chunk, logs, notes = future.result()
+            except BaseException as exc:
+                errors.append(exc)
+                continue
+            client.notes.extend(notes)
+            consume(logs, chunk, gap_start, gap_end)
+    if errors:
+        raise errors[0]
+
+
+def _consume_address_chunk(
+    client: RpcClient,
+    chunk: list[PoolMeta],
+    gap_start: int,
+    gap_end: int,
+    workers: int,
+    progress: Callable[[int, int, int], None],
+    cancel: Callable[[], bool],
+    consume: Callable[[list[dict[str, Any]], list[PoolMeta], int, int], None],
+) -> None:
+    def on_chunk(frm: int, to: int, logs: list[dict[str, Any]]) -> None:
+        consume(logs, chunk, frm, to)
+
+    try:
+        client.get_logs(
+            address=[pool.pool_address for pool in chunk],
+            topics=[_event_topics(chunk)],
+            start_block=gap_start,
+            end_block=gap_end,
+            workers=workers,
+            on_chunk=on_chunk,
+            on_progress=progress,
+            cancel=cancel,
+        )
+    except RpcError as exc:
+        if len(chunk) <= 1 or not _too_many_addresses(str(exc)):
+            raise
+        mid = len(chunk) // 2
+        _consume_address_chunk(client, chunk[:mid], gap_start, gap_end, workers, progress, cancel, consume)
+        _consume_address_chunk(client, chunk[mid:], gap_start, gap_end, workers, progress, cancel, consume)
+
+
+def _load_address_chunk(
+    client: RpcClient,
+    chunk: list[PoolMeta],
+    gap_start: int,
+    gap_end: int,
+    workers: int,
+    progress: Callable[[int, int, int], None],
+    cancel: Callable[[], bool],
+) -> list[dict[str, Any]]:
+    try:
+        return client.get_logs(
+            address=[pool.pool_address for pool in chunk],
+            topics=[_event_topics(chunk)],
+            start_block=gap_start,
+            end_block=gap_end,
+            workers=workers,
+            on_progress=progress,
+            cancel=cancel,
+        )
+    except RpcError as exc:
+        if len(chunk) <= 1 or not _too_many_addresses(str(exc)):
+            raise
+        mid = len(chunk) // 2
+        left = _load_address_chunk(client, chunk[:mid], gap_start, gap_end, workers, progress, cancel)
+        right = _load_address_chunk(client, chunk[mid:], gap_start, gap_end, workers, progress, cancel)
+        return left + right
 
 
 def _match_pool(
