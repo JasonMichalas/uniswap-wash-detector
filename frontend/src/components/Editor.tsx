@@ -363,7 +363,7 @@ export function Editor({ catalog }: { catalog: Catalog }) {
 
   const selected = nodes.find((node) => node.selected) ?? null;
   const runReady = Boolean(loaded) && !running && nodes.length > 0 && errors.length === 0;
-  const hint = stepHint(step, loading, preset, nodes.length, errors.length, progress);
+  const hint = stepHint(step, loading, preset, nodes.length, errors.length);
 
   return (
     <div className="app">
