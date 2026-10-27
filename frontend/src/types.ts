@@ -44,6 +44,7 @@ export type Catalog = {
     rows: string[];
     timed: string[];
     walletish: string[];
+    scoreable: string[];
     swaps_exact: string[];
   };
 };
@@ -109,6 +110,7 @@ export type OutputResult = {
   columns: string[];
   rows: Record<string, unknown>[];
   truncated: boolean;
+  note?: string;
 };
 
 export type RunResult = {
@@ -122,4 +124,19 @@ export type TemplateSummary = {
   id: string;
   name: string;
   description: string;
+};
+
+export type TokenSuggestion = {
+  name: string;
+  symbol: string;
+  address: string;
+  logo_url: string | null;
+  volume_24h_usd: number | null;
+};
+
+export type TokenSuggestions = {
+  source: "geckoterminal" | "curated" | string;
+  trending: TokenSuggestion[];
+  top_volume: TokenSuggestion[];
+  results?: TokenSuggestion[];
 };

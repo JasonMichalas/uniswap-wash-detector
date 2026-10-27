@@ -1,11 +1,3 @@
-"""Keyless JSON-RPC client with rotation, backoff, and adaptive log ranges.
-
-Public Ethereum endpoints cap `eth_getLogs` by block span and by result
-count, and they do it with different error strings. `fetch_logs_adaptive`
-is the piece tests cover: it asks for a window, and whenever the fetcher
-says the range is too wide it halves the span and retries, without gaps.
-"""
-
 from __future__ import annotations
 
 import random
@@ -21,19 +13,15 @@ LogFetcher = Callable[[int, int], list[dict[str, Any]]]
 
 
 class RpcError(Exception):
-    """A call failed after retries, or the response was not usable."""
+    pass
 
 
 class RpcRangeError(RpcError):
-    """The node refused this block span or this result size.
-
-    The adaptive fetcher treats this as "split the range", not as a fatal
-    error. It is deliberately not retried on the same span.
-    """
+    """Split the span. The same range is not retried."""
 
 
 class RpcRateError(RpcError):
-    """429 / 503 / 'rate limit'. The client rotates endpoints and backs off."""
+    pass
 
 
 _RANGE_HINTS = (
@@ -66,15 +54,12 @@ def _error_text(body: Any, status: int) -> str:
 
 
 def classify_error(status: int, body: Any) -> RpcError:
-    """Turn an HTTP/JSON-RPC failure into a range error or a rate error."""
     text = _error_text(body, status)
     if status in {408, 429, 502, 503, 504} or "rate" in text or "too many request" in text:
         return RpcRateError(text)
     if any(hint in text for hint in _RANGE_HINTS):
         return RpcRangeError(text)
-    # Some gateways return a generic -32000 for oversized logs. If the span
-    # was large the caller can still decide to split; we only mark the
-    # obvious range failures here.
+    # A bare -32000 is not "range too wide"; only the hint strings above are.
     if status >= 500:
         return RpcRateError(text)
     return RpcError(text)
@@ -90,15 +75,7 @@ def fetch_logs_adaptive(
     max_logs: int = 8_000,
     on_note: Callable[[str], None] | None = None,
 ) -> list[dict[str, Any]]:
-    """Fetch logs over an inclusive block range, shrinking the chunk on refusal.
-
-    `fetch(from_block, to_block)` returns the logs for that inclusive span or
-    raises `RpcRangeError`. Successful chunks are concatenated. A chunk that
-    comes back at the `max_logs` ceiling is discarded and retried smaller,
-    because several public nodes silently truncate. At `min_span` the chunk
-    is accepted anyway and a note is recorded: a single very busy block can
-    legitimately hold more than `max_logs` events.
-    """
+    """A full page may be a silent truncation, so a chunk at the cap is retried smaller."""
     if start > end:
         return []
     if init_span < 1 or min_span < 1:
@@ -108,7 +85,6 @@ def fetch_logs_adaptive(
     span = max(min_span, init_span)
     block = start
     steps = 0
-    # Each block is visited a handful of times while the span shrinks.
     guard = max(100, (end - start + 1) * 8)
 
     while block <= end:
@@ -154,11 +130,6 @@ def fetch_logs_adaptive(
 
 
 class RpcClient:
-    """JSON-RPC over HTTPS. One method, many endpoints.
-
-    `transport` is a test hook: `(url, payload) -> decoded JSON`. Production
-    uses httpx. `sleep` is injectable so tests do not actually wait.
-    """
 
     def __init__(
         self,
@@ -167,7 +138,7 @@ class RpcClient:
         transport: Callable[[str, Any], Any] | None = None,
         sleep: Callable[[float], None] | None = None,
         timeout: float = 40.0,
-        max_attempts: int = 5,
+        max_attempts: int = 8,
     ) -> None:
         self.endpoints = list(endpoints or DEFAULT_RPCS)
         if not self.endpoints:
@@ -205,7 +176,6 @@ class RpcClient:
         return body
 
     def call(self, method: str, params: list[Any]) -> Any:
-        """Call one JSON-RPC method. Rotates and backs off on rate limits."""
         last: Exception | None = None
         for attempt in range(self._max_attempts):
             url = self._endpoint()
@@ -238,11 +208,6 @@ class RpcClient:
         raise RpcError(f"{method} failed after {self._max_attempts} attempts: {last}")
 
     def batch(self, calls: list[tuple[str, list[Any]]], *, batch_size: int = 20) -> list[Any]:
-        """Run many calls. Results are returned in request order.
-
-        Public gateways often cap batch size, so this slices the work. A
-        failed batch falls back to single calls, which already rotate.
-        """
         results: list[Any] = [None] * len(calls)
         for offset in range(0, len(calls), batch_size):
             chunk = calls[offset : offset + batch_size]
@@ -322,7 +287,6 @@ class RpcClient:
         )
 
     def find_block_by_timestamp(self, target_ts: int, lo: int, hi: int) -> int:
-        """Highest block whose timestamp is <= target_ts. About log2(span) calls."""
         best = lo
         while lo <= hi:
             mid = (lo + hi) // 2

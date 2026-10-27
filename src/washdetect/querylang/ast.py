@@ -1,12 +1,3 @@
-"""The query language's abstract syntax.
-
-A program is a list of assignments and one or more `output` statements.
-The node editor lowers a graph to this form, and the short queries
-(`wash_percent`, `holders where held_days > 90`, ...) desugar into it.
-Rendering is deterministic so the text under the graph is the program that
-actually runs.
-"""
-
 from __future__ import annotations
 
 import json
@@ -27,7 +18,7 @@ def render_value(value: object) -> str:
 
 @dataclass
 class Condition:
-    kind: str  # "compare" or "sold_in"
+    kind: str
     negate: bool = False
     field: str | None = None
     op: str | None = None
@@ -56,9 +47,18 @@ class Source:
 class Detect:
     swaps: str
     transfers: str
+    net_ratio: float | None = None
+    max_block_gap: int | None = None
+    max_group_size: int | None = None
 
     def to_text(self) -> str:
-        return f"detect_cycles({self.swaps}, {self.transfers})"
+        head = f"detect_cycles({self.swaps}, {self.transfers}"
+        if self.net_ratio is None and self.max_block_gap is None and self.max_group_size is None:
+            return head + ")"
+        tolerance = 0.05 if self.net_ratio is None else self.net_ratio
+        window = 200 if self.max_block_gap is None else int(self.max_block_gap)
+        group = 16 if self.max_group_size is None else int(self.max_group_size)
+        return f"{head}, {render_value(tolerance)}, {window}, {group})"
 
 
 @dataclass
@@ -121,9 +121,13 @@ class Ratio:
     part: str
     whole: str
     field: str
+    whole_field: str | None = None
 
     def to_text(self) -> str:
-        return f"ratio {self.part} {self.whole} of {self.field}"
+        text = f"ratio {self.part} {self.whole} of {self.field}"
+        if self.whole_field and self.whole_field != self.field:
+            text += f" over {self.whole_field}"
+        return text
 
 
 @dataclass
@@ -153,6 +157,22 @@ class MlScore:
         return f"ml_score {self.name}"
 
 
+@dataclass
+class AnomalyScore:
+    name: str
+
+    def to_text(self) -> str:
+        return f"anomaly_score {self.name}"
+
+
+@dataclass
+class Explain:
+    name: str
+
+    def to_text(self) -> str:
+        return f"explain {self.name}"
+
+
 Expr = (
     Source
     | Detect
@@ -165,6 +185,8 @@ Expr = (
     | Sort
     | Limit
     | MlScore
+    | AnomalyScore
+    | Explain
 )
 
 

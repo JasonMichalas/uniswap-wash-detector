@@ -1,10 +1,3 @@
-"""Type-check a node graph before it is allowed to run.
-
-The messages name the box and the socket. A loop in the graph is rejected
-with a reminder that wash-trading cycles are found by the detector, not by
-wiring a box back into itself.
-"""
-
 from __future__ import annotations
 
 from collections import defaultdict
@@ -43,6 +36,7 @@ class GraphErrorItem:
 
 
 def validate_graph(graph: dict[str, Any]) -> list[GraphErrorItem]:
+    """A loop here is a wiring error. Wash cycles come from the detector, not from a box feeding itself."""
     errors: list[GraphErrorItem] = []
     nodes = graph.get("nodes") or []
     edges = graph.get("edges") or []
@@ -135,8 +129,6 @@ def validate_graph(graph: dict[str, Any]) -> list[GraphErrorItem]:
         )
         return errors
 
-    # Infer output types in topological order. Edges into a broken box are
-    # still reported, then downstream field checks are skipped.
     order = _topo(by_id, edges)
     out_types: dict[tuple[str, str], str] = {}
     out_fields: dict[tuple[str, str], dict[str, str]] = {}
@@ -238,20 +230,28 @@ def _produce(
         return {"out": (type_name, field_map(type_name))}
 
     if ntype == "detect_cycles":
+        _check_detector_params(data, node_id, label, errors)
         return {
             "out_swaps": ("swaps_flagged", field_map("swaps_flagged")),
             "out_wallets": ("wash_wallets", field_map("wash_wallets")),
             "out_cycles": ("cycles", field_map("cycles")),
         }
 
-    if ntype in {"condition", "time_window", "sort", "limit", "ml_score"}:
+    if ntype in {"condition", "time_window", "sort", "limit", "ml_score", "anomaly_score"}:
         if input_type is None or input_fields is None:
             return {}
         fields = dict(input_fields)
         if ntype == "ml_score":
             fields["ml_score"] = "number"
+            if "usd_value" in fields:
+                fields["ml_weighted_usd"] = "number"
+        if ntype == "anomaly_score":
+            fields["anomaly_score"] = "number"
         _check_params(ntype, data, input_type, fields, node_id, label, errors)
         return {"out": (input_type, fields)}
+
+    if ntype == "explain":
+        return {"out": ("explanations", field_map("explanations"))}
 
     if ntype == "group_by":
         if input_type is None:
@@ -306,7 +306,6 @@ def _produce(
         return {"out": ("scalar", field_map("scalar"))}
 
     if ntype == "ratio":
-        # Both inputs are checked for the field in _check_params via a dedicated path.
         _check_ratio(node, errors)
         return {"out": ("scalar", field_map("scalar"))}
 
@@ -321,6 +320,39 @@ def _produce(
     if ntype in {"output_table", "output_chart"}:
         return {}
     return {}
+
+
+def _check_detector_params(data: dict[str, Any], node_id: str, label: str, errors: list[GraphErrorItem]) -> None:
+    tolerance = data.get("tolerance")
+    if tolerance not in (None, ""):
+        if not _positive_number(tolerance) or float(tolerance) > 0.5:
+            errors.append(
+                GraphErrorItem(
+                    f"{label} tolerance must be greater than 0 and at most 0.5.",
+                    node_id,
+                    code="param",
+                )
+            )
+    window = data.get("window_blocks")
+    if window not in (None, ""):
+        if isinstance(window, bool) or not isinstance(window, (int, float)) or int(window) != window or not 1 <= int(window) <= 50_000:
+            errors.append(
+                GraphErrorItem(
+                    f"{label} window must be a whole number of blocks from 1 to 50000.",
+                    node_id,
+                    code="param",
+                )
+            )
+    size = data.get("max_group_size")
+    if size not in (None, ""):
+        if isinstance(size, bool) or not isinstance(size, (int, float)) or int(size) != size or not 2 <= int(size) <= 64:
+            errors.append(
+                GraphErrorItem(
+                    f"{label} max group size must be a whole number from 2 to 64.",
+                    node_id,
+                    code="param",
+                )
+            )
 
 
 def _check_params(
@@ -481,6 +513,7 @@ def _friendly_input(type_name: str) -> str:
         "rows": "any table",
         "timed": "swaps or transfers",
         "walletish": "wallets",
+        "scoreable": "swaps or wallets",
         "scalar": "a single number",
         "swaps": "swaps",
     }.get(type_name, type_name)
@@ -538,7 +571,6 @@ def _topo(by_id: dict[str, dict[str, Any]], edges: list[dict[str, Any]]) -> list
             indeg[nxt] -= 1
             if indeg[nxt] == 0:
                 queue.append(nxt)
-    # If a cycle hid some nodes, append them so param checks still run.
     for node_id in by_id:
         if node_id not in order:
             order.append(node_id)

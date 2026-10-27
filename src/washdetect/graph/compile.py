@@ -1,11 +1,3 @@
-"""Lower a validated graph to a query-language program.
-
-Each box becomes one or more assignments. The detector's three sockets
-become `project <id> swaps|wallets|cycles`, which is what the text under
-the graph shows. Invalid graphs raise GraphCompileError carrying the same
-messages as `validate_graph`.
-"""
-
 from __future__ import annotations
 
 import re
@@ -15,9 +7,11 @@ from washdetect.graph.catalog import NODE_BY_TYPE
 from washdetect.graph.validate import GraphErrorItem, validate_graph
 from washdetect.querylang.ast import (
     Aggregate,
+    AnomalyScore,
     Assign,
     Condition,
     Detect,
+    Explain,
     Filter,
     GroupBy,
     Limit,
@@ -90,7 +84,18 @@ def _lower(graph: dict[str, Any]) -> Program:
             names[(node_id, "out")] = name
         elif ntype == "detect_cycles":
             name = uname(node_id)
-            statements.append(Assign(name, Detect(upstream(node_id, "in_swaps"), upstream(node_id, "in_transfers"))))
+            statements.append(
+                Assign(
+                    name,
+                    Detect(
+                        upstream(node_id, "in_swaps"),
+                        upstream(node_id, "in_transfers"),
+                        net_ratio=_optional_float(data.get("tolerance")),
+                        max_block_gap=_optional_int(data.get("window_blocks")),
+                        max_group_size=_optional_int(data.get("max_group_size")),
+                    ),
+                )
+            )
             for kind, handle in (("swaps", "out_swaps"), ("wallets", "out_wallets"), ("cycles", "out_cycles")):
                 projected = uname(node_id, kind)
                 statements.append(Assign(projected, Project(name, kind)))
@@ -117,10 +122,17 @@ def _lower(graph: dict[str, Any]) -> Program:
             names[(node_id, "out")] = name
         elif ntype == "ratio":
             name = uname(node_id)
+            over = data.get("over")
+            whole_field = str(over) if isinstance(over, str) and over.strip() else None
             statements.append(
                 Assign(
                     name,
-                    Ratio(upstream(node_id, "in_part"), upstream(node_id, "in_whole"), str(data["field"])),
+                    Ratio(
+                        upstream(node_id, "in_part"),
+                        upstream(node_id, "in_whole"),
+                        str(data["field"]),
+                        whole_field,
+                    ),
                 )
             )
             names[(node_id, "out")] = name
@@ -145,6 +157,14 @@ def _lower(graph: dict[str, Any]) -> Program:
             name = uname(node_id)
             statements.append(Assign(name, MlScore(upstream(node_id, "in"))))
             names[(node_id, "out")] = name
+        elif ntype == "anomaly_score":
+            name = uname(node_id)
+            statements.append(Assign(name, AnomalyScore(upstream(node_id, "in"))))
+            names[(node_id, "out")] = name
+        elif ntype == "explain":
+            name = uname(node_id)
+            statements.append(Assign(name, Explain(upstream(node_id, "in"))))
+            names[(node_id, "out")] = name
         elif ntype in {"output_number", "output_table", "output_chart"}:
             kind = {"output_number": "number", "output_table": "table", "output_chart": "chart"}[ntype]
             fmt = str(data.get("format") or "number")
@@ -155,6 +175,18 @@ def _lower(graph: dict[str, Any]) -> Program:
         else:
             raise GraphCompileError([GraphErrorItem(f"Cannot lower box type {ntype}.", node_id)])
     return Program(statements)
+
+
+def _optional_float(value: Any) -> float | None:
+    if value is None or value == "":
+        return None
+    return float(value)
+
+
+def _optional_int(value: Any) -> int | None:
+    if value is None or value == "":
+        return None
+    return int(value)
 
 
 def _condition(data: dict[str, Any]) -> Condition:

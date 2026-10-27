@@ -1,60 +1,39 @@
-"""Load one token into the local cache.
-
-The loader never runs the wash detector. It discovers pools, fills the gaps
-in the swap and transfer logs, resolves `tx.from` as the trader, marks USD
-values, and snapshots balances. A second call with a wider window fetches
-only the missing blocks.
-
-Block ranges are inclusive. Coverage is recorded only after a gap has been
-written, so a crashed run retries that gap instead of leaving a hole that
-looks cached.
-"""
-
 from __future__ import annotations
 
 import time
 from collections import defaultdict
 from collections.abc import Callable
 from dataclasses import dataclass, field
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 from typing import Any
 
 from washdetect.abi import (
-    BURN_V2,
-    BURN_V3,
-    MINT_V2,
-    MINT_V3,
-    SWAP_V2,
-    SWAP_V3,
     TRANSFER,
     calldata,
-    classify_leg,
     decode_slot0_sqrt,
     decode_transfer_value,
     decode_uint,
-    decode_v2_mint_amounts,
-    decode_v2_swap_amounts,
-    decode_v3_burn_amounts,
-    decode_v3_mint_amounts,
-    decode_v3_swap_amounts,
     encode_aggregate3,
     encode_balance_of,
     human_amount,
     normalize_address,
     topic_address,
 )
-from washdetect.config import (
-    BALANCE_CAP,
-    MAX_WINDOW_DAYS,
-    MULTICALL3,
-    ROUTERS,
-    WETH_USDC_POOL,
-)
+from washdetect.config import BALANCE_CAP, MULTICALL3, ROUTERS, WETH_USDC_POOL
 from washdetect.discover import PoolMeta, discover_pools, read_token_meta
+from washdetect.logs import (
+    _hex_int,
+    _log_ts,
+    _pool_topics,
+    _swap_tuple,
+    decode_pool_log,
+    fetch_timestamps,
+)
 from washdetect.prices import eth_usd_from_usdc_weth_sqrt, price_is_plausible, swap_usd
 from washdetect.rpc import RpcClient, RpcError
 from washdetect.store import Store
 from washdetect.subgraph import SubgraphError, api_key, fetch_swaps, map_subgraph_swap
+from washdetect.window import _naive, _unix, resolve_window
 
 Progress = Callable[[str], None]
 
@@ -110,209 +89,9 @@ class LoadReport:
         }
 
 
-def _naive(dt: datetime) -> datetime:
-    if dt.tzinfo is None:
-        return dt
-    return dt.astimezone(UTC).replace(tzinfo=None)
-
-
-def _unix(dt: datetime) -> int:
-    return int(_naive(dt).replace(tzinfo=UTC).timestamp())
-
-
-def parse_day(value: str, *, end_of_day: bool) -> datetime:
-    text = value.strip()
-    try:
-        parsed = datetime.fromisoformat(text)
-    except ValueError as exc:
-        raise ValueError(f"could not read the date {value!r}; use YYYY-MM-DD") from exc
-    parsed = _naive(parsed)
-    if len(text) == 10 and end_of_day:
-        parsed = parsed + timedelta(days=1) - timedelta(seconds=1)
-    return parsed
-
-
-def resolve_window(
-    client: RpcClient,
-    *,
-    days: int | None = None,
-    start: str | None = None,
-    end: str | None = None,
-) -> tuple[int, int, datetime, datetime]:
-    """Turn a user window into inclusive blocks. There is no default length."""
-    if days is None and not (start and end):
-        raise ValueError(
-            "Choose a window: pass days (1-90) or both start and end (YYYY-MM-DD). "
-            "There is no default history length."
-        )
-    if days is not None and (start or end):
-        raise ValueError("Pass either days or start/end, not both.")
-    head = client.block_number()
-    head_block = client.get_block(head)
-    head_ts = datetime.fromtimestamp(int(head_block["timestamp"], 16), UTC)
-    head_ts = _naive(head_ts)
-    if days is not None:
-        if not isinstance(days, int) or isinstance(days, bool) or not 1 <= days <= MAX_WINDOW_DAYS:
-            raise ValueError(f"days must be an integer from 1 to {MAX_WINDOW_DAYS}")
-        end_ts = head_ts
-        start_ts = end_ts - timedelta(days=days)
-        end_block = head
-    else:
-        assert start and end
-        start_ts = parse_day(start, end_of_day=False)
-        end_ts = parse_day(end, end_of_day=True)
-        if end_ts > head_ts:
-            end_ts = head_ts
-        span = (end_ts - start_ts).total_seconds() / 86400.0
-        if span <= 0:
-            raise ValueError("The window ends before it starts.")
-        if span > MAX_WINDOW_DAYS + 0.01:
-            raise ValueError(f"A window can be at most {MAX_WINDOW_DAYS} days (this one is {span:.1f}).")
-        end_block = client.find_block_by_timestamp(_unix(end_ts), 1, head)
-    start_block = client.find_block_by_timestamp(_unix(start_ts), 1, end_block)
-    if start_block > end_block:
-        raise ValueError("The window does not cover any blocks.")
-    return start_block, end_block, start_ts, end_ts
-
-
-def _hex_int(value: Any) -> int:
-    if isinstance(value, int):
-        return value
-    return int(str(value), 16)
-
-
-def _log_ts(log: dict[str, Any]) -> int | None:
-    raw = log.get("blockTimestamp")
-    if raw is None:
-        return None
-    try:
-        return _hex_int(raw)
-    except (TypeError, ValueError):
-        return None
-
-
-def fetch_timestamps(
-    client: RpcClient, store: Store, numbers: list[int], head: int, head_ts: datetime
-) -> dict[int, datetime]:
-    unique = sorted(set(numbers))
-    known = store.known_blocks(unique)
-    missing = [n for n in unique if n not in known]
-    if missing:
-        calls = [("eth_getBlockByNumber", [hex(n), False]) for n in missing]
-        results = client.batch(calls, batch_size=25)
-        rows: list[tuple[int, datetime]] = []
-        for number, result in zip(missing, results, strict=False):
-            if not isinstance(result, dict) or "timestamp" not in result:
-                continue
-            ts = datetime.fromtimestamp(int(result["timestamp"], 16), UTC)
-            ts = _naive(ts)
-            known[number] = ts
-            rows.append((number, ts))
-        store.remember_blocks(rows)
-    for number in unique:
-        if number not in known:
-            known[number] = head_ts - timedelta(seconds=12 * (head - number))
-    return known
-
-
-def _swap_tuple(
-    token: str,
-    tx_hash: str,
-    log_index: int,
-    block: int,
-    ts: datetime,
-    pool: str,
-    protocol: str,
-    sender: str,
-    recipient: str,
-    trader: str | None,
-    leg: dict[str, Any],
-    usd: float | None,
-) -> tuple[Any, ...]:
-    return (
-        token,
-        tx_hash,
-        log_index,
-        block,
-        ts,
-        pool,
-        protocol,
-        sender,
-        recipient,
-        trader,
-        leg["side"],
-        leg["amount_token"],
-        leg["amount_quote"],
-        leg["quote_token"],
-        usd,
-        leg["amount0_raw"],
-        leg["amount1_raw"],
-    )
-
-
-def decode_pool_log(
-    log: dict[str, Any], pool: PoolMeta, token: str
-) -> tuple[str, dict[str, Any]] | None:
-    """Return ('swap', fields) or ('liq', fields) or None if the log is irrelevant."""
-    topics = [str(t).lower() for t in (log.get("topics") or [])]
-    if not topics:
-        return None
-    kind_topic = topics[0]
-    data = str(log.get("data") or "0x")
-    try:
-        if pool.protocol == "v2" and kind_topic == SWAP_V2:
-            a0_in, a1_in, a0_out, a1_out = decode_v2_swap_amounts(data)
-            leg = classify_leg(
-                token, pool.token0, pool.token1, pool.token0_decimals, pool.token1_decimals,
-                a0_in - a0_out, a1_in - a1_out,
-            )
-            if not leg:
-                return None
-            sender = topic_address(topics[1]) if len(topics) > 1 else ""
-            recipient = topic_address(topics[2]) if len(topics) > 2 else ""
-            return "swap", {**leg, "sender": sender, "recipient": recipient}
-        if pool.protocol == "v3" and kind_topic == SWAP_V3:
-            amount0, amount1 = decode_v3_swap_amounts(data)
-            leg = classify_leg(
-                token, pool.token0, pool.token1, pool.token0_decimals, pool.token1_decimals,
-                amount0, amount1,
-            )
-            if not leg:
-                return None
-            sender = topic_address(topics[1]) if len(topics) > 1 else ""
-            recipient = topic_address(topics[2]) if len(topics) > 2 else ""
-            return "swap", {**leg, "sender": sender, "recipient": recipient}
-        if pool.protocol == "v2" and kind_topic == MINT_V2:
-            a0, a1 = decode_v2_mint_amounts(data)
-            sender = topic_address(topics[1]) if len(topics) > 1 else ""
-            return "liq", {"kind": "mint", "sender": sender, "amount0_raw": str(a0), "amount1_raw": str(a1)}
-        if pool.protocol == "v2" and kind_topic == BURN_V2:
-            a0, a1 = decode_v2_mint_amounts(data)
-            sender = topic_address(topics[1]) if len(topics) > 1 else ""
-            return "liq", {"kind": "burn", "sender": sender, "amount0_raw": str(a0), "amount1_raw": str(a1)}
-        if pool.protocol == "v3" and kind_topic == MINT_V3:
-            a0, a1 = decode_v3_mint_amounts(data)
-            sender = topic_address(topics[1]) if len(topics) > 1 else ""
-            return "liq", {"kind": "mint", "sender": sender, "amount0_raw": str(a0), "amount1_raw": str(a1)}
-        if pool.protocol == "v3" and kind_topic == BURN_V3:
-            a0, a1 = decode_v3_burn_amounts(data)
-            sender = topic_address(topics[1]) if len(topics) > 1 else ""
-            return "liq", {"kind": "burn", "sender": sender, "amount0_raw": str(a0), "amount1_raw": str(a1)}
-    except Exception:
-        return None
-    return None
-
-
-def _pool_topics(protocol: str) -> list[Any]:
-    if protocol == "v2":
-        return [[SWAP_V2, MINT_V2, BURN_V2]]
-    return [[SWAP_V3, MINT_V3, BURN_V3]]
-
-
 def fetch_balances(
     client: RpcClient, token: str, wallets: list[str], block: int, decimals: int
 ) -> dict[str, float]:
-    """`balanceOf` for many wallets via Multicall3, with a per-call fallback."""
     found: dict[str, float] = {}
     step = 150
     for offset in range(0, len(wallets), step):
@@ -346,12 +125,6 @@ def _rebuild_daily(
     end: int,
     end_ts: datetime,
 ) -> None:
-    """Anchor a daily balance path on the end-of-window `balanceOf`.
-
-    Replaying transfers gives the net flow. The absolute level is
-    `balanceOf(end) - net_after(day)`, so the last point matches the chain
-    and earlier points are that balance walked backwards through the window.
-    """
     frame = store.read_transfers(token, start, end)
     running: dict[str, float] = defaultdict(float)
     daily: dict[tuple[str, str], tuple[int, float]] = {}
@@ -398,7 +171,7 @@ def load_token(
     store: Store | None = None,
     rediscover: bool = False,
 ) -> LoadReport:
-    """Fetch and cache one token. Does not compute a wash percentage."""
+    """Fills the cache only. A wash score is a separate step."""
     say = progress or (lambda _msg: None)
     started = time.perf_counter()
     token = normalize_address(token)
@@ -460,7 +233,6 @@ def load_token(
             )
             say(f"Found {len(pools)} pools")
 
-        # Optional subgraph accelerator for swaps. Failures are notes, not errors.
         if api_key():
             try:
                 say("Trying the Uniswap subgraph for swaps")
@@ -489,6 +261,7 @@ def load_token(
                 )
                 blocks_fetched += gap_end - gap_start + 1
                 _store_pool_logs(store, client, token, pool, logs, end_block, head_ts)
+                # Coverage follows a successful write, so a crash retries this gap.
                 store.add_coverage(token, dataset, gap_start, gap_end)
 
         transfer_gaps = store.missing(token, "transfers", start_block, end_block)
@@ -605,11 +378,7 @@ def _fill_swaps_from_subgraph(
                 )
             )
         store.insert_swaps(rows)
-        # Only mark the window covered when the subgraph returned rows, or the
-        # pool was quiet. An empty response on an active pool is treated as a
-        # failure so RPC can fill the gap. We cannot tell those apart here, so
-        # coverage is marked only when at least one swap was returned. Quiet
-        # pools fall through to a (cheap, empty) RPC scan.
+        # An empty subgraph page is not proof the pool was quiet.
         if rows:
             store.add_coverage(token, dataset, start_block, end_block)
             say(f"Subgraph returned {len(rows)} swaps for {pool.pool_address[:10]}")
@@ -731,6 +500,7 @@ def _resolve_traders(
     results = client.batch(calls, batch_size=20) if need else []
     for tx, result in zip(need, results, strict=False):
         if isinstance(result, dict) and result.get("from"):
+            # tx.from is the trader. Swap.sender is often the router.
             sender = normalize_address(str(result["from"]))
             known[tx] = sender
             fetched.append((tx, sender))

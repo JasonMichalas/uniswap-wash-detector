@@ -10,7 +10,7 @@ export function BoxNodeView({ data }: NodeProps<BoxNode>) {
   return (
     <article className={`box cat-${def?.category ?? "other"}`}>
       <header>
-        <span className="cat">{def?.category ?? "box"}</span>
+        <span className="cat">{friendlyCategory(def?.category)}</span>
         <strong>{data.label}</strong>
       </header>
       <p className="summary">{summary(data.nodeType, data.params)}</p>
@@ -50,6 +50,15 @@ export function BoxNodeView({ data }: NodeProps<BoxNode>) {
   );
 }
 
+function friendlyCategory(category: string | undefined): string {
+  if (category === "source") return "Data";
+  if (category === "filter") return "Filter";
+  if (category === "detector") return "Detect";
+  if (category === "aggregate" || category === "arrange") return "Combine";
+  if (category === "output") return "Show";
+  return "Box";
+}
+
 function socketTop(index: number, count: number): string {
   if (count <= 1) return "62%";
   return `${48 + ((index + 1) / (count + 1)) * 48}%`;
@@ -67,13 +76,24 @@ export function summary(nodeType: string, params: Record<string, unknown>): stri
     return `${field} ${op} ${formatValue(params.value)}`;
   }
   if (nodeType === "time_window") return `last ${params.days ?? "?"}d of the load`;
-  if (nodeType === "detect_cycles") return "round-trips and rings";
-  if (nodeType === "ml_score") return "not trained";
+  if (nodeType === "detect_cycles") {
+    const tolerance = params.tolerance ?? 0.05;
+    const windowBlocks = params.window_blocks ?? 200;
+    const group = params.max_group_size ?? 16;
+    return `tol ${tolerance}, ${windowBlocks} blocks, ≤${group} wallets`;
+  }
+  if (nodeType === "ml_score") return "XGBoost probability";
+  if (nodeType === "anomaly_score") return "Isolation Forest";
+  if (nodeType === "explain") return "top SHAP reasons";
   if (nodeType === "group_by") return `by ${params.by ?? "?"}`;
   if (nodeType === "aggregate") {
     return params.fn === "count" ? "count" : `${params.fn ?? "sum"} ${params.field || ""}`.trim();
   }
-  if (nodeType === "ratio") return `100 × ${params.field || "field"}`;
+  if (nodeType === "ratio") {
+    const field = String(params.field || "field");
+    const over = String(params.over || "");
+    return over ? `100 × ${field} / ${over}` : `100 × ${field}`;
+  }
   if (nodeType === "sort") return `${params.field || "field"} ${params.direction ?? "desc"}`;
   if (nodeType === "limit") return `first ${params.n ?? "?"}`;
   if (String(nodeType).startsWith("output")) return String(params.title || "untitled");

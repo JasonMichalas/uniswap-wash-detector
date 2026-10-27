@@ -1,4 +1,12 @@
-import type { ApiGraph, Catalog, GraphError, LoadResult, RunResult, TemplateSummary } from "./types";
+import type {
+  ApiGraph,
+  Catalog,
+  GraphError,
+  LoadResult,
+  RunResult,
+  TemplateSummary,
+  TokenSuggestions,
+} from "./types";
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(path, {
@@ -78,6 +86,11 @@ export function startLoad(body: {
   end?: string;
 }): Promise<{ job_id: string }> {
   return request("/api/token/load", { method: "POST", body: JSON.stringify(body) });
+}
+
+export function fetchSuggestions(query?: string): Promise<TokenSuggestions> {
+  const path = query ? `/api/tokens/suggest?q=${encodeURIComponent(query)}` : "/api/tokens/suggest";
+  return request(path);
 }
 
 export function fetchJob(id: string): Promise<{

@@ -1,0 +1,19 @@
+{
+  "name": "Explain the top wallets",
+  "description": "Sort wallets by ML wash probability, keep 10, and list the SHAP features that push each score up or down.",
+  "nodes": [
+    {"id": "wallets1", "type": "source", "position": {"x": 40, "y": 80}, "data": {"source": "wallets"}},
+    {"id": "score1", "type": "ml_score", "position": {"x": 320, "y": 80}, "data": {}},
+    {"id": "sort1", "type": "sort", "position": {"x": 600, "y": 80}, "data": {"field": "ml_score", "direction": "desc"}},
+    {"id": "limit1", "type": "limit", "position": {"x": 860, "y": 80}, "data": {"n": 10}},
+    {"id": "explain1", "type": "explain", "position": {"x": 1120, "y": 80}, "data": {}},
+    {"id": "out1", "type": "output_table", "position": {"x": 1400, "y": 80}, "data": {"title": "Why these wallets score high"}}
+  ],
+  "edges": [
+    {"id": "e1", "source": "wallets1", "target": "score1", "sourceHandle": "out", "targetHandle": "in"},
+    {"id": "e2", "source": "score1", "target": "sort1", "sourceHandle": "out", "targetHandle": "in"},
+    {"id": "e3", "source": "sort1", "target": "limit1", "sourceHandle": "out", "targetHandle": "in"},
+    {"id": "e4", "source": "limit1", "target": "explain1", "sourceHandle": "out", "targetHandle": "in"},
+    {"id": "e5", "source": "explain1", "target": "out1", "sourceHandle": "out", "targetHandle": "in"}
+  ]
+}

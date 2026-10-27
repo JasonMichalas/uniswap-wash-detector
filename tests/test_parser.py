@@ -27,6 +27,11 @@ def test_short_queries_lower_to_programs():
     assert "size >= 3" in cycles.to_text()
     assert "project d cycles" in cycles.to_text()
 
+    ml = parse("ml_wash_percent")
+    assert "ml_score s" in ml.to_text()
+    assert "ratio m m of ml_weighted_usd over usd_value" in ml.to_text()
+    assert "format percent" in ml.to_text()
+
 
 def test_program_round_trip():
     text = """
@@ -51,6 +56,30 @@ def test_bad_queries_explain_themselves():
     with pytest.raises(QueryError) as decorated:
         parse("wash_percent where confidence > 0.8")
     assert "wash_percent" in str(decorated.value)
+
+
+def test_scoring_statements_round_trip():
+    text = """
+    s = source swaps
+    m = ml_score s
+    a = anomaly_score s
+    w = source wallets
+    e = explain w
+    p = ratio m m of ml_weighted_usd over usd_value
+    output number p as "ML wash volume" format percent
+    output table e as "Reasons"
+    """
+    again = parse(parse(text).to_text())
+    assert again.to_text() == parse(text).to_text()
+    assert "anomaly_score s" in again.to_text()
+    assert "explain w" in again.to_text()
+
+
+def test_detect_cycles_accepts_tolerance_window_and_group_size():
+    program = parse("s = source swaps\nt = source transfers\nd = detect_cycles(s, t, 0.05, 200, 12)\noutput table d as \"x\"\n")
+    text = program.to_text()
+    assert "detect_cycles(s, t, 0.05, 200, 12)" in text
+    assert parse(text).to_text() == text
 
 
 def test_comments_and_hours():

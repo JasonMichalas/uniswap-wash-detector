@@ -1,9 +1,3 @@
-"""Parse query text into a Program.
-
-Short queries desugar into the same assignments the node editor emits, so
-there is one execution path. Parse errors name the line and offer an example.
-"""
-
 from __future__ import annotations
 
 import json
@@ -15,9 +9,11 @@ from lark import Lark, Token, Tree, UnexpectedInput
 
 from washdetect.querylang.ast import (
     Aggregate,
+    AnomalyScore,
     Assign,
     Condition,
     Detect,
+    Explain,
     Filter,
     GroupBy,
     Limit,
@@ -54,7 +50,7 @@ def _parser() -> Lark:
 
 
 def parse(text: str) -> Program:
-    """Parse a short query or a program. Blank input is an error, not an empty plan."""
+    """Blank input is an error, not an empty plan."""
     if text is None or not str(text).strip():
         raise QueryError("The query is empty. " + _EXAMPLE)
     try:
@@ -97,7 +93,19 @@ def _expr(tree: Tree):
     if kind == "source":
         return Source(str(tree.children[0]))
     if kind == "detect":
-        return Detect(str(tree.children[0]), str(tree.children[1]))
+        swaps = str(tree.children[0])
+        transfers = str(tree.children[1])
+        if len(tree.children) == 2:
+            return Detect(swaps, transfers)
+        if len(tree.children) != 5:
+            raise QueryError(
+                "detect_cycles takes swaps and transfers, optionally followed by "
+                "tolerance, window blocks, and max group size."
+            )
+        tolerance = _number(tree.children[2])
+        window = _int(tree.children[3], "detect_cycles window")
+        group = _int(tree.children[4], "detect_cycles max group size")
+        return Detect(swaps, transfers, net_ratio=float(tolerance), max_block_gap=window, max_group_size=group)
     if kind == "project":
         return Project(str(tree.children[0]), str(tree.children[1]))
     if kind == "filter":
@@ -113,7 +121,8 @@ def _expr(tree: Tree):
     if kind == "aggregate":
         return _aggregate(tree)
     if kind == "ratio":
-        return Ratio(str(tree.children[0]), str(tree.children[1]), str(tree.children[2]))
+        whole_field = str(tree.children[3]) if len(tree.children) > 3 else None
+        return Ratio(str(tree.children[0]), str(tree.children[1]), str(tree.children[2]), whole_field)
     if kind == "sort":
         direction = str(tree.children[2]) if len(tree.children) > 2 else "desc"
         return Sort(str(tree.children[0]), str(tree.children[1]), direction)
@@ -121,6 +130,10 @@ def _expr(tree: Tree):
         return Limit(str(tree.children[0]), _int(tree.children[1], "limit"))
     if kind == "ml":
         return MlScore(str(tree.children[0]))
+    if kind == "anomaly":
+        return AnomalyScore(str(tree.children[0]))
+    if kind == "explainstmt":
+        return Explain(str(tree.children[0]))
     raise QueryError(f"Unknown expression {kind}.")
 
 
@@ -202,6 +215,20 @@ def _simple(tree: Tree) -> tuple[str, list[Condition], int | None]:
 
 
 def _desugar(head: str, conditions: list[Condition], limit: int | None) -> Program:
+    if head == "ml_wash_percent":
+        if conditions or limit is not None:
+            raise QueryError(
+                "ml_wash_percent stands on its own. Filter and sort in the node editor "
+                "if you want a slice of the scored swaps."
+            )
+        return Program(
+            [
+                Assign("s", Source("swaps")),
+                Assign("m", MlScore("s")),
+                Assign("p", Ratio("m", "m", "ml_weighted_usd", "usd_value")),
+                Output("number", "p", "ML wash volume", "percent"),
+            ]
+        )
     if head == "wash_percent":
         if conditions or limit is not None:
             raise QueryError(

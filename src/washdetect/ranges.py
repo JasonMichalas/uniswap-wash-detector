@@ -1,20 +1,13 @@
-"""Inclusive integer-interval arithmetic for the incremental cache.
-
-Coverage is stored as merged [start, end] block ranges per dataset. A later
-request for a wider window fetches only the gaps.
-"""
-
 from __future__ import annotations
 
 
 def merge_intervals(ranges: list[tuple[int, int]]) -> list[tuple[int, int]]:
-    """Sort and merge overlapping or touching inclusive ranges."""
     if not ranges:
         return []
     ordered = sorted(ranges)
     merged: list[list[int]] = [[ordered[0][0], ordered[0][1]]]
     for start, end in ordered[1:]:
-        if start <= merged[-1][1] + 1:
+        if start <= merged[-1][1] + 1:  # touching inclusive ranges are one span
             merged[-1][1] = max(merged[-1][1], end)
         else:
             merged.append([start, end])
@@ -24,11 +17,6 @@ def merge_intervals(ranges: list[tuple[int, int]]) -> list[tuple[int, int]]:
 def missing_intervals(
     have: list[tuple[int, int]], start: int, end: int
 ) -> list[tuple[int, int]]:
-    """Return the parts of [start, end] that `have` does not already cover.
-
-    Ranges are inclusive. Adjacent cached blocks count as covered, so a cache
-    of [1, 5] and [6, 9] has no gap between 5 and 6.
-    """
     if start > end:
         return []
     clipped: list[tuple[int, int]] = []

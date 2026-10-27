@@ -1,14 +1,3 @@
-"""Optional Uniswap subgraph client.
-
-Public RPC is the source of truth and works with no key. If `GRAPH_API_KEY`
-is set, the loader may pull swaps from The Graph's decentralized gateway
-first and fall back to `eth_getLogs` for anything the subgraph did not
-cover (and for all ERC-20 transfers, which the pool subgraphs do not index).
-
-The mapper is pure and unit-tested. The HTTP call is skipped entirely when
-the environment variable is absent.
-"""
-
 from __future__ import annotations
 
 import os
@@ -120,9 +109,9 @@ def _paged(url: str, query: str, var_key: str, addresses: list[str], start_ts: i
             fresh += 1
         if len(batch) < 1000:
             break
-        # The next page starts at the last timestamp. Overlap is removed via `seen`.
         if fresh == 0:
             break
+        # The next page restarts at the last timestamp; `seen` drops that overlap.
         cursor = last_ts
     return rows
 
@@ -134,7 +123,6 @@ def fetch_swaps(
     start_ts: int,
     key: str | None = None,
 ) -> list[dict[str, Any]]:
-    """Return raw subgraph swap objects for the given pools."""
     key = key if key is not None else api_key()
     if not key:
         raise SubgraphError("GRAPH_API_KEY is not set")
@@ -153,12 +141,7 @@ def v2_lower(addresses: list[str]) -> list[str]:
 
 
 def map_subgraph_swap(row: dict[str, Any], token: str) -> dict[str, Any] | None:
-    """Convert one subgraph swap into the columns the loader stores.
-
-    Uniswap's subgraph amounts are already in human units and carry a sign
-    on v3 (positive = token entered the pool). v2 amounts are split into
-    In/Out. `origin` is the transaction sender, i.e. the trader.
-    """
+    """v3 amounts are signed human units (positive means the token entered the pool)."""
     token = token.lower()
     if "pool" in row:
         pool = row["pool"]

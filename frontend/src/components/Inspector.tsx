@@ -29,7 +29,7 @@ export function Inspector({
     return (
       <aside className="inspector">
         <h2>Inspector</h2>
-        <p className="muted">Select a box to edit its fields. Delete removes the selected box, or press Backspace.</p>
+        <p className="muted">Click a box to change it. Delete removes the selected box, or press Backspace.</p>
       </aside>
     );
   }
@@ -37,6 +37,7 @@ export function Inspector({
   const outputs = inferOutputs(nodes, edges, catalog);
   const input = singleInput(node, edges, outputs, catalog);
   const part = inputOnHandle(node, "in_part", edges, outputs);
+  const whole = inputOnHandle(node, "in_whole", edges, outputs);
   const fields = fieldsFor(node.data.nodeType, input, part);
 
   function update(key: string, value: unknown) {
@@ -66,6 +67,32 @@ export function Inspector({
       )}
       {node.data.nodeType === "condition" && (
         <ConditionFields node={node} fields={fields} onUpdate={update} />
+      )}
+      {node.data.nodeType === "detect_cycles" && (
+        <>
+          <NumberField
+            label="Amount tolerance (0–0.5)"
+            value={node.data.params.tolerance ?? 0.05}
+            min={0.001}
+            max={0.5}
+            step={0.01}
+            onChange={(value) => update("tolerance", value)}
+          />
+          <NumberField
+            label="Time window (blocks)"
+            value={node.data.params.window_blocks ?? 200}
+            min={1}
+            max={50000}
+            onChange={(value) => update("window_blocks", value)}
+          />
+          <NumberField
+            label="Max wallets in a group"
+            value={node.data.params.max_group_size ?? 16}
+            min={2}
+            max={64}
+            onChange={(value) => update("max_group_size", value)}
+          />
+        </>
       )}
       {node.data.nodeType === "time_window" && (
         <NumberField
@@ -112,13 +139,21 @@ export function Inspector({
         </>
       )}
       {node.data.nodeType === "ratio" && (
-        <FieldSelect
-          label="Field"
-          fields={(part?.fields ?? fields).filter((field) => field.kind === "number")}
-          value={String(node.data.params.field ?? "")}
-          onChange={(value) => update("field", value)}
-          allowFree
-        />
+        <>
+          <FieldSelect
+            label="Field"
+            fields={(part?.fields ?? fields).filter((field) => field.kind === "number")}
+            value={String(node.data.params.field ?? "")}
+            onChange={(value) => update("field", value)}
+            allowFree
+          />
+          <FieldSelect
+            label="Divide by (blank = same field)"
+            fields={(whole?.fields ?? []).filter((field) => field.kind === "number")}
+            value={String(node.data.params.over ?? "")}
+            onChange={(value) => update("over", value)}
+          />
+        </>
       )}
       {node.data.nodeType === "sort" && (
         <>
@@ -318,12 +353,14 @@ function NumberField({
   value,
   min,
   max,
+  step,
   onChange,
 }: {
   label: string;
   value: unknown;
   min: number;
   max: number;
+  step?: number;
   onChange: (value: number) => void;
 }) {
   return (
@@ -333,6 +370,7 @@ function NumberField({
         type="number"
         min={min}
         max={max}
+        step={step}
         value={typeof value === "number" ? value : ""}
         onChange={(event) => {
           const next = Number(event.target.value);

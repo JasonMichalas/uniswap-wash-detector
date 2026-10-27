@@ -1,16 +1,7 @@
-"""Box types, socket types, and the columns each stream is allowed to use.
-
-The editor asks the API for this catalog, so the Python file is the one
-place a student adds a field or a box. Sockets only connect when
-`can_connect` says so. `rows`, `timed`, and `walletish` are input-only
-wildcards; they are never the type of an output.
-"""
-
 from __future__ import annotations
 
 from typing import Any
 
-# kind is "number", "string", or "bool". Order is the order shown in the UI.
 TYPES: dict[str, list[tuple[str, str]]] = {
     "swaps": [
         ("block_number", "number"),
@@ -55,6 +46,10 @@ TYPES: dict[str, list[tuple[str, str]]] = {
         ("cycle_id", "string"),
         ("size", "number"),
         ("kind", "string"),
+        ("pattern_type", "string"),
+        ("n_buyers", "number"),
+        ("n_sellers", "number"),
+        ("n_wallets", "number"),
         ("wallets", "string"),
         ("volume_usd", "number"),
         ("confidence", "number"),
@@ -70,6 +65,14 @@ TYPES: dict[str, list[tuple[str, str]]] = {
         ("swap_count", "number"),
         ("volume_usd", "number"),
     ],
+    "explanations": [
+        ("wallet", "string"),
+        ("rank", "number"),
+        ("feature", "string"),
+        ("feature_value", "number"),
+        ("shap_value", "number"),
+        ("direction", "string"),
+    ],
     "scalar": [("value", "number")],
     "grouped": [
         ("day", "string"),
@@ -81,9 +84,6 @@ TYPES: dict[str, list[tuple[str, str]]] = {
     ],
 }
 
-# swaps_flagged is a swaps stream plus the detector's columns. It is not a
-# different family: a filter that accepts swaps also accepts it, except the
-# detector input itself, which wants unmarked swaps (see can_connect).
 TYPES["swaps_flagged"] = TYPES["swaps"] + [
     ("is_wash", "bool"),
     ("confidence", "number"),
@@ -99,6 +99,7 @@ ROW_TYPES = (
     "cycles",
     "pools",
     "grouped",
+    "explanations",
 )
 
 SOURCE_TYPES = {
@@ -118,16 +119,16 @@ def field_map(type_name: str) -> dict[str, str]:
 
 
 def can_connect(src: str, dst: str) -> bool:
-    """Whether an output socket of type `src` may feed an input of type `dst`."""
     if dst == "rows":
         return src in ROW_TYPES
     if dst == "timed":
         return src in {"swaps", "swaps_flagged", "transfers"}
     if dst == "walletish":
         return src in {"wallets", "wash_wallets"}
+    if dst == "scoreable":
+        return src in {"swaps", "swaps_flagged", "wallets", "wash_wallets"}
     if dst == "swaps":
-        # The detector wants the raw swap stream, not one it has already flagged.
-        return src == "swaps"
+        return src == "swaps"  # detector input must be unmarked; flagged swaps are a different socket
     return src == dst
 
 
@@ -185,9 +186,17 @@ NODE_DEFS: list[dict[str, Any]] = [
         "label": "Cycle detector",
         "category": "detector",
         "description": (
-            "Gan et al. 2024 style heuristic. Flags a wallet's own round-trips and "
-            "rings across linked wallets. Nothing runs until you press Run."
+            "Flags round-trips and connected flow groups whose pooled buys and sells "
+            "cancel: one-to-many, many-to-one, many-to-many, and rings. "
+            "Filter the cycles output on pattern_type, n_buyers, n_sellers, or n_wallets. "
+            "Tolerance is the allowed |buys-sells|/max gap, the window is in blocks, "
+            "and max group size caps how many wallets one group may contain."
         ),
+        "params": [
+            {"name": "tolerance", "label": "Amount tolerance (0–0.5)", "kind": "number"},
+            {"name": "window_blocks", "label": "Time window (blocks)", "kind": "number"},
+            {"name": "max_group_size", "label": "Max wallets in a group", "kind": "number"},
+        ],
         "inputs": [
             {"id": "in_swaps", "label": "swaps", "type": "swaps"},
             {"id": "in_transfers", "label": "transfers", "type": "transfers"},
@@ -197,18 +206,42 @@ NODE_DEFS: list[dict[str, Any]] = [
             {"id": "out_wallets", "label": "wallets", "type": "wash_wallets"},
             {"id": "out_cycles", "label": "cycles", "type": "cycles"},
         ],
-        "params": [],
     },
     {
         "type": "ml_score",
         "label": "ML wash score",
         "category": "detector",
         "description": (
-            "Milestone 2. Will attach an XGBoost probability to each wallet. "
-            "The box validates today and refuses to run until a model is trained."
+            "Attaches a calibrated XGBoost wash probability (ml_score). "
+            "On swaps it also adds ml_weighted_usd = probability × usd_value. "
+            "A Percent of box divides that by usd_value to get the probability-weighted wash percent."
+        ),
+        "inputs": [{"id": "in", "label": "swaps or wallets", "type": "scoreable"}],
+        "outputs": [{"id": "out", "label": "scored", "type": "same"}],
+        "params": [],
+    },
+    {
+        "type": "anomaly_score",
+        "label": "Anomaly score",
+        "category": "detector",
+        "description": (
+            "Attaches an Isolation Forest score in [0, 1]. Higher means the wallet or swap "
+            "looks less like the bulk of the training tokens. This is a rank, not a probability."
+        ),
+        "inputs": [{"id": "in", "label": "swaps or wallets", "type": "scoreable"}],
+        "outputs": [{"id": "out", "label": "scored", "type": "same"}],
+        "params": [],
+    },
+    {
+        "type": "explain",
+        "label": "Explain",
+        "category": "detector",
+        "description": (
+            "Top TreeSHAP reasons for up to 25 wallets. Sort and limit first to explain "
+            "the highest-scoring wallets. Reasons describe the raw XGBoost margin."
         ),
         "inputs": [{"id": "in", "label": "wallets", "type": "walletish"}],
-        "outputs": [{"id": "out", "label": "scored", "type": "same"}],
+        "outputs": [{"id": "out", "label": "reasons", "type": "explanations"}],
         "params": [],
     },
     {
@@ -238,13 +271,19 @@ NODE_DEFS: list[dict[str, Any]] = [
         "type": "ratio",
         "label": "Percent of",
         "category": "aggregate",
-        "description": "100 × sum(part) / sum(whole) for one numeric field. This is how wash % is built.",
+        "description": (
+            "100 × sum(part) / sum(whole). Leave Divide by blank to use the same field on both. "
+            "For the ML wash percent, divide ml_weighted_usd by usd_value on the scored swaps."
+        ),
         "inputs": [
             {"id": "in_part", "label": "part", "type": "rows"},
             {"id": "in_whole", "label": "whole", "type": "rows"},
         ],
         "outputs": [{"id": "out", "label": "percent", "type": "scalar"}],
-        "params": [{"name": "field", "label": "Field", "kind": "field"}],
+        "params": [
+            {"name": "field", "label": "Field", "kind": "field"},
+            {"name": "over", "label": "Divide by (blank = same field)", "kind": "field"},
+        ],
     },
     {
         "type": "sort",
@@ -358,14 +397,28 @@ PALETTE: list[dict[str, Any]] = [
         "node_type": "detect_cycles",
         "label": "Cycle detector",
         "category": "detector",
-        "blurb": "Round-trips and multi-wallet rings.",
-        "data": {},
+        "blurb": "Round-trips, rings, and M:N flow groups.",
+        "data": {"tolerance": 0.05, "window_blocks": 200, "max_group_size": 16},
     },
     {
         "node_type": "ml_score",
         "label": "ML wash score",
         "category": "detector",
-        "blurb": "Not trained yet. Reserved for XGBoost.",
+        "blurb": "Calibrated XGBoost probability.",
+        "data": {},
+    },
+    {
+        "node_type": "anomaly_score",
+        "label": "Anomaly score",
+        "category": "detector",
+        "blurb": "Isolation Forest rank in [0, 1].",
+        "data": {},
+    },
+    {
+        "node_type": "explain",
+        "label": "Explain",
+        "category": "detector",
+        "blurb": "Top SHAP reasons for the selected wallets.",
         "data": {},
     },
     {
@@ -444,6 +497,7 @@ def catalog_payload() -> dict[str, Any]:
             "rows": list(ROW_TYPES),
             "timed": ["swaps", "swaps_flagged", "transfers"],
             "walletish": ["wallets", "wash_wallets"],
+            "scoreable": ["swaps", "swaps_flagged", "wallets", "wash_wallets"],
             "swaps_exact": ["swaps"],
         },
     }

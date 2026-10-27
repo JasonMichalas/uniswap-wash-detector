@@ -1,13 +1,3 @@
-"""Find Uniswap v2 and v3 pools for one token.
-
-Discovery is a handful of `eth_call`s: `getPair` on the v2 factory and
-`getPool` on the v3 factory, against WETH, USDC, USDT, and DAI, at the four
-standard v3 fee tiers. That misses pools quoted in exotic tokens. Those are
-rare for the volume a wash-trading percentage cares about, and scanning
-`PairCreated` from the factory's deployment block is a poor fit for public
-RPC limits. `washdetect fetch --rediscover` refreshes this set.
-"""
-
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -95,7 +85,7 @@ def read_pool(client: RpcClient, pool: str, protocol: str, fee: int, meta_cache:
 
 
 def discover_pools(client: RpcClient, token: str) -> list[PoolMeta]:
-    """Return every standard-quote v2 pair and v3 pool that exists for `token`."""
+    """WETH and the major stablecoins only. A factory-log scan does not fit public getLogs limits."""
     token = normalize_address(token)
     found: list[PoolMeta] = []
     seen: set[str] = set()

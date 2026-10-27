@@ -111,6 +111,17 @@ def test_holder_queries():
     assert {row["wallet"] for row in quiet.outputs[0].rows} == {"0xlong", "0xflat"}
 
 
+def test_ratio_can_divide_one_field_by_another():
+    result = _run(
+        's = source swaps\n'
+        'p = ratio s s of amount_token over usd_value\n'
+        'output number p as "Tokens per dollar" format percent\n'
+    )
+    # 2100 token / 1050 USD * 100.
+    assert abs(result.outputs[0].rows[0]["value"] - 200) < 0.01
+    assert result.outputs[0].note is None
+
+
 def test_string_filter_cannot_break_out_of_the_literal():
     nasty = "0xabc'; DROP TABLE secrets; --"
     wallets = pd.DataFrame(
@@ -161,3 +172,49 @@ def test_cycles_query_on_a_three_ring():
     result = _run("cycles where size >= 3", swaps=pd.DataFrame(), transfers=transfers)
     assert result.outputs[0].rows
     assert all(row["size"] >= 3 for row in result.outputs[0].rows)
+    assert all(row["pattern_type"] == "ring" for row in result.outputs[0].rows)
+
+
+def test_query_filters_fan_in_on_pattern_and_buyer_count():
+    swaps = pd.DataFrame(
+        [
+            ("0xa", 100, "buy", 2, 2, "0xba", 0, "0xpool", START),
+            ("0xb", 105, "buy", 2, 2, "0xbb", 0, "0xpool", START),
+            ("0xc", 140, "sell", 4.01, 4.01, "0xsc", 0, "0xpool", START),
+            ("0xd", 110, "buy", 9, 9, "0xdonly", 0, "0xpool", START),
+        ],
+        columns=[
+            "trader",
+            "block_number",
+            "side",
+            "amount_token",
+            "usd_value",
+            "tx_hash",
+            "log_index",
+            "pool_address",
+            "block_timestamp",
+        ],
+    )
+    transfers = pd.DataFrame(
+        [
+            ("0xa", "0xc", 120, 2, "0xta", 0, START),
+            ("0xb", "0xc", 125, 2, "0xtb", 0, START),
+        ],
+        columns=["from_address", "to_address", "block_number", "amount", "tx_hash", "log_index", "block_timestamp"],
+    )
+    query = """
+    s = source swaps
+    t = source transfers
+    d = detect_cycles(s, t, 0.05, 200, 16)
+    c = project d cycles
+    f = filter c where pattern_type = "many_to_one" and n_buyers >= 2 and n_wallets >= 3
+    output table f as "Fan-in"
+    """
+    result = _run(query, swaps=swaps, transfers=transfers)
+    rows = result.outputs[0].rows
+    assert len(rows) == 1
+    assert rows[0]["pattern_type"] == "many_to_one"
+    assert rows[0]["n_buyers"] == 2
+    assert rows[0]["n_sellers"] == 1
+    assert rows[0]["n_wallets"] == 3
+    assert "0.05, 200, 16" in result.query
