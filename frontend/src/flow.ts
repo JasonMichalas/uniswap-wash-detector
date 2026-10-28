@@ -131,9 +131,24 @@ function produce(
     return { out: { type: typeName, fields: catalog.types[typeName] ?? [] } };
   }
   if (ntype === "detect_cycles") {
+    const wallets = params.show_all === true
+      ? stream(catalog, "wash_wallets")
+      : {
+          type: "wash_wallets",
+          fields: [
+            { name: "wallet", kind: "string" },
+            { name: "wallets_used", kind: "string" },
+            { name: "wash_volume_usd", kind: "number" },
+            { name: "confidence", kind: "number" },
+            { name: "rules", kind: "string" },
+            { name: "why", kind: "string" },
+            { name: "flow", kind: "string" },
+            { name: "path", kind: "string" },
+          ] satisfies FieldDef[],
+        };
     return {
       out_swaps: stream(catalog, "swaps_flagged"),
-      out_wallets: stream(catalog, "wash_wallets"),
+      out_wallets: wallets,
       out_cycles: stream(catalog, "cycles"),
     };
   }

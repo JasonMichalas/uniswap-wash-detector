@@ -72,6 +72,9 @@ def test_wash_wallets_hide_zero_confidence_unless_asked():
     wallets = [row["wallet"] for row in hidden.outputs[0].rows]
     assert wallets == ["0xa"]
     assert hidden.outputs[0].rows[0]["confidence"] > 0
+    assert hidden.outputs[0].rows[0]["wallets_used"] == "Used 1 wallet"
+    assert "buy" in hidden.outputs[0].rows[0]["flow"]
+    assert "sell" in hidden.outputs[0].rows[0]["flow"]
 
     from washdetect.querylang.ast import Assign, Detect, Output, Program, Project, Source
 

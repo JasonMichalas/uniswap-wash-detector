@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import json
+from collections import defaultdict
 from typing import Any
 
 import duckdb
@@ -97,6 +99,113 @@ def _run_detect(
     return WashDetector(config=config).find_groups(events, transfers, excluded)
 
 
+def _wallets_used(count: int) -> str:
+    if count <= 1:
+        return "Used 1 wallet"
+    if count == 2:
+        return "Used 2 wallets"
+    return f"Used {count} wallets (this one + {count - 1} more)"
+
+
+def _pick_wallet(members: list[str], steps: list[dict[str, Any]]) -> str:
+    """The buyer with the most wash volume in the group, or the biggest washer."""
+    if not members:
+        return ""
+    if len(members) == 1:
+        return members[0]
+    volume: dict[str, float] = defaultdict(float)
+    buyers: set[str] = set()
+    for step in steps:
+        if step.get("kind") != "swap":
+            continue
+        wallet = str(step.get("wallet") or "")
+        volume[wallet] += float(step.get("usd") or 0)
+        if step.get("side") == "buy":
+            buyers.add(wallet)
+    pool = [wallet for wallet in members if wallet in buyers] or members
+    return max(pool, key=lambda wallet: (volume[wallet], wallet))
+
+
+def _group_table(
+    detection: Detection,
+    swap_rows: list[tuple[Any, ...]],
+    transfer_rows: list[tuple[Any, ...]],
+) -> pd.DataFrame:
+    swaps_by_key = {
+        (str(tx), int(log_index)): (trader, side, amount, usd, block, str(when or ""))
+        for tx, log_index, trader, side, amount, usd, block, when in swap_rows
+    }
+    records = []
+    for cycle in detection.cycles:
+        members = [wallet.lower() for wallet in cycle.wallets]
+        member_set = set(members)
+        steps: list[dict[str, Any]] = []
+        for tx, log_index in cycle.swap_ids:
+            found = swaps_by_key.get((str(tx), int(log_index)))
+            if found is None:
+                continue
+            trader, side, amount, usd, block, when = found
+            steps.append(
+                {
+                    "kind": "swap",
+                    "side": side,
+                    "wallet": str(trader).lower(),
+                    "amount": float(amount or 0),
+                    "usd": float(usd or 0),
+                    "tx": str(tx),
+                    "block": int(block),
+                    "time": when,
+                }
+            )
+        for src, dst, amount, tx, log_index, block, when in transfer_rows:
+            if str(src).lower() not in member_set or str(dst).lower() not in member_set:
+                continue
+            if not cycle.start_block <= int(block) <= cycle.end_block:
+                continue
+            steps.append(
+                {
+                    "kind": "transfer",
+                    "from": str(src),
+                    "to": str(dst),
+                    "amount": float(amount or 0),
+                    "tx": str(tx),
+                    "log_index": int(log_index),
+                    "block": int(block),
+                    "time": str(when or ""),
+                }
+            )
+        steps.sort(key=lambda step: (int(step["block"]), 0 if step.get("side") == "buy" else 1, str(step.get("tx"))))
+        transfers = [step for step in steps if step["kind"] == "transfer"]
+        if transfers:
+            path = " · ".join(
+                f"{step['from']} sent {step['amount']:g} to {step['to']} in {step['tx']} at block {step['block']}"
+                for step in transfers
+            )
+        else:
+            path = cycle.path
+        wallet = _pick_wallet(members, steps)
+        records.append(
+            {
+                "wallet": wallet,
+                "wallets_used": _wallets_used(len(members) or 1),
+                "wash_volume_usd": cycle.volume_usd,
+                "confidence": cycle.confidence,
+                "rules": cycle.rules,
+                "why": cycle.why,
+                "flow": json.dumps({"why": cycle.why, "wallets": members, "steps": steps}),
+                "path": path,
+            }
+        )
+        cycle.path = path
+    frame = pd.DataFrame(
+        records,
+        columns=["wallet", "wallets_used", "wash_volume_usd", "confidence", "rules", "why", "flow", "path"],
+    )
+    if frame.empty:
+        return frame
+    return frame.sort_values(["confidence", "wash_volume_usd"], ascending=[False, False])
+
+
 def _register_detection(
     con: duckdb.DuckDBPyConnection,
     swaps_view: str,
@@ -104,6 +213,7 @@ def _register_detection(
     fresh: Any,
     *,
     show_all: bool = False,
+    transfers_view: str | None = None,
 ) -> _Bundle:
     flags = pd.DataFrame(
         [
@@ -194,20 +304,77 @@ def _register_detection(
           ON s.tx_hash = f.tx_hash AND s.log_index = f.log_index
         """,
     )
-    where = "" if show_all else " WHERE confidence > 0"
-    _run(
-        con,
-        f"""
-        CREATE VIEW {wallet_view} AS
-        SELECT * FROM wash_wallets_{id(detection)}
-        {where}
-        ORDER BY confidence DESC, wash_volume_usd DESC
-        """,
-    )
+    if show_all:
+        _run(
+            con,
+            f"""
+            CREATE VIEW {wallet_view} AS
+            SELECT * FROM wash_wallets_{id(detection)}
+            ORDER BY confidence DESC, wash_volume_usd DESC
+            """,
+        )
+        wallet_fields = field_map("wash_wallets")
+        wallet_note = None
+    else:
+        swap_rows = con.execute(
+            f"""
+            SELECT tx_hash, log_index, trader, side, amount_token, usd_value, block_number,
+                   CAST(block_timestamp AS VARCHAR)
+            FROM {swaps_view}
+            """
+        ).fetchall()
+        transfer_rows = []
+        if transfers_view:
+            transfer_rows = con.execute(
+                f"""
+                SELECT from_address, to_address, amount, tx_hash, log_index, block_number,
+                       CAST(block_timestamp AS VARCHAR)
+                FROM {transfers_view}
+                """
+            ).fetchall()
+        groups = _group_table(detection, swap_rows, transfer_rows)
+        # Rebuild the cycle frame so Path uses the transfer chain.
+        cycles = pd.DataFrame(
+            [
+                {
+                    "cycle_id": row.cycle_id,
+                    "size": row.size,
+                    "kind": row.kind,
+                    "pattern_type": row.pattern_type,
+                    "n_buyers": row.n_buyers,
+                    "n_sellers": row.n_sellers,
+                    "n_wallets": row.n_wallets,
+                    "wallets": ",".join(row.wallets),
+                    "volume_usd": row.volume_usd,
+                    "confidence": row.confidence,
+                    "start_block": row.start_block,
+                    "end_block": row.end_block,
+                    "rules": row.rules,
+                    "why": row.why,
+                    "path": row.path,
+                }
+                for row in detection.cycles
+            ],
+            columns=list(field_map("cycles")),
+        )
+        con.unregister(f"cycles_{id(detection)}")
+        con.register(f"cycles_{id(detection)}", cycles)
+        con.register(f"wash_groups_{id(detection)}", groups)
+        _run(con, f"CREATE VIEW {wallet_view} AS SELECT * FROM wash_groups_{id(detection)}")
+        wallet_fields = {
+            "wallet": "string",
+            "wallets_used": "string",
+            "wash_volume_usd": "number",
+            "confidence": "number",
+            "rules": "string",
+            "why": "string",
+            "flow": "string",
+            "path": "string",
+        }
+        wallet_note = "No wash trading found in this window."
     _run(con, f"CREATE VIEW {cycle_view} AS SELECT * FROM cycles_{id(detection)}")
-    wallet_note = None if show_all else "No wash trading found in this window."
     return _Bundle(
         swaps=_Stream(swap_view, "swaps_flagged", field_map("swaps_flagged")),
-        wallets=_Stream(wallet_view, "wash_wallets", field_map("wash_wallets"), note=wallet_note),
+        wallets=_Stream(wallet_view, "wash_wallets", wallet_fields, note=wallet_note),
         cycles=_Stream(cycle_view, "cycles", field_map("cycles")),
     )

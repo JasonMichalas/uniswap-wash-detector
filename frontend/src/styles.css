@@ -822,6 +822,22 @@ th button.sort {
   cursor: pointer;
 }
 .addr-list { display: flex; flex-wrap: wrap; gap: 6px 10px; }
+.flow { display: flex; flex-direction: column; gap: 8px; padding: 8px 4px 12px; }
+.flow-wallets { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 0; }
+.flow-steps { display: flex; flex-wrap: wrap; gap: 8px; align-items: stretch; }
+.flow-arrow { align-self: center; color: var(--muted); }
+.flow-step {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 160px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--panel);
+}
+.flow-step.transfer { border-style: dashed; }
+.flow-step strong { font-size: 12px; letter-spacing: 0.04em; text-transform: uppercase; color: var(--muted); }
 .addr { display: inline-flex; gap: 6px; align-items: center; }
 .addr a { color: var(--accent); }
 .wrap-text {

@@ -296,6 +296,7 @@ def _eval(
             detection,
             fresh,
             show_all=bool(getattr(expr, "show_all", False)),
+            transfers_view=transfers_stream.view,
         )
         sql_lines.append(
             f"-- {comment}\n-- heuristic round-trip / cycle detector "

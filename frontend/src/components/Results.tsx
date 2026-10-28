@@ -291,6 +291,8 @@ const COLUMN_LABELS: Record<string, string> = {
   tx_hash: "Transaction",
   wallet: "Wallet",
   wallets: "Wallets",
+  wallets_used: "Wallets used",
+  flow: "Flow",
   confidence: "Confidence",
   day: "Day",
   count: "Swaps",
@@ -345,8 +347,10 @@ const COLUMN_TIPS: Record<string, string> = {
   is_wash: "Whether this swap belongs to a wash group.",
   cycle_id: "The wash group this row belongs to.",
   tx_hash: "The transaction. Open it on Etherscan or copy the full hash.",
-  wallet: "The wallet that traded. Shortened here; copy keeps the full address.",
+  wallet: "The wallet that stands for this wash group. Often the buyer, or the wallet with the most wash volume.",
   wallets: "Every wallet in this wash group.",
+  wallets_used: "How many wallets this one person or controller used.",
+  flow: "The buys, transfers, and sells in this group.",
   confidence: "How tightly the buys and sells match. 100% is an exact match.",
   wash_volume_usd: "Dollars of this wallet's swaps that the rules flagged.",
   round_trip_count: "Times this wallet bought and sold with itself.",
@@ -446,13 +450,77 @@ function isPercent(column: string): boolean {
 }
 
 function wraps(column: string): boolean {
-  return column === "why" || column === "path" || column === "rules";
+  return column === "why" || column === "path" || column === "rules" || column === "wallets_used";
+}
+
+type FlowStep = {
+  kind?: string;
+  side?: string;
+  wallet?: string;
+  from?: string;
+  to?: string;
+  amount?: number;
+  usd?: number;
+  tx?: string;
+  time?: string;
+  block?: number;
+};
+
+function FlowView({ raw, symbol }: { raw: unknown; symbol: string }) {
+  let body: { why?: string; wallets?: string[]; steps?: FlowStep[] } = {};
+  try {
+    body = JSON.parse(String(raw ?? "{}")) as typeof body;
+  } catch {
+    body = {};
+  }
+  const steps = body.steps ?? [];
+  const others = (body.wallets ?? []).slice(1);
+  return (
+    <div className="flow">
+      {body.why && <p>{body.why}</p>}
+      {others.length > 0 && (
+        <p className="flow-wallets">
+          Also used{" "}
+          {others.map((wallet) => (
+            <OneAddress key={wallet} text={wallet} tx={false} />
+          ))}
+        </p>
+      )}
+      <div className="flow-steps">
+        {steps.map((step, index) => (
+          <Fragment key={`${step.tx ?? ""}-${step.block ?? ""}-${index}`}>
+            {index > 0 && <span className="flow-arrow">→</span>}
+            <div className={`flow-step ${step.kind ?? ""}`}>
+              <strong>{step.kind === "transfer" ? "Transfer" : step.side === "sell" ? "Sell" : "Buy"}</strong>
+              {step.kind === "transfer" ? (
+                <span>
+                  <OneAddress text={step.from ?? ""} tx={false} /> to <OneAddress text={step.to ?? ""} tx={false} />
+                </span>
+              ) : (
+                <OneAddress text={step.wallet ?? ""} tx={false} />
+              )}
+              <span>
+                {Number(step.amount ?? 0).toLocaleString(undefined, { maximumFractionDigits: 4 })}
+                {symbol ? ` ${symbol}` : ""}
+                {step.kind !== "transfer" && step.usd != null
+                  ? ` · ${Number(step.usd).toLocaleString(undefined, { style: "currency", currency: "USD", maximumFractionDigits: 0 })}`
+                  : ""}
+              </span>
+              {step.time && <span>{step.time.replace("T", " ").slice(0, 16)}</span>}
+              {step.tx && <OneAddress text={step.tx} tx />}
+            </div>
+          </Fragment>
+        ))}
+      </div>
+    </div>
+  );
 }
 
 function TableCard({ output, noSwaps, symbol }: { output: OutputResult; noSwaps: boolean; symbol: string }) {
   const [sort, setSort] = useState<{ column: string; dir: "asc" | "desc" } | null>(null);
   const [page, setPage] = useState(0);
   const [open, setOpen] = useState<number | null>(null);
+  const [flowOpen, setFlowOpen] = useState<number | null>(null);
 
   const rows = useMemo(() => {
     const copy = [...output.rows];
@@ -516,8 +584,18 @@ function TableCard({ output, noSwaps, symbol }: { output: OutputResult; noSwaps:
                       <tr>
                         {output.columns.map((column) => (
                           <td key={column} className={wraps(column) ? "wrap" : undefined}>
-                            <Cell value={row[column]} column={column} symbol={symbol} expanded={open === rowIndex} />
-                            {long && wraps(column) && (
+                            {column === "flow" ? (
+                              <button
+                                type="button"
+                                className="text"
+                                onClick={() => setFlowOpen(flowOpen === rowIndex ? null : rowIndex)}
+                              >
+                                {flowOpen === rowIndex ? "Hide flow" : "View flow"}
+                              </button>
+                            ) : (
+                              <Cell value={row[column]} column={column} symbol={symbol} expanded={open === rowIndex} />
+                            )}
+                            {long && wraps(column) && column !== "flow" && (
                               <button
                                 type="button"
                                 className="text"
@@ -529,6 +607,13 @@ function TableCard({ output, noSwaps, symbol }: { output: OutputResult; noSwaps:
                           </td>
                         ))}
                       </tr>
+                      {flowOpen === rowIndex && row.flow != null && (
+                        <tr>
+                          <td colSpan={output.columns.length}>
+                            <FlowView raw={row.flow} symbol={symbol} />
+                          </td>
+                        </tr>
+                      )}
                     </Fragment>
                   );
                 })}

@@ -302,7 +302,7 @@ function CycleSettings({
         />
         Show all wallets
         <span className="hint">
-          Off, the wallets table lists only wallets in a wash group. On, it also lists everyone else at 0%.
+          Off, one row per wash group. On, one row per wallet, including wallets that were not flagged.
         </span>
       </label>
       <label>
