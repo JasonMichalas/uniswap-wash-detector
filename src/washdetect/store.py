@@ -12,6 +12,24 @@ import pandas as pd
 from washdetect.ranges import covers, intersect_intervals, merge_intervals, missing_intervals
 
 CHAIN = "__chain__"
+_EVENT_KEY = ("token", "tx_hash", "log_index")
+_SWAP_COLS = (
+    "token", "tx_hash", "log_index", "block_number", "block_timestamp", "pool_address", "protocol",
+    "sender", "recipient", "trader", "side", "amount_token", "amount_quote", "quote_token",
+    "usd_value", "amount0_raw", "amount1_raw",
+)
+_TRANSFER_COLS = (
+    "token", "tx_hash", "log_index", "block_number", "block_timestamp",
+    "from_address", "to_address", "amount_raw", "amount",
+)
+_LIQUIDITY_COLS = (
+    "token", "tx_hash", "log_index", "block_number", "block_timestamp", "pool_address", "protocol",
+    "kind", "sender", "amount0_raw", "amount1_raw",
+)
+_POOL_COLS = (
+    "token", "pool_address", "protocol", "token0", "token1", "fee",
+    "token0_decimals", "token1_decimals", "token0_symbol", "token1_symbol",
+)
 
 
 def pool_log_gaps(
@@ -231,6 +249,36 @@ class Store:
     def _df(self, sql: str, params: list[Any] | None = None) -> pd.DataFrame:
         return self.con.execute(sql, params or []).df()
 
+    def _framed(
+        self,
+        sql: str,
+        columns: tuple[str, ...],
+        rows: list[tuple[Any, ...]],
+        keys: tuple[str, ...] = (),
+        params: list[Any] | None = None,
+    ) -> list[tuple[Any, ...]]:
+        """One statement over a DataFrame. DuckDB's executemany runs row by row: 14k transfers took 45s."""
+        if not rows:
+            return []
+        frame = pd.DataFrame(rows, columns=list(columns))
+        if keys:
+            frame = frame.drop_duplicates(subset=list(keys), keep="last")
+        with self.lock:
+            cursor = self.con.cursor()
+            try:
+                cursor.register("_rows", frame)
+                result = cursor.execute(sql, params or [])
+                return result.fetchall() if result.description else []
+            finally:
+                cursor.close()
+
+    def _put(
+        self, table: str, columns: tuple[str, ...], rows: list[tuple[Any, ...]], keys: tuple[str, ...] = ()
+    ) -> None:
+        names = ", ".join(columns)
+        verb = "INSERT OR REPLACE" if keys else "INSERT"
+        self._framed(f"{verb} INTO {table} ({names}) SELECT {names} FROM _rows", columns, rows, keys)
+
     def upsert_token(self, token: str, symbol: str, decimals: int) -> None:
         with self.lock:
             self.con.execute(
@@ -248,13 +296,7 @@ class Store:
         return {"symbol": rows[0][0], "decimals": rows[0][1]}
 
     def save_pools(self, rows: list[tuple[Any, ...]]) -> None:
-        if not rows:
-            return
-        with self.lock:
-            self.con.executemany(
-                "INSERT OR REPLACE INTO pools VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                rows,
-            )
+        self._put("pools", _POOL_COLS, rows, ("token", "pool_address"))
 
     def pools_for(self, token: str) -> list[dict[str, Any]]:
         with self.lock:
@@ -317,102 +359,58 @@ class Store:
     def add_coverage_many(self, rows: list[tuple[str, str, int, int]]) -> None:
         """Insert many coverage spans. Readers merge overlaps, so a bulk scan can write once."""
         kept = [row for row in rows if row[2] <= row[3]]
-        if not kept:
-            return
-        with self.lock:
-            self.con.executemany("INSERT INTO coverage VALUES (?, ?, ?, ?)", kept)
+        self._put("coverage", ("token", "dataset", "start_block", "end_block"), kept)
 
     def insert_swaps(self, rows: list[tuple[Any, ...]]) -> None:
-        if not rows:
-            return
-        with self.lock:
-            self.con.executemany(
-                """
-                INSERT OR REPLACE INTO swaps (
-                    token, tx_hash, log_index, block_number, block_timestamp,
-                    pool_address, protocol, sender, recipient, trader, side,
-                    amount_token, amount_quote, quote_token, usd_value,
-                    amount0_raw, amount1_raw
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """,
-                rows,
-            )
+        self._put("swaps", _SWAP_COLS, rows, _EVENT_KEY)
 
     def insert_transfers(self, rows: list[tuple[Any, ...]]) -> None:
-        if not rows:
-            return
-        with self.lock:
-            self.con.executemany(
-                "INSERT OR REPLACE INTO transfers VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                rows,
-            )
+        self._put("transfers", _TRANSFER_COLS, rows, _EVENT_KEY)
 
     def insert_liquidity(self, rows: list[tuple[Any, ...]]) -> None:
-        if not rows:
-            return
-        with self.lock:
-            self.con.executemany(
-                "INSERT OR REPLACE INTO liquidity_events VALUES "
-                "(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                rows,
-            )
+        self._put("liquidity_events", _LIQUIDITY_COLS, rows, _EVENT_KEY)
 
     def remember_blocks(self, rows: list[tuple[int, datetime]]) -> None:
-        if not rows:
-            return
-        with self.lock:
-            self.con.executemany("INSERT OR REPLACE INTO blocks VALUES (?, ?)", rows)
+        self._put("blocks", ("block_number", "ts"), rows, ("block_number",))
 
     def known_blocks(self, numbers: list[int]) -> dict[int, datetime]:
-        if not numbers:
-            return {}
-        with self.lock:
-            self.con.execute("CREATE TEMP TABLE IF NOT EXISTS _nums (n BIGINT)")
-            self.con.execute("DELETE FROM _nums")
-            self.con.executemany("INSERT INTO _nums VALUES (?)", [(n,) for n in numbers])
-            rows = self.con.execute(
-                "SELECT b.block_number, b.ts FROM blocks b JOIN _nums u ON b.block_number = u.n"
-            ).fetchall()
+        rows = self._framed(
+            "SELECT b.block_number, b.ts FROM blocks b JOIN _rows u ON b.block_number = u.n",
+            ("n",),
+            [(n,) for n in set(numbers)],
+        )
         return {int(n): ts for n, ts in rows}
 
     def remember_senders(self, rows: list[tuple[str, str]]) -> None:
-        if not rows:
-            return
-        with self.lock:
-            self.con.executemany("INSERT OR REPLACE INTO tx_senders VALUES (?, ?)", rows)
+        self._put("tx_senders", ("tx_hash", "sender"), rows, ("tx_hash",))
 
     def known_senders(self, tx_hashes: list[str]) -> dict[str, str]:
-        if not tx_hashes:
-            return {}
-        with self.lock:
-            self.con.execute("CREATE TEMP TABLE IF NOT EXISTS _txs (h VARCHAR)")
-            self.con.execute("DELETE FROM _txs")
-            self.con.executemany("INSERT INTO _txs VALUES (?)", [(h,) for h in tx_hashes])
-            rows = self.con.execute(
-                "SELECT s.tx_hash, s.sender FROM tx_senders s JOIN _txs t ON s.tx_hash = t.h"
-            ).fetchall()
+        rows = self._framed(
+            "SELECT s.tx_hash, s.sender FROM tx_senders s JOIN _rows t ON s.tx_hash = t.h",
+            ("h",),
+            [(h,) for h in set(tx_hashes)],
+        )
         return {h: sender for h, sender in rows}
 
     def apply_traders(self, token: str, rows: list[tuple[str, str]]) -> None:
-        if not rows:
-            return
-        with self.lock:
-            self.con.executemany(
-                "UPDATE swaps SET trader = ? WHERE token = ? AND tx_hash = ? AND trader IS NULL",
-                [(sender, token, tx) for tx, sender in rows],
-            )
+        self._framed(
+            "UPDATE swaps SET trader = _rows.sender FROM _rows "
+            "WHERE swaps.token = ? AND swaps.tx_hash = _rows.tx AND swaps.trader IS NULL",
+            ("tx", "sender"),
+            rows,
+            ("tx",),
+            [token],
+        )
 
     def apply_prices(self, token: str, rows: list[tuple[float, str, str, int]]) -> None:
-        if not rows:
-            return
-        with self.lock:
-            self.con.executemany(
-                """
-                UPDATE swaps SET usd_value = ?, price_source = ?
-                WHERE token = ? AND tx_hash = ? AND log_index = ?
-                """,
-                [(usd, source, token, tx, log_index) for usd, source, tx, log_index in rows],
-            )
+        self._framed(
+            "UPDATE swaps SET usd_value = _rows.usd, price_source = _rows.source FROM _rows "
+            "WHERE swaps.token = ? AND swaps.tx_hash = _rows.tx AND swaps.log_index = _rows.log",
+            ("usd", "source", "tx", "log"),
+            rows,
+            ("tx", "log"),
+            [token],
+        )
 
     def swaps_missing_trader(self, token: str, start: int, end: int) -> list[str]:
         with self.lock:
@@ -573,13 +571,12 @@ class Store:
         return [r[0] for r in rows]
 
     def save_balances(self, token: str, block: int, rows: list[tuple[str, float]]) -> None:
-        if not rows:
-            return
-        with self.lock:
-            self.con.executemany(
-                "INSERT OR REPLACE INTO wallet_balances_end VALUES (?, ?, ?, ?)",
-                [(token, block, wallet, balance) for wallet, balance in rows],
-            )
+        self._put(
+            "wallet_balances_end",
+            ("token", "block_number", "wallet", "balance"),
+            [(token, block, wallet, balance) for wallet, balance in rows],
+            ("token", "block_number", "wallet"),
+        )
 
     def balances_at(self, token: str, block: int) -> dict[str, float]:
         with self.lock:
@@ -605,11 +602,7 @@ class Store:
     def replace_daily_balances(self, token: str, rows: list[tuple[Any, ...]]) -> None:
         with self.lock:
             self.con.execute("DELETE FROM wallet_balance_daily WHERE token = ?", [token])
-            if rows:
-                self.con.executemany(
-                    "INSERT INTO wallet_balance_daily VALUES (?, ?, ?, ?, ?)",
-                    rows,
-                )
+            self._put("wallet_balance_daily", ("token", "wallet", "day", "block_number", "balance"), rows, ("token", "wallet", "day"))
 
     def save_labels(
         self,
@@ -673,13 +666,12 @@ class Store:
                 )
 
     def upsert_chain_pools(self, rows: list[tuple[Any, ...]]) -> None:
-        if not rows:
-            return
-        with self.lock:
-            self.con.executemany(
-                "INSERT OR REPLACE INTO chain_pools VALUES (?, ?, ?, ?, ?, ?, ?)",
-                rows,
-            )
+        self._put(
+            "chain_pools",
+            ("pool_address", "protocol", "dex", "token0", "token1", "fee", "hooks"),
+            rows,
+            ("pool_address",),
+        )
 
     def batch_status(self, token: str, window: str) -> str | None:
         with self.lock:
