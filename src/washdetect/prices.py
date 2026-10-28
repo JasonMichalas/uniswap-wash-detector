@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from statistics import median
+from typing import Any
 
 from washdetect.abi import (
     calldata,
@@ -86,7 +87,9 @@ def other_per_quote(token1_per_token0: float, quote_is_token0: bool) -> float | 
     return 1.0 / token1_per_token0
 
 
-def quote_usd_from_other(other_per_one_quote: float, *, other_is_stable: bool, eth_usd: float | None) -> float | None:
+def quote_usd_from_other(
+    other_per_one_quote: float, *, other_is_stable: bool, eth_usd: float | None
+) -> float | None:
     if other_per_one_quote <= 0:
         return None
     if other_is_stable:
@@ -144,7 +147,9 @@ class QuoteOracle:
         self._pool: dict[str, tuple[str, str, str, bool] | None] = {}
         self._meta: dict[str, tuple[str, str, int, int] | None] = {}
 
-    def samples(self, quote: str, blocks: list[int], eth_usd: float | None) -> list[tuple[int, float]]:
+    def samples(
+        self, quote: str, blocks: list[int], eth_usd: float | None
+    ) -> list[tuple[int, float]]:
         quote = quote.lower()
         if quote in STABLECOINS:
             return [(block, 1.0) for block in blocks]
@@ -158,10 +163,33 @@ class QuoteOracle:
         pool, protocol, _other, other_is_stable = found
         if not other_is_stable and eth_usd is None:
             return []
+        meta = self._tokens(pool)
+        if meta is None:
+            return []
+        token0, token1, dec0, dec1 = meta
+        if quote not in (token0, token1):
+            return []
         points = _sample_blocks(blocks, 8)
+        query = calldata("get_reserves") if protocol == "v2" else calldata("slot0")
+        answers = self.client.batch([_call(pool, query, block) for block in points])
         out: list[tuple[int, float]] = []
-        for block in points:
-            price = self._at(pool, protocol, quote, other_is_stable, block, eth_usd)
+        for block, raw in zip(points, answers, strict=True):
+            try:
+                if protocol == "v2":
+                    reserve0, reserve1 = decode_reserves(raw)
+                    if reserve0 <= 0 or reserve1 <= 0:
+                        continue
+                    ratio = (reserve1 / 10**dec1) / (reserve0 / 10**dec0)
+                else:
+                    ratio = price_token1_per_token0(decode_slot0_sqrt(raw), dec0, dec1)
+            except Exception:
+                continue
+            other = other_per_quote(ratio, token0 == quote)
+            price = (
+                None
+                if other is None
+                else quote_usd_from_other(other, other_is_stable=other_is_stable, eth_usd=eth_usd)
+            )
             if price is not None and 0 < price < 1e9:
                 out.append((block, price))
         return out
@@ -176,60 +204,32 @@ class QuoteOracle:
     def _lookup(self, quote: str) -> tuple[str, str, str, bool] | None:
         # Stable pool first so the price is already USD. WETH is the fallback.
         pairs: list[tuple[str, bool]] = [(USDC, True), (USDT, True), (DAI, True), (WETH, False)]
-        for other, stable in pairs:
-            for fee in V3_FEES:
-                pool = _call_address(
-                    self.client,
-                    V3_FACTORY,
-                    calldata("get_pool", ["address", "address", "uint24"], [quote, other, fee]),
-                )
-                if pool:
-                    return pool, "v3", other, stable
-        for other, stable in ((USDC, True), (USDT, True), (DAI, True), (WETH, False)):
-            pool = _call_address(
-                self.client,
+        options = [
+            (
+                V3_FACTORY,
+                calldata("get_pool", ["address", "address", "uint24"], [quote, other, fee]),
+                "v3",
+                other,
+                stable,
+            )
+            for other, stable in pairs
+            for fee in V3_FEES
+        ] + [
+            (
                 V2_FACTORY,
                 calldata("get_pair", ["address", "address"], [quote, other]),
+                "v2",
+                other,
+                stable,
             )
+            for other, stable in pairs
+        ]
+        answers = self.client.batch([_call(factory, data) for factory, data, *_ in options])
+        for (_factory, _data, protocol, other, stable), raw in zip(options, answers, strict=True):
+            pool = _address(raw)
             if pool:
-                return pool, "v2", other, stable
+                return pool, protocol, other, stable
         return None
-
-    def _at(
-        self,
-        pool: str,
-        protocol: str,
-        quote: str,
-        other_is_stable: bool,
-        block: int,
-        eth_usd: float | None,
-    ) -> float | None:
-        meta = self._tokens(pool)
-        if meta is None:
-            return None
-        token0, token1, dec0, dec1 = meta
-        quote_is_token0 = token0 == quote
-        if token0 != quote and token1 != quote:
-            return None
-        try:
-            if protocol == "v2":
-                reserve0, reserve1 = decode_reserves(
-                    self.client.eth_call(pool, calldata("get_reserves"), block)
-                )
-                if reserve0 <= 0 or reserve1 <= 0:
-                    return None
-                human0 = reserve0 / 10**dec0
-                human1 = reserve1 / 10**dec1
-                ratio = human1 / human0
-            else:
-                sqrt_price = decode_slot0_sqrt(self.client.eth_call(pool, calldata("slot0"), block))
-                ratio = price_token1_per_token0(sqrt_price, dec0, dec1)
-        except Exception:
-            return None
-        other = other_per_quote(ratio, quote_is_token0)
-        if other is None:
-            return None
-        return quote_usd_from_other(other, other_is_stable=other_is_stable, eth_usd=eth_usd)
 
     def _tokens(self, pool: str) -> tuple[str, str, int, int] | None:
         if pool in self._meta:
@@ -249,17 +249,15 @@ class QuoteOracle:
         return found
 
 
-def _call_address(client: RpcClient, to: str, data: str) -> str | None:
-    try:
-        raw = client.eth_call(to, data)
-    except Exception:
-        return None
-    if not raw or raw == "0x":
+def _call(to: str, data: str, block: int | str = "latest") -> tuple[str, list[Any]]:
+    return "eth_call", [{"to": to, "data": data}, hex(block) if isinstance(block, int) else block]
+
+
+def _address(raw: object) -> str | None:
+    if not isinstance(raw, str) or len(raw) < 66:
         return None
     address = decode_address_word(raw)
-    if is_zero(address):
-        return None
-    return address
+    return None if is_zero(address) else address
 
 
 def _sample_blocks(blocks: list[int], cap: int) -> list[int]:

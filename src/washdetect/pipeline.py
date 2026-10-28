@@ -143,8 +143,7 @@ def fetch_balances(
                 found[wallet] = human_amount(int.from_bytes(ret[-32:], "big"), decimals)
         return found
 
-    workers = 1 if getattr(client, "_transport", None) is not None else 6
-    with ThreadPoolExecutor(max_workers=workers) as pool:
+    with ThreadPoolExecutor(max_workers=_threads(client)) as pool:
         return {wallet: value for found in pool.map(read, parts) for wallet, value in found.items()}
 
 
@@ -195,6 +194,11 @@ _CHAIN_AT = re.compile(r"\bchain ([\d,]+)")
 _PHASE_NOISE = re.compile(r":?\s*blocks? [\d,]+ of [\d,]+(?:\s*\(\d+%\))?")
 _EMBEDDED_PCT = re.compile(r"\s*\(\d+%\)")
 _SWAP_TOPICS = {topic.lower() for topic in (SWAP_V2, SWAP_V3, SWAP_V4)}
+
+
+def _threads(client: RpcClient, wanted: int = 6) -> int:
+    # A test transport answers in order, so it gets one thread.
+    return 1 if getattr(client, "_transport", None) is not None else wanted
 
 
 def _eta(seconds: float) -> str:
@@ -1063,9 +1067,11 @@ def _price_swaps(
             ]
             return oracle.samples(quote, blocks, eth_usd)
 
-        workers = 1 if getattr(client, "_transport", None) is not None else 6
-        with ThreadPoolExecutor(max_workers=workers) as pool:
-            samples = dict(zip(quotes, pool.map(sample, quotes), strict=True))
+        samples: dict[str, list[tuple[int, float]]] = {}
+        with ThreadPoolExecutor(max_workers=_threads(client)) as pool:
+            for quote, found in zip(quotes, pool.map(sample, quotes), strict=True):
+                say(f"Pricing swaps: {len(samples):,} of {len(quotes):,} other currencies checked")
+                samples[quote] = found
         for row in rows:
             if row["usd"] is not None:
                 continue

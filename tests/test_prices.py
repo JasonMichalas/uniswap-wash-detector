@@ -1,5 +1,7 @@
 """USD pricing: native ETH, a quote pool, and a price implied by other swaps."""
 
+from typing import Any
+
 from eth_abi import encode
 
 from washdetect.abi import calldata
@@ -54,6 +56,9 @@ def test_pricing_note_keeps_unpriced_swaps_in_token_totals():
 
 
 class _Calls:
+    def batch(self, calls: list[tuple[str, list[Any]]]) -> list[str]:
+        return [self.eth_call(params[0]["to"], params[0]["data"]) for _method, params in calls]
+
     def eth_call(self, to: str, data: str, block: int | None = None) -> str:
         selector = data[:10]
         if selector == calldata("get_pool")[:10] or selector == calldata("get_pair")[:10]:
@@ -69,7 +74,9 @@ class _Calls:
             return "0x" + encode(["uint256"], [decimals]).hex()
         if selector == calldata("get_reserves")[:10]:
             # 2 quote (18 decimals) against 10 USDC (6 decimals) => 5 USDC per quote.
-            return "0x" + encode(["uint112", "uint112", "uint32"], [2 * 10**18, 10 * 10**6, 1]).hex()
+            return (
+                "0x" + encode(["uint112", "uint112", "uint32"], [2 * 10**18, 10 * 10**6, 1]).hex()
+            )
         raise AssertionError(data[:10])
 
 
