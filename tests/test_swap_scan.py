@@ -51,6 +51,9 @@ class _Logs:
     def spawn(self):
         return self
 
+    def log_workers(self, _width=None):
+        return 1
+
     def close(self) -> None:
         return None
 

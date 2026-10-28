@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+import threading
 import time
 from collections import defaultdict
 from collections.abc import Callable
@@ -15,6 +16,7 @@ from washdetect.abi import (
     SWAP_V4,
     TRANSFER,
     calldata,
+    decode_aggregate3,
     decode_slot0_sqrt,
     decode_transfer_value,
     decode_uint,
@@ -42,6 +44,7 @@ from washdetect.logs import (
     decode_pool_log,
     fetch_timestamps,
 )
+from washdetect.meter import BlockMeter
 from washdetect.prices import (
     QuoteOracle,
     apply_token_implied,
@@ -52,7 +55,7 @@ from washdetect.prices import (
     pricing_note,
     swap_usd,
 )
-from washdetect.rpc import RpcClient, RpcError
+from washdetect.rpc import Cancelled, RpcClient, RpcError
 from washdetect.store import Store, pool_log_gaps
 from washdetect.window import _naive, resolve_window
 
@@ -117,16 +120,14 @@ class LoadReport:
 def fetch_balances(
     client: RpcClient, token: str, wallets: list[str], block: int, decimals: int
 ) -> dict[str, float]:
-    found: dict[str, float] = {}
     step = 150
-    for offset in range(0, len(wallets), step):
-        part = wallets[offset : offset + step]
+    parts = [wallets[offset : offset + step] for offset in range(0, len(wallets), step)]
+
+    def read(part: list[str]) -> dict[str, float]:
+        found: dict[str, float] = {}
         calls = [(token, True, encode_balance_of(wallet)) for wallet in part]
         try:
-            raw = client.eth_call(MULTICALL3, encode_aggregate3(calls), block)
-            from washdetect.abi import decode_aggregate3
-
-            decoded = decode_aggregate3(raw)
+            decoded = decode_aggregate3(client.eth_call(MULTICALL3, encode_aggregate3(calls), block))
         except Exception:
             for wallet in part:
                 try:
@@ -134,12 +135,15 @@ def fetch_balances(
                     found[wallet] = human_amount(decode_uint(word), decimals)
                 except Exception:
                     continue
-            continue
+            return found
         for wallet, (ok, ret) in zip(part, decoded, strict=False):
-            if not ok or len(ret) < 32:
-                continue
-            found[wallet] = human_amount(int.from_bytes(ret[-32:], "big"), decimals)
-    return found
+            if ok and len(ret) >= 32:
+                found[wallet] = human_amount(int.from_bytes(ret[-32:], "big"), decimals)
+        return found
+
+    workers = 1 if getattr(client, "_transport", None) is not None else 6
+    with ThreadPoolExecutor(max_workers=workers) as pool:
+        return {wallet: value for found in pool.map(read, parts) for wallet, value in found.items()}
 
 
 def _rebuild_daily(
@@ -213,6 +217,7 @@ def format_load_line(
     swaps_started: bool = False,
     transfers_started: bool = False,
     chain: int | None = None,
+    eta: float | None = None,
 ) -> str:
     """One status line. The phase does not carry its own percentage."""
     swap_bit = f"{swaps:,} swaps found" if swaps_started else "swaps not started yet"
@@ -224,10 +229,10 @@ def format_load_line(
     width = max(1, end)
     pct = min(100, max(0, int(100 * at / width)))
     extra = f" · chain {chain:,}" if chain else ""
-    eta = ""
-    if phase.startswith("Finding pools") and elapsed >= 4 and 1 <= pct <= 99:
-        eta = f" · about {_eta(elapsed * (100 - pct) / pct)} left"
-    return f"{phase} · block {at:,} of {end:,} ({pct}%){extra}{eta} · {counts} · {tail}"
+    if eta is None and phase.startswith("Finding pools") and elapsed >= 4 and pct >= 1:
+        eta = elapsed * (100 - pct) / pct
+    left = f" · about {_eta(eta)} left in this step" if eta is not None and 1 <= pct <= 99 else ""
+    return f"{phase} · block {at:,} of {end:,} ({pct}%){extra}{left} · {counts} · {tail}"
 
 
 def render_progress(
@@ -262,6 +267,7 @@ def render_progress(
         swaps_started=bool(stats.get("swaps_started")),
         transfers_started=bool(stats.get("transfers_started")),
         chain=int(chain_at.group(1).replace(",", "")) if chain_at else None,
+        eta=stats.pop("eta", None) if found else None,
     )
 
 
@@ -317,9 +323,6 @@ def load_token(
     client = client or RpcClient()
     own_store = store is None
     store = store or Store(db_path)
-    blocks_fetched = 0
-    blocks_cached = 0
-    swap_logs = 0
     stop = cancel or (lambda: False)
     try:
         say("Resolving the block window")
@@ -366,45 +369,32 @@ def load_token(
         )
         say(f"Found {len(pools)} pools")
 
-        fetched, cached, swap_logs = _fetch_swap_groups(
-            store, client, token, pools, start_block, end_block, span_blocks, head_ts, say, stop, stats
-        )
-        blocks_fetched += fetched
-        blocks_cached += cached
-        stats["cached"] = blocks_cached
-        stats["network"] = blocks_fetched
-
+        meter = BlockMeter(span_blocks, ("swaps", "transfers"), say, stats)
+        stats["swaps_started"] = stats["transfers_started"] = 1
+        groups, swaps_cached = _swap_groups(store, token, pools, start_block, end_block)
         transfer_gaps = store.missing(token, "transfers", start_block, end_block)
-        transfer_cached = span_blocks - _gap_blocks(transfer_gaps)
-        blocks_cached += transfer_cached
-        stats["cached"] = blocks_cached
-        for gap_start, gap_end in transfer_gaps:
-            def on_progress(at: int, _end: int, count: int, *, gap_end: int = gap_end) -> None:
-                walked = max(0, at - start_block)
-                say(f"Reading transfers: blocks {walked:,} of {span_blocks:,}")
-
-            def on_transfer_chunk(frm: int, to: int, chunk: list[dict[str, Any]], *, gap_end: int = gap_end) -> None:
-                _keep_transfers(store, client, token, decimals, chunk, end_block, head_ts, frm, to)
-                stats["transfers"] += len(chunk)
-                stats["at"] = to
-
-            say(f"Reading transfers: blocks {max(0, gap_start - start_block):,} of {span_blocks:,}")
-            transfer_span = min(max(gap_end - gap_start + 1, 1), _LOG_SPAN)
-            client.get_logs(
-                address=token,
-                topics=[TRANSFER],
-                start_block=gap_start,
-                end_block=gap_end,
-                init_span=transfer_span,
-                workers=4 if gap_end - gap_start + 1 > _LOG_SPAN else 1,
-                on_progress=on_progress,
-                on_chunk=on_transfer_chunk,
-                cancel=stop,
-                empty_limit=transfer_span,
+        meter.seed("swaps", swaps_cached)
+        meter.seed("transfers", span_blocks - _gap_blocks(transfer_gaps))
+        meter.begin()
+        swap_client = client.spawn()
+        transfer_client = client.spawn(cursor=client._cursor + 1)
+        try:
+            swap_logs, _ = _together(
+                stop,
+                lambda halt: _fetch_planned(
+                    store, swap_client, token, pools, groups, start_block, end_block,
+                    head_ts, say, halt, meter,
+                ),
+                lambda halt: _fetch_transfers(
+                    store, transfer_client, token, decimals, transfer_gaps, end_block,
+                    head_ts, halt, meter,
+                ),
             )
-            blocks_fetched += gap_end - gap_start + 1
-            stats["network"] = blocks_fetched
-            stats["cached"] = blocks_cached
+        finally:
+            swap_client.close()
+            transfer_client.close()
+        blocks_fetched = meter.fetched
+        blocks_cached = meter.cached
 
         say("Resolving traders from transaction senders")
         _resolve_traders(store, client, token, start_block, end_block, say)
@@ -467,6 +457,86 @@ def load_token(
             store.close()
 
 
+def _together(cancel: Callable[[], bool], *jobs: Callable[[Callable[[], bool]], Any]) -> list[Any]:
+    """Run jobs side by side. When one fails the others stop at their next chunk; what they saved stays."""
+    failed = threading.Event()
+
+    def halt() -> bool:
+        return failed.is_set() or cancel()
+
+    def guarded(job: Callable[[Callable[[], bool]], Any]) -> Any:
+        try:
+            return job(halt)
+        except BaseException:
+            failed.set()
+            raise
+
+    with ThreadPoolExecutor(max_workers=len(jobs)) as pool:
+        futures = [pool.submit(guarded, job) for job in jobs]
+    errors = [future.exception() for future in futures if future.exception() is not None]
+    if errors:
+        if cancel():
+            raise Cancelled("Load cancelled")
+        raise next((exc for exc in errors if not isinstance(exc, Cancelled)), errors[0])
+    return [future.result() for future in futures]
+
+
+def _scan_span(width: int, workers: int) -> int:
+    """Small enough that every worker has a chunk from the start; LogScan grows it back on success."""
+    return max(1, min(_LOG_SPAN, -(-width // max(1, workers))))
+
+
+def _fetch_transfers(
+    store: Store,
+    client: RpcClient,
+    token: str,
+    decimals: int,
+    gaps: list[tuple[int, int]],
+    end_block: int,
+    head_ts: datetime,
+    cancel: Callable[[], bool],
+    meter: BlockMeter,
+) -> None:
+    workers = client.log_workers()
+    for gap_start, gap_end in gaps:
+
+        def on_chunk(frm: int, to: int, chunk: list[dict[str, Any]]) -> None:
+            _keep_transfers(store, client, token, decimals, chunk, end_block, head_ts, frm, to)
+            meter.advance("transfers", to - frm + 1, len(chunk))
+
+        span = _scan_span(gap_end - gap_start + 1, workers)
+        client.get_logs(
+            address=token,
+            topics=[TRANSFER],
+            start_block=gap_start,
+            end_block=gap_end,
+            init_span=span,
+            workers=workers,
+            on_chunk=on_chunk,
+            cancel=cancel,
+            empty_limit=span,
+        )
+
+
+SwapGroups = dict[tuple[tuple[int, int], ...], list[PoolMeta]]
+
+
+def _swap_groups(
+    store: Store, token: str, pools: list[PoolMeta], start_block: int, end_block: int
+) -> tuple[SwapGroups, float]:
+    """Pools that miss the same block ranges share one scan. Also returns the cached share of the window."""
+    have = store.coverage_by_dataset(token)
+    groups: SwapGroups = defaultdict(list)
+    missing = 0
+    for pool in pools:
+        gaps = tuple(pool_log_gaps(have, pool.pool_address, start_block, end_block))
+        missing += _gap_blocks(list(gaps))
+        if gaps:
+            groups[gaps].append(pool)
+    window = end_block - start_block + 1
+    return groups, window - missing / max(1, len(pools))
+
+
 def _fetch_swap_groups(
     store: Store,
     client: RpcClient,
@@ -478,42 +548,39 @@ def _fetch_swap_groups(
     head_ts: datetime,
     say: Progress,
     cancel: Callable[[], bool],
-    stats: dict[str, int] | None = None,
-) -> tuple[int, int, int]:
-    pending: list[tuple[PoolMeta, tuple[tuple[int, int], ...]]] = []
-    cached = 0
-    have = store.coverage_by_dataset(token)
-    for pool in pools:
-        gaps = tuple(pool_log_gaps(have, pool.pool_address, start_block, end_block))
-        cached += span_blocks - _gap_blocks(list(gaps))
-        if gaps:
-            pending.append((pool, gaps))
-    groups: dict[tuple[tuple[int, int], ...], list[PoolMeta]] = defaultdict(list)
-    for pool, gaps in pending:
-        groups[gaps].append(pool)
-    if stats is not None:
-        stats["cached"] = cached
-    fetched = 0
+    meter: BlockMeter | None = None,
+) -> int:
+    groups, _ = _swap_groups(store, token, pools, start_block, end_block)
+    return _fetch_planned(
+        store, client, token, pools, groups, start_block, end_block, head_ts, say, cancel, meter
+    )
+
+
+def _fetch_planned(
+    store: Store,
+    client: RpcClient,
+    token: str,
+    pools: list[PoolMeta],
+    groups: SwapGroups,
+    start_block: int,
+    end_block: int,
+    head_ts: datetime,
+    say: Progress,
+    cancel: Callable[[], bool],
+    meter: BlockMeter | None,
+) -> int:
+    def on_read(blocks: int, share: int, found: int) -> None:
+        if meter is not None:
+            meter.advance("swaps", blocks * share / max(1, len(pools)), found)
+
     raw = 0
     for gaps, group in groups.items():
         for gap_start, gap_end in gaps:
-            got_raw, got_blocks = _fetch_one_gap(
-                store,
-                client,
-                token,
-                group,
-                gap_start,
-                gap_end,
-                start_block,
-                end_block,
-                head_ts,
-                say,
-                cancel,
-                stats,
+            raw += _fetch_one_gap(
+                store, client, token, group, gap_start, gap_end, start_block, end_block,
+                head_ts, say, cancel, on_read,
             )
-            raw += got_raw
-            fetched += got_blocks
-    return fetched, cached, raw
+    return raw
 
 
 # One filtered eth_getLogs for every pool of the token. A page of all v4 logs is what
@@ -537,6 +604,9 @@ def _event_topics(chunk: list[PoolMeta]) -> list[str]:
     return topics
 
 
+Consume = Callable[[list[dict[str, Any]], list[PoolMeta], int, int], None]
+
+
 def _fetch_one_gap(
     store: Store,
     client: RpcClient,
@@ -549,9 +619,11 @@ def _fetch_one_gap(
     head_ts: datetime,
     say: Progress,
     cancel: Callable[[], bool],
-    stats: dict[str, int] | None = None,
-) -> tuple[int, int]:
+    on_read: Callable[[int, int, int], None] | None = None,
+) -> int:
+    """Raw pool logs read for this gap. Each chunk is saved with its coverage as soon as it lands."""
     raw = 0
+    lock = threading.Lock()
     v4 = [pool for pool in group if protocol_family(pool.protocol) == "v4"]
     rest = [pool for pool in group if protocol_family(pool.protocol) != "v4"]
 
@@ -564,9 +636,7 @@ def _fetch_one_gap(
             pool = _match_pool(log, by_addr, by_id)
             if pool is not None:
                 bucket[pool.pool_address].append(log)
-        raw += sum(len(rows) for rows in bucket.values())
-        if stats is not None:
-            stats["swaps"] += _count_swap_logs([log for rows in bucket.values() for log in rows])
+        kept = [log for rows in bucket.values() for log in rows]
         for address, rows in bucket.items():
             _store_pool_logs(
                 store, client, token, by_addr[address], rows, end_block, head_ts, allow_rpc=False
@@ -575,211 +645,72 @@ def _fetch_one_gap(
         for pool in pools_in_call:
             spans.append((token, f"swaps:{pool.pool_address}", frm, to))
             spans.append((token, f"liquidity:{pool.pool_address}", frm, to))
-        if len(spans) > 16:
-            store.add_coverage_many(spans)
-        else:
-            for row in spans:
-                store.add_coverage(row[0], row[1], row[2], row[3])
+        store.add_coverage_many(spans)
+        with lock:
+            raw += len(kept)
+        if on_read is not None:
+            on_read(to - frm + 1, len(pools_in_call), _count_swap_logs(kept))
 
-    window = max(1, end_block - start_block + 1)
-
-    def progress(at: int, _range_end: int, count: int) -> None:
-        say(f"Reading swaps: blocks {max(0, at - start_block):,} of {window:,}")
-
-    say(f"Reading swaps: blocks {max(0, gap_start - start_block):,} of {window:,}")
-    width = gap_end - gap_start + 1
-    span = min(max(width, 1), _LOG_SPAN)
-    workers = 4 if width > _LOG_SPAN else 1
-    parallel = bool(rest and v4) and getattr(client, "_transport", None) is None
-    if not parallel:
-        _scan_pool_addresses(
-            client, rest, gap_start, gap_end, workers, span, progress, cancel, consume, say
-        )
-        _scan_v4(client, v4, gap_start, gap_end, workers, span, progress, cancel, consume, say)
-    else:
-        say(f"Reading swaps for {len(rest) + len(v4):,} pools on two requests at once")
-
-        def run_rest() -> None:
-            child = client.spawn()
-            try:
-                _scan_pool_addresses(
-                    child, rest, gap_start, gap_end, workers, span, progress, cancel, consume, say
-                )
-            finally:
-                client.notes.extend(child.notes)
-                client.details.extend(child.details)
-                child.close()
-
-        def run_v4() -> None:
-            child = client.spawn()
-            child._cursor = 1
-            try:
-                _scan_v4(child, v4, gap_start, gap_end, workers, span, progress, cancel, consume, say)
-            finally:
-                client.notes.extend(child.notes)
-                client.details.extend(child.details)
-                child.close()
-
-        with ThreadPoolExecutor(max_workers=2) as pool:
-            done = [pool.submit(run_rest), pool.submit(run_v4)]
-            for future in done:
-                future.result()
-    if stats is not None and group:
-        stats["network"] += width
-        stats["at"] = max(stats["at"], gap_end)
-    return raw, width if group else 0
+    workers = client.log_workers()
+    span = _scan_span(gap_end - gap_start + 1, workers)
+    for offset in range(0, len(rest), _ADDRESS_BATCH):
+        chunk = rest[offset : offset + _ADDRESS_BATCH]
+        _scan_addresses(client, chunk, gap_start, gap_end, workers, span, cancel, consume)
+    for offset in range(0, len(v4), _V4_ID_BATCH):
+        chunk = v4[offset : offset + _V4_ID_BATCH]
+        topics = [_pool_topics("v4")[0], [pool.pool_address for pool in chunk]]
+        _scan(client, chunk, POOL_MANAGER, topics, gap_start, gap_end, workers, span, cancel, consume)
+    return raw
 
 
-def _scan_v4(
-    client: RpcClient,
-    pools: list[PoolMeta],
-    gap_start: int,
-    gap_end: int,
-    workers: int,
-    span: int,
-    progress: Callable[[int, int, int], None],
-    cancel: Callable[[], bool],
-    consume: Callable[[list[dict[str, Any]], list[PoolMeta], int, int], None],
-    say: Progress,
-) -> None:
-    if not pools:
-        return
-    say(f"Reading Uniswap v4 logs for {len(pools):,} pools in one filtered request")
-    for offset in range(0, len(pools), _V4_ID_BATCH):
-        chunk = pools[offset : offset + _V4_ID_BATCH]
-
-        def on_v4(frm: int, to: int, logs: list[dict[str, Any]], chunk: list[PoolMeta] = chunk) -> None:
-            consume(logs, chunk, frm, to)
-
-        client.get_logs(
-            address=POOL_MANAGER,
-            topics=[_pool_topics("v4")[0], [pool.pool_address for pool in chunk]],
-            start_block=gap_start,
-            end_block=gap_end,
-            init_span=span,
-            workers=workers,
-            on_chunk=on_v4,
-            on_progress=progress,
-            cancel=cancel,
-            empty_limit=span,
-        )
-
-
-def _scan_pool_addresses(
-    client: RpcClient,
-    pools: list[PoolMeta],
-    gap_start: int,
-    gap_end: int,
-    workers: int,
-    span: int,
-    progress: Callable[[int, int, int], None],
-    cancel: Callable[[], bool],
-    consume: Callable[[list[dict[str, Any]], list[PoolMeta], int, int], None],
-    say: Progress,
-) -> None:
-    if not pools:
-        return
-    chunks = [pools[offset : offset + _ADDRESS_BATCH] for offset in range(0, len(pools), _ADDRESS_BATCH)]
-    parallel = (
-        len(chunks) > 1
-        and workers == 1
-        and getattr(client, "_transport", None) is None
-    )
-    if not parallel:
-        for chunk in chunks:
-            _consume_address_chunk(
-                client, chunk, gap_start, gap_end, workers, span, progress, cancel, consume
-            )
-        return
-    say(f"Reading {len(pools):,} v2/v3 pools, {_ADDRESS_BATCH} addresses at a time")
-    errors: list[BaseException] = []
-
-    def run(chunk: list[PoolMeta]) -> tuple[list[PoolMeta], list[dict[str, Any]], list[str]]:
-        child = client.spawn()
-        try:
-            logs = _load_address_chunk(child, chunk, gap_start, gap_end, 1, progress, cancel, span)
-            return chunk, logs, list(child.notes) + list(child.details)
-        finally:
-            child.close()
-
-    with ThreadPoolExecutor(max_workers=4) as pool:
-        futures = [pool.submit(run, chunk) for chunk in chunks]
-        for future in futures:
-            try:
-                chunk, logs, notes = future.result()
-            except BaseException as exc:
-                errors.append(exc)
-                continue
-            client.notes.extend(notes)
-            consume(logs, chunk, gap_start, gap_end)
-    if errors:
-        raise errors[0]
-
-
-def _consume_address_chunk(
+def _scan(
     client: RpcClient,
     chunk: list[PoolMeta],
+    address: str | list[str],
+    topics: list[Any],
     gap_start: int,
     gap_end: int,
     workers: int,
     span: int,
-    progress: Callable[[int, int, int], None],
     cancel: Callable[[], bool],
-    consume: Callable[[list[dict[str, Any]], list[PoolMeta], int, int], None],
+    consume: Consume,
 ) -> None:
     def on_chunk(frm: int, to: int, logs: list[dict[str, Any]]) -> None:
         consume(logs, chunk, frm, to)
 
-    try:
-        client.get_logs(
-            address=[pool.pool_address for pool in chunk],
-            topics=[_event_topics(chunk)],
-            start_block=gap_start,
-            end_block=gap_end,
-            init_span=span,
-            workers=workers,
-            on_chunk=on_chunk,
-            on_progress=progress,
-            cancel=cancel,
-            empty_limit=span,
-        )
-    except RpcError as exc:
-        if len(chunk) <= 1 or not _too_many_addresses(str(exc)):
-            raise
-        mid = len(chunk) // 2
-        _consume_address_chunk(client, chunk[:mid], gap_start, gap_end, workers, span, progress, cancel, consume)
-        _consume_address_chunk(client, chunk[mid:], gap_start, gap_end, workers, span, progress, cancel, consume)
+    client.get_logs(
+        address=address,
+        topics=topics,
+        start_block=gap_start,
+        end_block=gap_end,
+        init_span=span,
+        workers=workers,
+        on_chunk=on_chunk,
+        cancel=cancel,
+        empty_limit=span,
+    )
 
 
-def _load_address_chunk(
+def _scan_addresses(
     client: RpcClient,
     chunk: list[PoolMeta],
     gap_start: int,
     gap_end: int,
     workers: int,
-    progress: Callable[[int, int, int], None],
+    span: int,
     cancel: Callable[[], bool],
-    span: int = _LOG_SPAN,
-) -> list[dict[str, Any]]:
+    consume: Consume,
+) -> None:
+    addresses = [pool.pool_address for pool in chunk]
+    topics = [_event_topics(chunk)]
     try:
-        return client.get_logs(
-            address=[pool.pool_address for pool in chunk],
-            topics=[_event_topics(chunk)],
-            start_block=gap_start,
-            end_block=gap_end,
-            init_span=span,
-            workers=workers,
-            on_progress=progress,
-            cancel=cancel,
-            empty_limit=span,
-        )
+        _scan(client, chunk, addresses, topics, gap_start, gap_end, workers, span, cancel, consume)
     except RpcError as exc:
         if len(chunk) <= 1 or not _too_many_addresses(str(exc)):
             raise
         mid = len(chunk) // 2
-        left = _load_address_chunk(client, chunk[:mid], gap_start, gap_end, workers, progress, cancel, span)
-        right = _load_address_chunk(client, chunk[mid:], gap_start, gap_end, workers, progress, cancel, span)
-        return left + right
+        _scan_addresses(client, chunk[:mid], gap_start, gap_end, workers, span, cancel, consume)
+        _scan_addresses(client, chunk[mid:], gap_start, gap_end, workers, span, cancel, consume)
 
 
 def _match_pool(
@@ -1001,7 +932,7 @@ def _resolve_traders(
     say(f"Looking up {len(need)} transaction senders ({len(known)} cached)")
     fetched: list[tuple[str, str]] = []
     calls = [("eth_getTransactionByHash", [tx]) for tx in need]
-    results = client.batch(calls, batch_size=20) if need else []
+    results = client.batch(calls) if need else []
     for tx, result in zip(need, results, strict=False):
         if isinstance(result, dict) and result.get("from"):
             # tx.from is the trader. Swap.sender is often the router.
@@ -1050,14 +981,14 @@ def _price_swaps(
             )
         oracle = QuoteOracle(client)
         quotes = sorted({str(row["quote"]) for row in rows if row["usd"] is None and row["quote"]})
-        samples = {
-            quote: oracle.samples(
-                quote,
-                [int(row["block"]) for row in rows if row["quote"] == quote and row["usd"] is None],
-                eth_usd,
-            )
-            for quote in quotes
-        }
+
+        def sample(quote: str) -> list[tuple[int, float]]:
+            blocks = [int(row["block"]) for row in rows if row["quote"] == quote and row["usd"] is None]
+            return oracle.samples(quote, blocks, eth_usd)
+
+        workers = 1 if getattr(client, "_transport", None) is not None else 6
+        with ThreadPoolExecutor(max_workers=workers) as pool:
+            samples = dict(zip(quotes, pool.map(sample, quotes), strict=True))
         for row in rows:
             if row["usd"] is not None:
                 continue

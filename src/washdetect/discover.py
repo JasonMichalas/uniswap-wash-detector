@@ -456,9 +456,8 @@ def _topic_scan(
         topics[position] = token_topic
         filters.append((dataset, topics))
     scan = _PoolScan(start_block, head, len(filters), progress)
-    # Two currency filters at once. Each one still reads one chunk at a time on the
-    # archive endpoint: several chunks on that endpoint have come back empty for
-    # ranges that do contain logs. Other public RPCs cap the width or omit history.
+    # Two currency filters at once, each spread over the endpoints that keep history.
+    # Other public RPCs cap the width or answer [] for history they do not store.
     parallel = len(filters) > 1 and getattr(client, "_transport", None) is None
 
     def run(index: int, dataset: str, topics: list[Any]) -> list[tuple]:
@@ -493,10 +492,7 @@ def _topic_scan(
             def on_progress(at: int, _range_end: int, _count: int, *, index: int = index) -> None:
                 scan.advance(index, at)
 
-            logs_client = client.spawn()
-            archive = [url for url in client.endpoints if "mevblocker" in url]
-            if archive:
-                logs_client.endpoints = archive
+            logs_client = _archive_client(client)
             try:
                 logs_client.get_logs(
                     address=address,
@@ -504,7 +500,7 @@ def _topic_scan(
                     start_block=gap_start,
                     end_block=gap_end,
                     init_span=_FILTERED_SPAN,
-                    workers=1,
+                    workers=logs_client.log_workers(_FILTERED_SPAN),
                     on_chunk=on_chunk,
                     on_progress=on_progress,
                     cancel=cancel,
@@ -613,7 +609,7 @@ def _take_indexed(
 
 def _archive_client(client: RpcClient) -> RpcClient:
     logs = client.spawn()
-    archive = [url for url in client.endpoints if "mevblocker" in url]
+    archive = client.archive_endpoints()
     if archive:
         logs.endpoints = archive
     return logs

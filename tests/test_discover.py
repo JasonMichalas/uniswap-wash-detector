@@ -174,6 +174,9 @@ def test_a_stale_v4_scan_does_not_hide_a_new_pool():
         def spawn(self):
             return self
 
+        def log_workers(self, _width=None):
+            return 1
+
         def close(self) -> None:
             return None
 
