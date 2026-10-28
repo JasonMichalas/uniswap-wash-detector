@@ -482,12 +482,19 @@ button.theme { flex: none; border: 1px solid var(--line); background: var(--pane
 .examples li button:hover { background: var(--panel-2); }
 .examples li button span { color: var(--muted); font-size: 12px; font-weight: 400; }
 
-.quick-start ul {
-  width: min(760px, 94vw);
-  max-height: min(78vh, 840px);
+.toolbar .quick-start ul,
+.empty-canvas .quick-start ul {
+  position: fixed;
+  top: 148px;
+  left: 12px;
+  right: auto;
+  transform: none;
+  width: min(980px, calc(100vw - 24px));
+  max-height: calc(100vh - 168px);
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 2px;
+  z-index: 40;
 }
 
 .action-bar {

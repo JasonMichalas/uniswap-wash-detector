@@ -546,9 +546,15 @@ class WindowSignals:
             "which may be later than the pool's real first add. "
         )
         if pools_without_adds:
+            noun = "pool" if pools_without_adds == 1 else "pools"
             note += (
-                f"{pools_without_adds} pools had removals but no add in this window, so their percent "
+                f"{pools_without_adds} {noun} had removals but no add in this window, so their percent "
                 "would be a guess and they are left out. "
+            )
+        if any(float(row["removed_percent"] or 0) > 1 for row in rows):
+            note += (
+                "More than 100% means the removal was larger than the liquidity added in this window, "
+                "so liquidity added earlier is in the removal but not in the denominator. "
             )
         if not rows:
             note += "No pool matched."
@@ -684,8 +690,10 @@ class WindowSignals:
         if not by_wallet:
             note = "No swaps in this window, so no wallet could be labelled as a bot or a person."
         else:
+            bot_word = "wallet looks like a bot" if len(bots) == 1 else "wallets look like bots"
+            person_word = "person" if len(humans) == 1 else "people"
             note = (
-                f"{len(bots)} wallets look like bots and {len(humans)} look like people. "
+                f"{len(bots)} {bot_word} and {len(humans)} look like {person_word}. "
                 f"The table lists every bot and the {min(top_n, len(humans))} most active people. "
                 "A bot is a known MEV wallet, or has at least 20 trades with half of them in "
                 "back-to-back blocks, or traded for at least 24 hours with no quiet stretch longer "
