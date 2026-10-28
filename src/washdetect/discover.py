@@ -25,7 +25,6 @@ from washdetect.config import (
     FORK_VENUES,
     POOL_BASES,
     POOL_MANAGER,
-    QUOTE_TOKENS,
     V2_FACTORY,
     V2_FACTORY_BLOCK,
     V3_FACTORY,
@@ -563,53 +562,6 @@ def _add_rows(
                 cache,
             )
         )
-
-
-def _assemble_pools(
-    meta: RpcClient,
-    client: RpcClient,
-    token: str,
-    store: Store | None,
-    cache: dict[str, Any],
-    found: list[PoolMeta],
-    seen: set[str],
-    include_forks: bool,
-) -> list[PoolMeta]:
-    if store is not None:
-        rows = store.chain_pools_for(token)
-        _prefetch_meta(meta, [str(row["token0"]) for row in rows] + [str(row["token1"]) for row in rows], cache)
-        for row in rows:
-            dex = str(row["dex"] or "uniswap")
-            if dex != "uniswap" and not include_forks:
-                continue
-            address = str(row["pool_address"])
-            if address in seen:
-                continue
-            seen.add(address)
-            found.append(_meta_from_chain(meta, row, cache))
-    venues: list[tuple[str, str, str]] = [("uniswap", "v2", V2_FACTORY), ("uniswap", "v3", V3_FACTORY)]
-    if include_forks:
-        venues.extend((dex, family, factory) for dex, family, factory, _start in FORK_VENUES)
-    for dex, family, factory in venues:
-        for quote in QUOTE_TOKENS:
-            if quote == token:
-                continue
-            if family == "v2":
-                pair = _call_address(client, factory, calldata("get_pair", ["address", "address"], [token, quote]))
-                protocol = "v2" if dex == "uniswap" else f"{dex}-v2"
-                if pair and pair not in seen:
-                    seen.add(pair)
-                    found.append(read_pool(meta, pair, protocol, 3000, cache, dex))
-            else:
-                for fee in V3_FEES:
-                    pool = _call_address(
-                        client, factory, calldata("get_pool", ["address", "address", "uint24"], [token, quote, fee])
-                    )
-                    protocol = "v3" if dex == "uniswap" else f"{dex}-v3"
-                    if pool and pool not in seen:
-                        seen.add(pool)
-                        found.append(read_pool(meta, pool, protocol, fee, cache, dex))
-    return found
 
 
 def _index_covers(store: Store, dataset: str, start: int, head: int) -> bool:

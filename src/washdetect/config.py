@@ -19,7 +19,6 @@ WBTC = "0x2260fac5e5542a773aa44fbcfedf7c193bc2c599"
 USDE = "0x4c9edd5852cd905f086c759e8383e09bff1e68b3"
 USDS = "0xdc035d45d973e3ec169d2276ddab16f1e407384f"
 
-QUOTE_TOKENS = (WETH, USDC, USDT, DAI)
 # getPair/getPool bases. WBTC, USDe, and USDS catch pairs the four quotes miss.
 POOL_BASES = (WETH, USDC, USDT, DAI, WBTC, USDE, USDS)
 STABLECOINS = frozenset({USDC, USDT, DAI})
