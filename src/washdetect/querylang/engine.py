@@ -107,6 +107,11 @@ def execute_frames(
         CREATE VIEW base_holders AS
         SELECT * FROM base_wallets
         WHERE balance IS NOT NULL AND balance > 0
+          AND COALESCE(holder_kind, 'wallet') = 'wallet'
+          AND lower(wallet) NOT IN (
+            '0x0000000000000000000000000000000000000000',
+            '0x000000000000000000000000000000000000dead'
+          )
         """
     )
     con.execute(

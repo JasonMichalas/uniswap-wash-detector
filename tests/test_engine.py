@@ -98,6 +98,19 @@ def test_wash_wallets_hide_zero_confidence_unless_asked():
     assert everyone == {"0xa", "0xb"}
 
 
+def test_holders_leave_out_pools_and_the_burn_address():
+    wallets = pd.DataFrame(
+        [
+            {"wallet": "0xperson", "balance": 5, "holder_kind": "wallet", "ever_sold": False, "swap_count": 0, "buy_volume_usd": 0, "sell_volume_usd": 0, "held_days": 1, "days_since_sell": None},
+            {"wallet": "0xpool", "balance": 90, "holder_kind": "pool", "ever_sold": False, "swap_count": 0, "buy_volume_usd": 0, "sell_volume_usd": 0, "held_days": 1, "days_since_sell": None},
+            {"wallet": "0x000000000000000000000000000000000000dead", "balance": 3, "holder_kind": "wallet", "ever_sold": False, "swap_count": 0, "buy_volume_usd": 0, "sell_volume_usd": 0, "held_days": 1, "days_since_sell": None},
+        ]
+    )
+    result = _run("holders", wallets=wallets, swaps=pd.DataFrame(), transfers=pd.DataFrame())
+    found = [row["wallet"] for row in result.outputs[0].rows]
+    assert found == ["0xperson"]
+
+
 def test_holder_queries():
     wallets = pd.DataFrame(
         [

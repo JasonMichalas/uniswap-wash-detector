@@ -25,11 +25,12 @@ from washdetect.abi import (
     topic_address,
 )
 from washdetect.config import (
-    BALANCE_CAP,
+    BURN_ADDRESS,
     MULTICALL3,
     POOL_MANAGER,
     ROUTERS,
     WETH_USDC_POOL,
+    ZERO_ADDRESS,
     protocol_family,
 )
 from washdetect.discover import PoolMeta, discover_pools, read_token_meta
@@ -413,7 +414,7 @@ def load_token(
 
         say("Reading balances for the most active wallets")
         wallets = _candidate_wallets(store, token, start_block, end_block)
-        truncated = len(wallets) >= BALANCE_CAP
+        truncated = len(wallets) >= 8000
         balances: dict[str, float] = {}
         balance_block = end_block
         try:
@@ -1095,15 +1096,16 @@ def _price_swaps(
 
 
 def _candidate_wallets(store: Store, token: str, start: int, end: int) -> list[str]:
-    traders = store.distinct_traders(token, start, end, BALANCE_CAP)
-    receivers = store.top_receivers(token, start, end, BALANCE_CAP)
+    """Every address seen in transfers, plus traders. Zero, burn, and routers are left out."""
+    skip = {ZERO_ADDRESS, BURN_ADDRESS, *(addr.lower() for addr in ROUTERS)}
     ordered: list[str] = []
     seen: set[str] = set()
-    for wallet in [*traders, *receivers]:
-        if not wallet or wallet in ROUTERS or wallet in seen:
+    parties = store.transfer_parties(token, start, end, 8000)
+    traders = store.distinct_traders(token, start, end, 8000)
+    for wallet in [*traders, *parties]:
+        text = str(wallet or "").lower()
+        if not text or text in skip or text in seen:
             continue
-        seen.add(wallet)
-        ordered.append(wallet)
-        if len(ordered) >= BALANCE_CAP:
-            break
+        seen.add(text)
+        ordered.append(text)
     return ordered

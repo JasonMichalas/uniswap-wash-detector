@@ -411,8 +411,8 @@ function sourceLine(source: string, full: boolean): string {
       "Every wallet that showed up in the loaded window, whether or not it still holds the token.",
     ],
     holders: [
-      "Wallets that still held this token at the end of the window.",
-      "Wallets that still held this token at the end of the window. Balance is the amount they held.",
+      "Wallets with a balance at the end of the window.",
+      "Balance at end of window comes from balanceOf at the last block, not from adding up transfers inside the window. Pools, the zero address, and the burn address are left out.",
     ],
     pools: [
       "The Uniswap pools this token trades in, quoted in ETH or a stablecoin.",

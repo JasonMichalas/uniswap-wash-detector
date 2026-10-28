@@ -38,11 +38,16 @@ class TokenData:
         swaps = store.read_swaps(token, start_block, end_block)
         transfers = store.read_transfers(token, start_block, end_block)
         balances = store.latest_balances(token, end_block)
-        wallets = build_wallet_table(
-            swaps, transfers, balances, end_ts=end_time, window_start_ts=start_time
-        )
         pools = pd.DataFrame(store.pools_for(token))
         addresses = set(pools["pool_address"].astype(str)) if not pools.empty else set()
+        wallets = build_wallet_table(
+            swaps,
+            transfers,
+            balances,
+            end_ts=end_time,
+            window_start_ts=start_time,
+            pools=addresses,
+        )
         return cls(
             address=token,
             start_block=start_block,

@@ -24,6 +24,7 @@ TYPES: dict[str, list[tuple[str, str]]] = {
     "wallets": [
         ("wallet", "string"),
         ("balance", "number"),
+        ("holder_kind", "string"),
         ("held_days", "number"),
         ("held_days_is_lower_bound", "bool"),
         ("acquired_before_window", "bool"),

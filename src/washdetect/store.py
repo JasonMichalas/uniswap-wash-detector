@@ -505,6 +505,27 @@ class Store:
             ).fetchall()
         return [r[0] for r in rows]
 
+    def transfer_parties(self, token: str, start: int, end: int, limit: int) -> list[str]:
+        """Addresses that sent or received the token, largest amount first."""
+        with self.lock:
+            rows = self.con.execute(
+                """
+                SELECT addr FROM (
+                    SELECT from_address AS addr, amount FROM transfers
+                    WHERE token = ? AND block_number BETWEEN ? AND ?
+                    UNION ALL
+                    SELECT to_address AS addr, amount FROM transfers
+                    WHERE token = ? AND block_number BETWEEN ? AND ?
+                )
+                WHERE addr IS NOT NULL AND addr <> ''
+                GROUP BY addr
+                ORDER BY SUM(amount) DESC
+                LIMIT ?
+                """,
+                [token, start, end, token, start, end, limit],
+            ).fetchall()
+        return [str(row[0]) for row in rows]
+
     def top_receivers(self, token: str, start: int, end: int, limit: int) -> list[str]:
         with self.lock:
             rows = self.con.execute(
