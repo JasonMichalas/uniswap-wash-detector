@@ -309,10 +309,6 @@ def default_model_dir() -> Path:
     return ARTIFACT_DIR
 
 
-def load_bundle(directory: str | Path | None = None) -> ModelBundle:
-    return ModelBundle.load(directory)
-
-
 class WashModel:
     """Platt scaling uses a held-out token. SHAP stays on the raw margin; calibration is monotone."""
 

@@ -56,14 +56,6 @@ class WashDetector:
     ) -> Detection:
         return _find_groups(swaps, transfers, excluded=excluded, config=self.config)
 
-    def wash_percent(
-        self,
-        swaps: list[SwapEvent],
-        transfers: list[TransferEvent],
-        excluded: set[str] | None = None,
-    ) -> float:
-        return self.find_groups(swaps, transfers, excluded).wash_pct
-
 
 def detect(
     swaps: list[SwapEvent],

@@ -95,8 +95,6 @@ MAX_WINDOW_DAYS = 90
 DEFAULT_DB = "data/washdetect.duckdb"
 BALANCE_CAP = 800
 
-APPROX_BLOCK_TIME = 12  # hint only; the loader binary-searches timestamps
-
 # Same Swap/PairCreated/PoolCreated ABIs as Uniswap. Off unless a load asks for forks.
 FORK_VENUES = (
     ("sushiswap", "v2", "0xc0aee478e3658e2610c5f7a4a2e1777ce9e4f2ac", 10_794_229),
@@ -114,12 +112,6 @@ def protocol_family(protocol: str) -> str:
     if text == "v3" or text.endswith("-v3"):
         return "v3"
     return text
-
-
-def dex_name(protocol: str) -> str:
-    if protocol in {"v2", "v3", "v4"}:
-        return "uniswap"
-    return protocol.split("-", 1)[0] or "uniswap"
 
 
 @dataclass(frozen=True)

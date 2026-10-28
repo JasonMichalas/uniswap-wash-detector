@@ -1,9 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime
-
 from washdetect.store import Store, pool_log_gaps
-from washdetect.token import TokenData
 
 
 def window_ready(store: Store, token: str, start: int, end: int) -> str | None:
@@ -21,14 +18,3 @@ def window_ready(store: Store, token: str, start: int, end: int) -> str | None:
                 "Load the token for this range first."
             )
     return None
-
-
-def read_window(
-    store: Store,
-    token: str,
-    start: int,
-    end: int,
-    start_ts: datetime,
-    end_ts: datetime,
-) -> dict[str, object]:
-    return TokenData.load(store, token, start, end, start_ts, end_ts).frames()

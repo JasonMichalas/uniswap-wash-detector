@@ -72,10 +72,6 @@ class Detection:
     def wash_volume_usd(self) -> float:
         return self._wash_volume
 
-    @property
-    def total_volume_usd(self) -> float:
-        return self._total_volume
-
     _wash_volume: float = 0.0
     _total_volume: float = 0.0
 

@@ -482,11 +482,6 @@ def load_token(
             store.close()
 
 
-def _window_pct(start: int, end: int, at: int) -> int:
-    width = max(1, end - start + 1)
-    return min(100, max(0, int(100 * (at - start + 1) / width)))
-
-
 def _fetch_swap_groups(
     store: Store,
     client: RpcClient,
