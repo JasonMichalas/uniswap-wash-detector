@@ -399,6 +399,8 @@ def _train(args: argparse.Namespace) -> int:
                 end=args.end,
                 db_path=args.db,
                 progress=lambda message: print(message, flush=True),
+                include_forks=True,
+                use_v4_index=True,
             )
             store = Store(args.db)
             try:
