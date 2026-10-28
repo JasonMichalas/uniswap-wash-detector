@@ -13,22 +13,30 @@ from washdetect.ranges import covers, intersect_intervals, merge_intervals, miss
 
 CHAIN = "__chain__"
 _EVENT_KEY = ("token", "tx_hash", "log_index")
-_SWAP_COLS = (
-    "token", "tx_hash", "log_index", "block_number", "block_timestamp", "pool_address", "protocol",
-    "sender", "recipient", "trader", "side", "amount_token", "amount_quote", "quote_token",
-    "usd_value", "amount0_raw", "amount1_raw",
+_SWAP_COLS = tuple(
+    (
+        "token tx_hash log_index block_number block_timestamp pool_address protocol "
+        "sender recipient trader side amount_token amount_quote quote_token usd_value "
+        "amount0_raw amount1_raw"
+    ).split()
 )
-_TRANSFER_COLS = (
-    "token", "tx_hash", "log_index", "block_number", "block_timestamp",
-    "from_address", "to_address", "amount_raw", "amount",
+_TRANSFER_COLS = tuple(
+    (
+        "token tx_hash log_index block_number block_timestamp from_address to_address "
+        "amount_raw amount"
+    ).split()
 )
-_LIQUIDITY_COLS = (
-    "token", "tx_hash", "log_index", "block_number", "block_timestamp", "pool_address", "protocol",
-    "kind", "sender", "amount0_raw", "amount1_raw",
+_LIQUIDITY_COLS = tuple(
+    (
+        "token tx_hash log_index block_number block_timestamp pool_address protocol kind "
+        "sender amount0_raw amount1_raw"
+    ).split()
 )
-_POOL_COLS = (
-    "token", "pool_address", "protocol", "token0", "token1", "fee",
-    "token0_decimals", "token1_decimals", "token0_symbol", "token1_symbol",
+_POOL_COLS = tuple(
+    (
+        "token pool_address protocol token0 token1 fee token0_decimals token1_decimals "
+        "token0_symbol token1_symbol"
+    ).split()
 )
 
 
@@ -48,6 +56,7 @@ def pool_log_gaps(
         return missing_intervals(swaps, start, end)
     covered = intersect_intervals(swaps, have[liquidity_key])
     return missing_intervals(covered, start, end)
+
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS tokens (
@@ -273,11 +282,17 @@ class Store:
                 cursor.close()
 
     def _put(
-        self, table: str, columns: tuple[str, ...], rows: list[tuple[Any, ...]], keys: tuple[str, ...] = ()
+        self,
+        table: str,
+        columns: tuple[str, ...],
+        rows: list[tuple[Any, ...]],
+        keys: tuple[str, ...] = (),
     ) -> None:
         names = ", ".join(columns)
         verb = "INSERT OR REPLACE" if keys else "INSERT"
-        self._framed(f"{verb} INTO {table} ({names}) SELECT {names} FROM _rows", columns, rows, keys)
+        self._framed(
+            f"{verb} INTO {table} ({names}) SELECT {names} FROM _rows", columns, rows, keys
+        )
 
     def upsert_token(self, token: str, symbol: str, decimals: int) -> None:
         with self.lock:
@@ -300,7 +315,9 @@ class Store:
 
     def pools_for(self, token: str) -> list[dict[str, Any]]:
         with self.lock:
-            frame = self._df("SELECT * FROM pools WHERE token = ? ORDER BY protocol, pool_address", [token])
+            frame = self._df(
+                "SELECT * FROM pools WHERE token = ? ORDER BY protocol, pool_address", [token]
+            )
         return frame.to_dict(orient="records")
 
     def coverage(self, token: str, dataset: str) -> list[tuple[int, int]]:
@@ -602,7 +619,12 @@ class Store:
     def replace_daily_balances(self, token: str, rows: list[tuple[Any, ...]]) -> None:
         with self.lock:
             self.con.execute("DELETE FROM wallet_balance_daily WHERE token = ?", [token])
-            self._put("wallet_balance_daily", ("token", "wallet", "day", "block_number", "balance"), rows, ("token", "wallet", "day"))
+            self._put(
+                "wallet_balance_daily",
+                ("token", "wallet", "day", "block_number", "balance"),
+                rows,
+                ("token", "wallet", "day"),
+            )
 
     def save_labels(
         self,
@@ -645,7 +667,9 @@ class Store:
                             float(row.sell_amount),
                             float(row.net_position_change),
                             int(row.round_trip_count),
-                            None if pd.isna(row.trade_interval_cv) else float(row.trade_interval_cv),
+                            None
+                            if pd.isna(row.trade_interval_cv)
+                            else float(row.trade_interval_cv),
                             None
                             if pd.isna(row.median_inter_swap_blocks)
                             else float(row.median_inter_swap_blocks),
