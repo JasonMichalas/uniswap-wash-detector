@@ -41,7 +41,7 @@ import { GraphActions } from "./GraphActions";
 import { Inspector } from "./Inspector";
 import { LoadStatus } from "./LoadStatus";
 import { PaletteToolbar } from "./PaletteToolbar";
-import { Results } from "./Results";
+import { Results, ResultsModal, resultRowCount, resultsWindowLabel } from "./Results";
 import { TokenWindow } from "./TokenWindow";
 
 const nodeTypes = { box: BoxNodeView };
@@ -78,6 +78,7 @@ export function Editor({ catalog }: { catalog: Catalog }) {
   const [examplesAt, setExamplesAt] = useState<"toolbar" | "canvas" | null>(null);
   const [panelHeight, setPanelHeight] = useState(420);
   const [panelCollapsed, setPanelCollapsed] = useState(false);
+  const [resultsOpen, setResultsOpen] = useState(false);
   const idRef = useRef(1);
   const fileRef = useRef<HTMLInputElement>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
@@ -279,12 +280,11 @@ export function Editor({ catalog }: { catalog: Catalog }) {
       setSql(result.sql);
       setQuery(result.query);
       setTab("result");
-      setPanelCollapsed(false);
+      setResultsOpen(true);
     } catch (error) {
-      setRun(null);
       setRunError(error instanceof ApiError ? error.message : "The run failed.");
       setTab("result");
-      setPanelCollapsed(false);
+      setResultsOpen(true);
     } finally {
       setRunning(false);
     }
@@ -443,6 +443,8 @@ export function Editor({ catalog }: { catalog: Catalog }) {
         }}
         onRun={() => void onRun()}
         onFile={onFile}
+        resultRows={resultRowCount(run)}
+        onShowResults={() => setResultsOpen(true)}
       />
 
       <div className="workspace">
@@ -530,8 +532,16 @@ export function Editor({ catalog }: { catalog: Catalog }) {
         collapsed={panelCollapsed}
         onCollapsed={setPanelCollapsed}
         onHeight={setPanelHeight}
+        onOpenResults={() => setResultsOpen(true)}
+      />
+      <ResultsModal
+        open={resultsOpen}
+        onClose={() => setResultsOpen(false)}
+        run={run}
+        runError={runError}
         noSwaps={loaded !== null && loaded.swaps === 0}
         symbol={loaded?.symbol ?? ""}
+        windowLabel={loaded ? resultsWindowLabel(loaded.start_time, loaded.end_time) : ""}
       />
     </div>
   );

@@ -1,4 +1,4 @@
-import { Fragment, useMemo, useState, type PointerEvent as ReactPointerEvent } from "react";
+import { Fragment, useEffect, useMemo, useState, type PointerEvent as ReactPointerEvent } from "react";
 import type { GraphError, OutputResult, RunResult } from "../types";
 
 export function Results({
@@ -16,8 +16,7 @@ export function Results({
   collapsed,
   onCollapsed,
   onHeight,
-  noSwaps,
-  symbol,
+  onOpenResults,
 }: {
   query: string;
   sql: string;
@@ -33,8 +32,7 @@ export function Results({
   collapsed: boolean;
   onCollapsed: (collapsed: boolean) => void;
   onHeight: (height: number) => void;
-  noSwaps: boolean;
-  symbol: string;
+  onOpenResults: () => void;
 }) {
   const [full, setFull] = useState(false);
 
@@ -79,7 +77,14 @@ export function Results({
         <button type="button" className={tab === "sql" ? "on" : ""} onClick={() => openTab("sql")}>
           SQL
         </button>
-        <button type="button" className={tab === "result" ? "on" : ""} onClick={() => openTab("result")}>
+        <button
+          type="button"
+          className={tab === "result" ? "on" : ""}
+          onClick={() => {
+            openTab("result");
+            onOpenResults();
+          }}
+        >
           Result
         </button>
         <span className="tab-note">
@@ -114,25 +119,135 @@ export function Results({
         <pre className="code">{sql || run?.sql || "SQL appears here after you press Run."}</pre>
       )}
       {!collapsed && tab === "result" && (
-        <ResultBody run={run} runError={runError} noSwaps={noSwaps} symbol={symbol} />
+        <p className="muted pad">
+          {run
+            ? "Results open in their own window. Show results brings that window back."
+            : runError || "Nothing has been run. Loading a token does not calculate anything."}
+        </p>
       )}
     </section>
   );
 }
 
-function ResultBody({
+export function resultRowCount(run: RunResult | null): number | null {
+  if (!run) return null;
+  return run.outputs.reduce((sum, output) => sum + output.rows.length, 0);
+}
+
+export function resultsWindowLabel(start: string, end: string): string {
+  const a = new Date(start);
+  const b = new Date(end);
+  if (Number.isNaN(a.getTime())) return "";
+  const day = (date: Date) => String(date.getUTCDate());
+  const month = (date: Date) => date.toLocaleString("en-GB", { month: "short", timeZone: "UTC" });
+  if (Number.isNaN(b.getTime()) || (a.getUTCFullYear() === b.getUTCFullYear() && a.getUTCMonth() === b.getUTCMonth() && a.getUTCDate() === b.getUTCDate())) {
+    return `${day(a)} ${month(a)}`;
+  }
+  if (a.getUTCFullYear() === b.getUTCFullYear() && a.getUTCMonth() === b.getUTCMonth()) {
+    return `${day(a)}-${day(b)} ${month(a)}`;
+  }
+  return `${day(a)} ${month(a)}–${day(b)} ${month(b)}`;
+}
+
+export function ResultsModal({
+  open,
+  onClose,
   run,
   runError,
   noSwaps,
   symbol,
+  windowLabel,
+}: {
+  open: boolean;
+  onClose: () => void;
+  run: RunResult | null;
+  runError: string | null;
+  noSwaps: boolean;
+  symbol: string;
+  windowLabel: string;
+}) {
+  const [full, setFull] = useState(false);
+  const [tab, setTab] = useState(0);
+  useEffect(() => {
+    if (!open) return;
+    function onKey(event: KeyboardEvent) {
+      if (event.key === "Escape") onClose();
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [open, onClose]);
+  useEffect(() => {
+    setTab(0);
+  }, [run]);
+  if (!open) return null;
+  const outputs = run?.outputs ?? [];
+  const current = outputs[Math.min(tab, Math.max(outputs.length - 1, 0))];
+  const titleWhen = windowLabel ? `, ${windowLabel}` : "";
+  const title = `Results: ${symbol || "this token"}${titleWhen}`;
+  return (
+    <div className="modal-back" role="presentation">
+      <section className={full ? "modal full" : "modal"} role="dialog" aria-modal="true" aria-label={title}>
+        <header className="modal-bar">
+          <h2>{title}</h2>
+          <button type="button" className="text" onClick={() => setFull((value) => !value)}>
+            {full ? "Exit full screen" : "Full screen"}
+          </button>
+          {current && current.rows.length > 0 && (
+            <button type="button" className="text" onClick={() => downloadCsv(current.title, current.columns, current.rows)}>
+              Export CSV
+            </button>
+          )}
+          <button type="button" className="modal-close" onClick={onClose} aria-label="Close results">
+            ×
+          </button>
+        </header>
+        {outputs.length > 1 && (
+          <div className="modal-tabs">
+            {outputs.map((output, index) => (
+              <button key={`${output.title}-${index}`} type="button" className={index === tab ? "on" : ""} onClick={() => setTab(index)}>
+                {output.title || `Result ${index + 1}`}
+              </button>
+            ))}
+          </div>
+        )}
+        <div className="modal-body">
+          {runError && <p className="banner error">{runError}</p>}
+          <ResultBody run={run} runError={null} noSwaps={noSwaps} symbol={symbol} only={current} />
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function ResultBody({
+  only,
+  ...rest
 }: {
   run: RunResult | null;
   runError: string | null;
   noSwaps: boolean;
   symbol: string;
+  only?: OutputResult;
+}) {
+  return <ResultStack {...rest} only={only} />;
+}
+
+function ResultStack({
+  run,
+  runError,
+  noSwaps,
+  symbol,
+  only,
+}: {
+  run: RunResult | null;
+  runError: string | null;
+  noSwaps: boolean;
+  symbol: string;
+  only?: OutputResult;
 }) {
   if (runError) return <p className="banner error">{runError}</p>;
   if (!run) return <p className="muted pad">Nothing has been run. Loading a token does not calculate anything.</p>;
+  const outputs = only ? [only] : run.outputs;
   return (
     <div className="result-stack">
       {noSwaps && (
@@ -143,7 +258,7 @@ function ResultBody({
           {warning}
         </p>
       ))}
-      {run.outputs.map((output, index) => (
+      {outputs.map((output, index) => (
         <OutputView key={`${output.title}-${index}`} output={output} noSwaps={noSwaps} symbol={symbol} />
       ))}
     </div>

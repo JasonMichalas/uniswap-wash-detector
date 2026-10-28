@@ -497,6 +497,100 @@ button.theme { flex: none; border: 1px solid var(--line); background: var(--pane
 }
 
 .actions { display: flex; gap: 6px; align-items: center; flex: none; }
+
+button.show-results {
+  background: var(--panel-2);
+  color: var(--ink);
+  border: 2px solid var(--accent);
+  border-radius: 8px;
+  padding: 8px 14px;
+  font-weight: 700;
+}
+
+.modal-back {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  background: rgba(20, 16, 10, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.modal {
+  width: 90vw;
+  height: 90vh;
+  background: var(--bg);
+  color: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.35);
+}
+
+.modal.full {
+  width: 100vw;
+  height: 100vh;
+  border-radius: 0;
+}
+
+.modal-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--line);
+}
+
+.modal-bar h2 {
+  margin: 0;
+  flex: 1;
+  font-size: 20px;
+  letter-spacing: -0.02em;
+}
+
+.modal-close {
+  font-size: 28px;
+  line-height: 1;
+  width: 36px;
+  height: 36px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.modal-tabs {
+  display: flex;
+  gap: 6px;
+  padding: 8px 16px 0;
+  flex: none;
+}
+
+.modal-tabs button {
+  border: 1px solid var(--line);
+  background: var(--panel);
+  border-radius: 8px 8px 0 0;
+  padding: 6px 12px;
+}
+
+.modal-tabs button.on {
+  background: var(--panel-2);
+  border-bottom-color: transparent;
+  font-weight: 650;
+}
+
+.modal-body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 8px 12px 16px;
+}
+
+.modal-body .table-scroll { max-height: none; }
 .graph-title { font-size: 14px; font-weight: 650; margin-right: 4px; }
 
 .workspace {
