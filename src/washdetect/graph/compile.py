@@ -94,6 +94,7 @@ def _lower(graph: dict[str, Any]) -> Program:
                         max_block_gap=_optional_int(data.get("window_blocks")),
                         max_group_size=_optional_int(data.get("max_group_size")),
                         rules=str(data.get("rules")) if data.get("rules") else None,
+                        show_all=bool(data.get("show_all")),
                     ),
                 )
             )

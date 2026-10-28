@@ -51,6 +51,7 @@ class Detect:
     max_block_gap: int | None = None
     max_group_size: int | None = None
     rules: str | None = None
+    show_all: bool = False
 
     def to_text(self) -> str:
         head = f"find_wash_groups({self.swaps}, {self.transfers}"

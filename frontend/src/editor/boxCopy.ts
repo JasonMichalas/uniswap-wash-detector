@@ -259,6 +259,7 @@ export function settingLabel(nodeType: string, name: string): string {
       window_blocks: "Longest time between buy and sell",
       max_group_size: "Most wallets in a chain",
       rules: "Which kinds of wash trading",
+      show_all: "Show all wallets",
     },
     group_by: { by: "One row per" },
     aggregate: { fn: "What to calculate", field: "Column" },

@@ -485,7 +485,11 @@ function TableCard({ output, noSwaps, symbol }: { output: OutputResult; noSwaps:
       </div>
       {output.rows.length === 0 ? (
         <p className="muted">
-          {noSwaps ? "No swaps were loaded for this window, so this is not a wash result." : "No rows."}
+          {output.note
+            ? output.note
+            : noSwaps
+              ? "No swaps were loaded for this window, so this is not a wash result."
+              : "No rows."}
         </p>
       ) : (
         <>

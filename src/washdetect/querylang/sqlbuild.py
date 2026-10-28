@@ -204,7 +204,7 @@ def _read_output(con: duckdb.DuckDBPyConnection, stream: _Stream, stmt: Output) 
         columns=columns,
         rows=rows,
         truncated=truncated,
-        note=stream.note,
+        note=None if rows and stream.type_name == "wash_wallets" else stream.note,
     )
 
 

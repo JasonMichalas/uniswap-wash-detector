@@ -294,6 +294,17 @@ function CycleSettings({
         </select>
         <span className="hint">{settingHint("detect_cycles", "window_blocks", params)}</span>
       </label>
+      <label className="check">
+        <input
+          type="checkbox"
+          checked={params.show_all === true}
+          onChange={(event) => onUpdate("show_all", event.target.checked)}
+        />
+        Show all wallets
+        <span className="hint">
+          Off, the wallets table lists only wallets in a wash group. On, it also lists everyone else at 0%.
+        </span>
+      </label>
       <label>
         {settingLabel("detect_cycles", "max_group_size")}
         <select value={String(group)} onChange={(event) => onUpdate("max_group_size", Number(event.target.value))}>

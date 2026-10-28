@@ -290,7 +290,13 @@ def _eval(
             warnings,
             config=_detector_config(expr),
         )
-        bundle = _register_detection(con, swaps_stream.view, detection, fresh)
+        bundle = _register_detection(
+            con,
+            swaps_stream.view,
+            detection,
+            fresh,
+            show_all=bool(getattr(expr, "show_all", False)),
+        )
         sql_lines.append(
             f"-- {comment}\n-- heuristic round-trip / cycle detector "
             f"(Gan et al. 2024 style) on {swaps_stream.view} and {transfers_stream.view}"

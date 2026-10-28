@@ -205,6 +205,7 @@ NODE_DEFS: list[dict[str, Any]] = [
             {"name": "window_blocks", "label": "Longest time between buy and sell", "kind": "number"},
             {"name": "max_group_size", "label": "Most wallets in a chain", "kind": "number"},
             {"name": "rules", "label": "Which kinds of wash trading", "kind": "text"},
+            {"name": "show_all", "label": "Show all wallets", "kind": "bool"},
         ],
         "inputs": [
             {"id": "in_swaps", "label": "swaps", "type": "swaps"},

@@ -60,6 +60,41 @@ def test_confidence_filter_keeps_only_the_round_trip_wallet():
     assert wallets == ["0xa"]
 
 
+def test_wash_wallets_hide_zero_confidence_unless_asked():
+    query = (
+        's = source swaps\n'
+        't = source transfers\n'
+        'd = find_wash_groups(s, t)\n'
+        'w = project d wallets\n'
+        'output table w as "Wallets"\n'
+    )
+    hidden = _run(query)
+    wallets = [row["wallet"] for row in hidden.outputs[0].rows]
+    assert wallets == ["0xa"]
+    assert hidden.outputs[0].rows[0]["confidence"] > 0
+
+    from washdetect.querylang.ast import Assign, Detect, Output, Program, Project, Source
+
+    shown = execute_frames(
+        Program(
+            [
+                Assign("s", Source("swaps")),
+                Assign("t", Source("transfers")),
+                Assign("d", Detect("s", "t", show_all=True)),
+                Assign("w", Project("d", "wallets")),
+                Output("table", "w", "Wallets"),
+            ]
+        ),
+        swaps=_swaps(),
+        transfers=pd.DataFrame(),
+        end_ts=END,
+        window_start=START,
+        window_end=END,
+    )
+    everyone = {row["wallet"] for row in shown.outputs[0].rows}
+    assert everyone == {"0xa", "0xb"}
+
+
 def test_holder_queries():
     wallets = pd.DataFrame(
         [

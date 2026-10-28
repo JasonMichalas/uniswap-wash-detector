@@ -24,6 +24,7 @@ def _detector_config(expr: Detect) -> HeuristicConfig:
         gap = int(expr.max_block_gap)
         if not 1 <= gap <= 120_000:
             raise QueryError("find_wash_groups window must be a whole number of blocks from 1 to 120000.")
+        kwargs["max_block_gap"] = gap
     raw_rules = getattr(expr, "rules", None)
     if raw_rules:
         names = tuple(part.strip() for part in str(raw_rules).split(",") if part.strip())
@@ -31,7 +32,6 @@ def _detector_config(expr: Detect) -> HeuristicConfig:
         if unknown or not names:
             raise QueryError("find_wash_groups rules must be chosen from R1, R2, R3, R4, R5, and R6.")
         kwargs["enabled_rules"] = names
-        kwargs["max_block_gap"] = gap
     if expr.max_group_size is not None:
         size = int(expr.max_group_size)
         if not 2 <= size <= 64:
@@ -102,6 +102,8 @@ def _register_detection(
     swaps_view: str,
     detection: Detection,
     fresh: Any,
+    *,
+    show_all: bool = False,
 ) -> _Bundle:
     flags = pd.DataFrame(
         [
@@ -192,10 +194,20 @@ def _register_detection(
           ON s.tx_hash = f.tx_hash AND s.log_index = f.log_index
         """,
     )
-    _run(con, f"CREATE VIEW {wallet_view} AS SELECT * FROM wash_wallets_{id(detection)}")
+    where = "" if show_all else " WHERE confidence > 0"
+    _run(
+        con,
+        f"""
+        CREATE VIEW {wallet_view} AS
+        SELECT * FROM wash_wallets_{id(detection)}
+        {where}
+        ORDER BY confidence DESC, wash_volume_usd DESC
+        """,
+    )
     _run(con, f"CREATE VIEW {cycle_view} AS SELECT * FROM cycles_{id(detection)}")
+    wallet_note = None if show_all else "No wash trading found in this window."
     return _Bundle(
         swaps=_Stream(swap_view, "swaps_flagged", field_map("swaps_flagged")),
-        wallets=_Stream(wallet_view, "wash_wallets", field_map("wash_wallets")),
+        wallets=_Stream(wallet_view, "wash_wallets", field_map("wash_wallets"), note=wallet_note),
         cycles=_Stream(cycle_view, "cycles", field_map("cycles")),
     )
