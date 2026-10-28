@@ -87,10 +87,6 @@ DEFAULT_RPCS = (
     "https://1rpc.io/eth",
 )
 
-UNISWAP_V3_SUBGRAPH = "5zvR82QoaXYFyDEKLZ9t6v9adgnptxYpKpSbxtgVENFV"
-UNISWAP_V2_SUBGRAPH = "A3Np3RQbaBA6oKJgiwDJeo5T3zrYfGHPWFYayMwtNDum"
-GRAPH_GATEWAY = "https://gateway.thegraph.com/api"
-
 MAX_WINDOW_DAYS = 90
 DEFAULT_DB = "data/washdetect.duckdb"
 BALANCE_CAP = 800

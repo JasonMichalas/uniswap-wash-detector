@@ -157,9 +157,7 @@ flowchart LR
   cache --> sql
 ```
 
-Loading a token never calls the detector or the models (`analysis_ran` is false on the load report). The CLI commands `detect`, `query`, `batch`, and `train` do load and then analyse, because those commands ask for a result.
-
-Optional accelerator: if `GRAPH_API_KEY` is set, Uniswap v2/v3 subgraphs can fill swap logs. The RPC path works with the variable unset. Transfers always come from RPC.
+Loading a token never calls the detector or the models (`analysis_ran` is false on the load report). The CLI commands `detect`, `query`, `batch`, and `train` do load and then analyse, because those commands ask for a result. Swaps and transfers both come from public RPC.
 
 ## Layout
 
@@ -270,7 +268,6 @@ GitHub Actions runs the same two jobs (Python 3.11 with the `ml` extra, Node 22)
 - `ever_sold` and `days_since_sell` look only at sells in the loaded range.
 - Balances use Multicall3 `balanceOf` at the end block, capped at 800 wallets.
 - Swaps with no USD price are omitted from USD sums. Mixing stable and WETH pools can distort a percentage because the ETH price is a single end-of-window spot.
-- If the subgraph returns any swaps for a pool, that pool's whole window is marked covered. Pagination stops at 40,000 rows. Leave `GRAPH_API_KEY` unset to force RPC.
 - Hubs above 25 counterparties are not edges. Groups above 64 wallets are dropped whole. The flow search also caps how many buys it seeds and how many groups it keeps, so a pathological token cannot hang the request.
 - Public RPC is uneven. dRPC's free plan rejects `eth_getLogs` ranges over 10,000 blocks; the client halves the chunk until the call succeeds. Some endpoints answer `eth_blockNumber` and then fail `eth_getLogs`.
 

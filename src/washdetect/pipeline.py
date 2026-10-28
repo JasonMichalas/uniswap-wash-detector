@@ -53,8 +53,7 @@ from washdetect.prices import (
 )
 from washdetect.rpc import RpcClient, RpcError
 from washdetect.store import Store, pool_log_gaps
-from washdetect.subgraph import SubgraphError, api_key, fetch_swaps, map_subgraph_swap
-from washdetect.window import _naive, _unix, resolve_window
+from washdetect.window import _naive, resolve_window
 
 Progress = Callable[[str], None]
 
@@ -80,7 +79,6 @@ class LoadReport:
     blocks_cached: int
     seconds: float
     eth_usd: float | None
-    used_subgraph: bool
     v4_pools: int
     swap_logs: int
     notes: list[str] = field(default_factory=list)
@@ -109,7 +107,6 @@ class LoadReport:
             "blocks_cached": self.blocks_cached,
             "seconds": round(self.seconds, 2),
             "eth_usd": self.eth_usd,
-            "used_subgraph": self.used_subgraph,
             "notes": self.notes,
             "note_details": self.note_details,
             "analysis_ran": False,
@@ -322,7 +319,6 @@ def load_token(
     blocks_fetched = 0
     blocks_cached = 0
     swap_logs = 0
-    used_subgraph = False
     stop = cancel or (lambda: False)
     try:
         say("Resolving the block window")
@@ -368,17 +364,6 @@ def load_token(
             ]
         )
         say(f"Found {len(pools)} pools")
-
-        if api_key():
-            try:
-                say("Trying the Uniswap subgraph for swaps")
-                _fill_swaps_from_subgraph(
-                    store, token, pools, start_block, end_block, start_ts, say
-                )
-                used_subgraph = True
-            except (SubgraphError, Exception) as exc:
-                client.note(f"subgraph skipped: {exc}")
-                say(f"Subgraph unavailable ({exc}). Using RPC for swaps.")
 
         fetched, cached, swap_logs = _fetch_swap_groups(
             store, client, token, pools, start_block, end_block, span_blocks, head_ts, say, stop, stats
@@ -461,7 +446,6 @@ def load_token(
             blocks_cached=max(0, blocks_cached),
             seconds=time.perf_counter() - started,
             eth_usd=eth_usd,
-            used_subgraph=used_subgraph,
             v4_pools=sum(1 for p in pools if protocol_family(p.protocol) == "v4"),
             swap_logs=swap_logs,
             notes=notes,
@@ -885,57 +869,6 @@ def _gecko_window_hint(token: str, start_ts: datetime) -> str:
     if dex and not any(name in dex.lower() for name in ("uniswap", "sushi", "pancake")):
         return f" GeckoTerminal's top pool is on {dex}, which this tool does not read."
     return ""
-
-
-def _fill_swaps_from_subgraph(
-    store: Store,
-    token: str,
-    pools: list[PoolMeta],
-    start_block: int,
-    end_block: int,
-    start_ts: datetime,
-    say: Progress,
-) -> None:
-    v2 = [p.pool_address for p in pools if p.protocol == "v2"]
-    v3 = [p.pool_address for p in pools if p.protocol == "v3"]
-    raw_rows = fetch_swaps(v2_pools=v2, v3_pools=v3, start_ts=_unix(start_ts))
-    by_pool: dict[str, list[dict[str, Any]]] = defaultdict(list)
-    for raw in raw_rows:
-        mapped = map_subgraph_swap(raw, token)
-        if not mapped:
-            continue
-        if not start_block <= mapped["block_number"] <= end_block:
-            continue
-        by_pool[mapped["pool_address"]].append(mapped)
-    for pool in pools:
-        dataset = f"swaps:{pool.pool_address}"
-        gaps = store.missing(token, dataset, start_block, end_block)
-        if not gaps:
-            continue
-        rows = []
-        for item in by_pool.get(pool.pool_address, []):
-            ts = datetime.fromtimestamp(item["timestamp"], UTC)
-            ts = _naive(ts)
-            leg = {
-                "side": item["side"],
-                "amount_token": item["amount_token"],
-                "amount_quote": item["amount_quote"],
-                "quote_token": item["quote_token"],
-                "amount0_raw": "",
-                "amount1_raw": "",
-            }
-            rows.append(
-                _swap_tuple(
-                    token, item["tx_hash"], item["log_index"], item["block_number"], ts,
-                    pool.pool_address, pool.protocol, item["sender"], item["recipient"],
-                    item["trader"], leg, item["usd_value"],
-                )
-            )
-        store.insert_swaps(rows)
-        # An empty subgraph page is not proof the pool was quiet.
-        if rows:
-            store.add_coverage(token, dataset, start_block, end_block)
-            say(f"Subgraph returned {len(rows)} swaps for {pool.pool_address[:10]}")
 
 
 def _store_pool_logs(
