@@ -797,45 +797,6 @@ def catch_up_factory_tips(
         logs.close()
 
 
-def index_chain(
-    client: RpcClient,
-    store: Store,
-    head: int,
-    progress: Callable[[str], None],
-    *,
-    include_forks: bool,
-    cancel: Callable[[], bool] | None = None,
-) -> None:
-    """Optional chain-wide index. A single-token load does not call this."""
-    jobs: list[tuple[str, str, str, list[Any], int, Callable[[dict[str, Any]], tuple | None], int]] = [
-        ("Uniswap v4 pools", "v4-initialize", POOL_MANAGER, [INITIALIZE_V4], V4_START_BLOCK, parse_v4_initialize, 8_000),
-        ("Uniswap v3 pools", "v3-pools", V3_FACTORY, [POOL_CREATED], V3_FACTORY_BLOCK, parse_v3_pool, 8_000),
-        ("Uniswap v2 pairs", "v2-pairs", V2_FACTORY, [PAIR_CREATED], V2_FACTORY_BLOCK, parse_v2_pair, 8_000),
-    ]
-    if include_forks:
-        for dex, family, factory, start in FORK_VENUES:
-            if family == "v2":
-                jobs.append((f"{dex} v2 pairs", f"{dex}-v2-pairs", factory, [PAIR_CREATED], start, _fork_v2(dex), 8_000))
-            else:
-                jobs.append((f"{dex} v3 pools", f"{dex}-v3-pools", factory, [POOL_CREATED], start, _fork_v3(dex), 8_000))
-    for label, dataset, address, topics, start, parse, span in jobs:
-        _scan_coverage(
-            client,
-            store,
-            head,
-            progress,
-            cancel,
-            label=label,
-            dataset=dataset,
-            address=address,
-            topics=topics,
-            start=start,
-            parse=parse,
-            span=span,
-            workers=4,
-        )
-
-
 def parse_v4_initialize(log: dict[str, Any]) -> tuple | None:
     topics = [str(topic).lower() for topic in (log.get("topics") or [])]
     if len(topics) < 4 or topics[0] != INITIALIZE_V4:
