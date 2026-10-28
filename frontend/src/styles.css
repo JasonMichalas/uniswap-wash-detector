@@ -661,7 +661,8 @@ button.show-results {
   margin: 0 0 8px;
 }
 
-.empty-canvas .examples { pointer-events: auto; display: inline-block; }
+.empty-canvas .examples, .empty-canvas .quick-start { pointer-events: auto; display: inline-block; margin: 0 8px; }
+.next-steps { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
 .empty-canvas .examples ul { left: 50%; right: auto; transform: translateX(-50%); text-align: left; }
 
 .box {

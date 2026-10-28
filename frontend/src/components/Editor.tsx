@@ -24,10 +24,14 @@ import {
 } from "../api";
 import { describeProblem } from "../editor/boxCopy";
 import { BOX_STRIDE_X, freePosition } from "../editor/place";
+import { RECIPES } from "../editor/recipes";
 import { actionStatus, addressProblem, numericSuffix, sleep, slug, stepHint } from "../editor/ui";
 import {
-  connectionAllowed,
+  connectionProblem,
   fromApiGraph,
+  inferOutputs,
+  nextSteps,
+  wouldCycle,
   isAddress,
   logicKey,
   rangeProblem,
@@ -37,6 +41,7 @@ import {
 import type { Catalog, GraphError, LoadResult, PaletteItem, RunResult, TemplateSummary, TokenSuggestion } from "../types";
 import { BoxNodeView } from "./BoxNode";
 import { ExampleMenu } from "./ExampleMenu";
+import { QuickStart } from "./QuickStart";
 import { GraphActions } from "./GraphActions";
 import { Inspector } from "./Inspector";
 import { LoadStatus } from "./LoadStatus";
@@ -171,14 +176,23 @@ export function Editor({ catalog }: { catalog: Catalog }) {
 
   const onConnect: OnConnect = useCallback(
     (connection: Connection) => {
+      const problem = connectionProblem(connection, nodesRef.current, edgesRef.current, catalog);
+      if (problem) {
+        setBanner(problem);
+        return;
+      }
+      setBanner(null);
       setEdges((current) => addEdge({ ...connection, id: `e${idRef.current++}` }, current));
     },
-    [setEdges],
+    [catalog, setEdges],
   );
 
   const isValidConnection = useCallback(
-    (connection: Connection | Edge) => connectionAllowed(connection, nodes, edges, catalog),
-    [nodes, edges, catalog],
+    (connection: Connection | Edge) => {
+      if (!connection.source || !connection.target || connection.source === connection.target) return false;
+      return !wouldCycle(connection.source, connection.target, edges);
+    },
+    [edges],
   );
 
   const shownNodes = nodes.map((node) => ({
@@ -328,6 +342,37 @@ export function Editor({ catalog }: { catalog: Catalog }) {
     window.setTimeout(() => fitView({ padding: 0.2, duration: 200 }), 30);
   }
 
+  function openRecipe(id: string) {
+    const recipe = RECIPES.find((item) => item.id === id);
+    if (!recipe) return;
+    placeGraph(recipe.graph, recipe.title);
+  }
+
+  function addNext(nodeType: string, params: Record<string, unknown>, label: string) {
+    const source = nodes.find((node) => node.selected);
+    if (!source) return;
+    const outputs = inferOutputs(nodes, edges, catalog);
+    const handle = Object.keys(outputs.get(source.id) ?? {})[0] ?? "out";
+    const id = `b${idRef.current++}`;
+    const position = freePosition(nodes, { x: source.position.x + 320, y: source.position.y });
+    setNodes((current) => [
+      ...current.map((node) => ({ ...node, selected: false })),
+      { id, type: "box", position, selected: true, data: { nodeType, params, label } },
+    ]);
+    setEdges((current) =>
+      addEdge(
+        {
+          id: `e${idRef.current++}`,
+          source: source.id,
+          target: id,
+          sourceHandle: handle,
+          targetHandle: nodeType === "detect_cycles" ? "in_transfers" : "in",
+        },
+        current,
+      ),
+    );
+  }
+
   async function openTemplate(id: string) {
     try {
       const graph = await fetchTemplate(id);
@@ -424,6 +469,7 @@ export function Editor({ catalog }: { catalog: Catalog }) {
         examplesOpen={examplesAt === "toolbar"}
         onToggleExamples={() => setExamplesAt((current) => (current === "toolbar" ? null : "toolbar"))}
         onOpenExample={(id) => void openTemplate(id)}
+        onOpenRecipe={openRecipe}
         onPlace={placeChip}
       />
 
@@ -467,6 +513,7 @@ export function Editor({ catalog }: { catalog: Catalog }) {
           {nodes.length === 0 && (
             <div className="empty-canvas">
               <p>Drag a Data box here to start</p>
+              <QuickStart onOpen={openRecipe} />
               <ExampleMenu
                 templates={templates}
                 open={examplesAt === "canvas"}
@@ -505,6 +552,12 @@ export function Editor({ catalog }: { catalog: Catalog }) {
           nodes={nodes}
           edges={edges}
           onChange={updateParams}
+          onAddNext={addNext}
+          suggestions={
+            selected
+              ? nextSteps(Object.values(inferOutputs(nodes, edges, catalog).get(selected.id) ?? {})[0]?.type)
+              : []
+          }
           onDelete={(id) => {
             setNodes((current) => current.filter((node) => node.id !== id));
             setEdges((current) => current.filter((edge) => edge.source !== id && edge.target !== id));

@@ -251,6 +251,48 @@ export function wouldCycle(source: string, target: string, edges: Edge[]): boole
   return false;
 }
 
+export function nextSteps(typeName: string | undefined): Array<{
+  nodeType: string;
+  label: string;
+  params: Record<string, unknown>;
+}> {
+  const table = { nodeType: "output_table", label: "Table", params: { title: "Results" } };
+  const sort = { nodeType: "sort", label: "Sort", params: { direction: "desc", field: "" } };
+  const first = { nodeType: "limit", label: "First rows", params: { n: 10 } };
+  const condition = { nodeType: "condition", label: "Condition", params: { mode: "compare", op: ">", value: 0, field: "" } };
+  if (typeName === "wash_wallets" || typeName === "wallets") return [sort, first, table];
+  if (typeName === "swaps" || typeName === "swaps_flagged") {
+    return [condition, { nodeType: "group_by", label: "Group by", params: { by: "day" } }, sort, table];
+  }
+  if (typeName === "transfers") return [{ nodeType: "detect_cycles", label: "Find wash groups", params: {} }, table];
+  if (typeName === "grouped") return [{ nodeType: "output_chart", label: "Chart", params: { title: "Volume" } }, table];
+  if (typeName === "scalar") return [{ nodeType: "output_number", label: "Number", params: { title: "Result", format: "number" } }];
+  if (typeName === "cycles") return [sort, table];
+  return [sort, first, table];
+}
+
+export function connectionProblem(
+  connection: Connection | Edge,
+  nodes: BoxNode[],
+  edges: Edge[],
+  catalog: Catalog,
+): string | null {
+  if (connectionAllowed(connection, nodes, edges, catalog)) return null;
+  const source = connection.source;
+  const target = connection.target;
+  if (!source || !target || source === target) return "A box cannot connect to itself.";
+  if (wouldCycle(source, target, edges)) {
+    return "Two boxes are wired in a circle. A box cannot feed back into itself.";
+  }
+  const outputs = inferOutputs(nodes, edges, catalog);
+  const srcType = outputs.get(source)?.[connection.sourceHandle || "out"]?.type;
+  const names = nextSteps(srcType).map((step) => step.label);
+  const sourceNode = nodes.find((node) => node.id === source);
+  const from = sourceNode?.data.label || "That box";
+  if (names.length) return `${from} can go into ${names.join(", ")}. That wire does not fit.`;
+  return "Those boxes do not fit together.";
+}
+
 export function connectionAllowed(
   connection: Connection | Edge,
   nodes: BoxNode[],

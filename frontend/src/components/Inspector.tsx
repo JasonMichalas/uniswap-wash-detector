@@ -34,6 +34,8 @@ export function Inspector({
   edges,
   onChange,
   onDelete,
+  suggestions = [],
+  onAddNext,
 }: {
   catalog: Catalog;
   node: BoxNode | null;
@@ -41,6 +43,8 @@ export function Inspector({
   edges: Edge[];
   onChange: (id: string, params: Record<string, unknown>, label?: string) => void;
   onDelete: (id: string) => void;
+  suggestions?: Array<{ nodeType: string; label: string; params: Record<string, unknown> }>;
+  onAddNext?: (nodeType: string, params: Record<string, unknown>, label: string) => void;
 }) {
   if (!node) {
     return (
@@ -75,6 +79,16 @@ export function Inspector({
       {technical && <p className="tech-name">{technical}</p>}
       {node.data.nodeType === "detect_cycles" && (
         <CycleSettings params={node.data.params} onUpdate={update} />
+      )}
+      {suggestions.length > 0 && onAddNext && (
+        <p className="next-steps">
+          Next:{" "}
+          {suggestions.map((step) => (
+            <button key={step.nodeType} type="button" className="text" onClick={() => onAddNext(step.nodeType, step.params, step.label)}>
+              {step.label}
+            </button>
+          ))}
+        </p>
       )}
       <h3>What this box does</h3>
       <p>{whatItDoes(node.data.nodeType, node.data.params)}</p>
