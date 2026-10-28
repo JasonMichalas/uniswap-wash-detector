@@ -33,6 +33,7 @@ expr: source
     | ml
     | anomaly
     | explainstmt
+    | insightstmt
 
 source: "source" SOURCE_KIND
 detect: ("find_wash_groups" | "detect_cycles") "(" NAME "," NAME ("," NUMBER "," NUMBER "," NUMBER)? ")"
@@ -50,6 +51,7 @@ limitstmt: "limit" NAME NUMBER
 ml: "ml_score" NAME
 anomaly: "anomaly_score" NAME
 explainstmt: "explain" NAME
+insightstmt: "insight" NAME
 
 output: "output" OUT_KIND NAME ("as" STRING)? ("format" OUT_FORMAT)?
 

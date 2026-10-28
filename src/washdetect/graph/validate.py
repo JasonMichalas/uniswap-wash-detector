@@ -4,7 +4,13 @@ from collections import defaultdict
 from dataclasses import dataclass
 from typing import Any
 
-from washdetect.graph.catalog import NODE_BY_TYPE, SOURCE_TYPES, can_connect, field_map
+from washdetect.graph.catalog import (
+    INSIGHT_KINDS,
+    NODE_BY_TYPE,
+    SOURCE_TYPES,
+    can_connect,
+    field_map,
+)
 
 _MAX_NODES = 80
 _GROUP_KEYS = {
@@ -215,6 +221,8 @@ def _produce(
     node_id = node["id"]
     ntype = node["type"]
     label = _label(node)
+    if ntype in INSIGHT_KINDS:
+        return {"out": (ntype, field_map(ntype))}
     if ntype == "source":
         source = data.get("source")
         if source not in SOURCE_TYPES:

@@ -8,6 +8,7 @@ import duckdb
 import pandas as pd
 
 from washdetect.config import MAX_WINDOW_DAYS
+from washdetect.graph.catalog import CHART_STREAMS
 from washdetect.querylang.ast import Aggregate, Condition, Output, TimeWindow
 from washdetect.querylang.errors import QueryError
 from washdetect.querylang.results import OutputResult, _Bundle, _Stream
@@ -181,9 +182,9 @@ def _check_output(stmt: Output, stream: _Stream) -> None:
             f"A number card needs a single value (count, sum, avg, or percent-of). "
             f"{stmt.name} is a {stream.type_name} table."
         )
-    if stmt.kind == "chart" and stream.type_name != "grouped":
+    if stmt.kind == "chart" and stream.type_name not in CHART_STREAMS:
         raise QueryError(
-            "A chart reads a Group by box. Put Group by day in front of it to plot volume over time."
+            "A chart reads a Group by box, or a question that is already a series over time."
         )
     if stmt.kind == "table" and stream.type_name == "scalar":
         raise QueryError("That stream is a single number. Use a number card, not a table.")

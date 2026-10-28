@@ -7,6 +7,7 @@ from pathlib import Path
 
 from lark import Lark, Token, Tree, UnexpectedInput
 
+from washdetect.graph.catalog import INSIGHT_KINDS
 from washdetect.querylang.ast import (
     Aggregate,
     AnomalyScore,
@@ -16,6 +17,7 @@ from washdetect.querylang.ast import (
     Explain,
     Filter,
     GroupBy,
+    Insight,
     Limit,
     MlScore,
     Output,
@@ -134,6 +136,11 @@ def _expr(tree: Tree):
         return AnomalyScore(str(tree.children[0]))
     if kind == "explainstmt":
         return Explain(str(tree.children[0]))
+    if kind == "insightstmt":
+        name = str(tree.children[0])
+        if name not in INSIGHT_KINDS:
+            raise QueryError(f"Unknown question {name}.")
+        return Insight(name)
     raise QueryError(f"Unknown expression {kind}.")
 
 

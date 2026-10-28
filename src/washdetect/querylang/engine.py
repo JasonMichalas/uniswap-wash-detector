@@ -19,6 +19,7 @@ from washdetect.querylang.ast import (
     Explain,
     Filter,
     GroupBy,
+    Insight,
     Limit,
     MlScore,
     Output,
@@ -56,6 +57,7 @@ from washdetect.querylang.sqlutil import (
     _strip_strings,
 )
 from washdetect.scoring import ScoreCache
+from washdetect.signals import WindowSignals
 
 # SQL is built here, never pasted from the query. Only CREATE VIEW and SELECT
 # run, on a throwaway connection, so a query cannot touch the cache.
@@ -72,6 +74,9 @@ def execute_frames(
     wallets: pd.DataFrame | None = None,
     pools: pd.DataFrame | None = None,
     pool_addresses: set[str] | None = None,
+    liquidity: pd.DataFrame | None = None,
+    creator: str = "",
+    creator_status: str = "",
     end_ts: datetime | None = None,
     window_start: datetime | None = None,
     window_end: datetime | None = None,
@@ -89,6 +94,15 @@ def execute_frames(
     else:
         wallets_df = _ensure(wallets, WALLET_COLUMNS)
     pools_df = _ensure(pools, _POOL_COLUMNS)
+    signals = WindowSignals(
+        swaps_df,
+        transfers_df,
+        wallets_df,
+        liquidity,
+        pools=pool_addresses,
+        creator=creator,
+        creator_status=creator_status,
+    )
     for frame in (swaps_df, transfers_df):
         if "block_timestamp" in frame.columns:
             frame["block_timestamp"] = pd.to_datetime(frame["block_timestamp"])
@@ -187,6 +201,7 @@ def execute_frames(
                 base_transfers=transfers_df,
                 model_dir=model_dir,
                 kept=kept,
+                signals=signals,
             )
             env[stmt.name] = value
             if isinstance(produced, Detection):
@@ -225,6 +240,9 @@ class QueryEngine:
         wallets: pd.DataFrame | None = None,
         pools: pd.DataFrame | None = None,
         pool_addresses: set[str] | None = None,
+        liquidity: pd.DataFrame | None = None,
+        creator: str = "",
+        creator_status: str = "",
         end_ts: datetime | None = None,
         window_start: datetime | None = None,
         window_end: datetime | None = None,
@@ -237,6 +255,9 @@ class QueryEngine:
             wallets=wallets,
             pools=pools,
             pool_addresses=pool_addresses,
+            liquidity=liquidity,
+            creator=creator,
+            creator_status=creator_status,
             end_ts=end_ts,
             window_start=window_start,
             window_end=window_end,
@@ -262,6 +283,7 @@ def _eval(
     base_transfers: pd.DataFrame,
     model_dir: str | None,
     kept: list[pd.DataFrame],
+    signals: WindowSignals,
 ) -> tuple[_Stream | _Bundle, Detection | None]:
     if isinstance(expr, Source):
         view = {
@@ -452,6 +474,30 @@ def _eval(
             model_dir=model_dir,
             kept=kept,
         ), None
+
+    if isinstance(expr, Insight):
+        settings: dict[str, object] = {}
+        if expr.top_n is not None:
+            settings["top_n"] = expr.top_n
+        if expr.minutes is not None:
+            settings["minutes"] = expr.minutes
+        if expr.usd is not None:
+            settings["usd"] = expr.usd
+        if expr.percent is not None:
+            settings["percent"] = expr.percent
+        if expr.min_wallets is not None:
+            settings["min_wallets"] = expr.min_wallets
+        if expr.creator:
+            settings["creator"] = expr.creator
+        frame, note = signals.run(expr.kind, **settings)
+        view = fresh()
+        held = f"{view}_src"
+        con.register(held, frame)
+        kept.append(frame)
+        sql = f"CREATE VIEW {view} AS SELECT * FROM {held}"
+        _run(con, sql)
+        sql_lines.append(f"-- {comment}\n{sql}")
+        return _Stream(view, expr.kind, field_map(expr.kind), note=note), None
 
     if isinstance(expr, Explain):
         return _explain_stream(

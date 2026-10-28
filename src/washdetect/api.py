@@ -251,14 +251,10 @@ def run(body: RunRequest) -> dict[str, Any]:
     try:
         result = QueryEngine().run(
             program,
-            swaps=loaded.swaps,
-            transfers=loaded.transfers,
-            wallets=loaded.wallets,
-            pools=loaded.pools,
-            pool_addresses=loaded.pool_addresses,
             end_ts=end_ts,
             window_start=start_ts,
             window_end=end_ts,
+            **loaded.frames(),
         )
     except QueryError as exc:
         raise HTTPException(400, detail=str(exc)) from exc

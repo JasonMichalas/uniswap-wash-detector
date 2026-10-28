@@ -333,3 +333,73 @@ def test_wash_share_over_time_flags_a_round_trip():
     assert frame.iloc[0]["wash_usd"] == 200
     assert abs(frame.iloc[0]["wash_percent"] - 200 / 210) < 1e-9
     assert "about a day" in note
+
+
+def test_insight_query_and_graph_keep_the_settings():
+    from washdetect.graph.compile import compile_graph
+    from washdetect.querylang.engine import execute_frames
+    from washdetect.querylang.parser import parse
+
+    wallets = _wallets(
+        [
+            {"wallet": "0xaa", "balance": 80, "holder_kind": "wallet"},
+            {"wallet": "0xbb", "balance": 20, "holder_kind": "wallet"},
+        ]
+    )
+    result = execute_frames(
+        parse('c = insight concentration\noutput table c as "Concentration"\n'),
+        wallets=wallets,
+    )
+    assert result.outputs[0].rows[0]["wallet"] == "0xaa"
+    assert result.outputs[0].note and "Gini" in result.outputs[0].note
+    graph = {
+        "nodes": [
+            {"id": "q", "type": "whales", "data": {"usd": 250000, "percent": 2}},
+            {"id": "o", "type": "output_table", "data": {"title": "Whales"}},
+        ],
+        "edges": [
+            {"id": "e", "source": "q", "target": "o", "sourceHandle": "out", "targetHandle": "in"}
+        ],
+    }
+    program, text = compile_graph(graph)
+    assert "insight whales" in text
+    assert program.statements[0].expr.usd == 250000
+    assert program.statements[0].expr.percent == 2
+    chart = {
+        "nodes": [
+            {"id": "q", "type": "pressure", "data": {}},
+            {"id": "o", "type": "output_chart", "data": {"title": "Pressure"}},
+        ],
+        "edges": [
+            {"id": "e", "source": "q", "target": "o", "sourceHandle": "out", "targetHandle": "in"}
+        ],
+    }
+    assert compile_graph(chart)[1].startswith("n_q")
+
+
+def test_creator_is_the_mint_sender_not_the_recipient(tmp_path):
+    from washdetect.store import Store
+
+    store = Store(tmp_path / "cache.duckdb")
+    try:
+        store.insert_transfers(
+            [
+                (
+                    "0xtoken",
+                    "0xmint",
+                    0,
+                    10,
+                    datetime(2026, 10, 1),
+                    ZERO,
+                    "0xfirst",
+                    "1",
+                    1.0,
+                )
+            ]
+        )
+        assert store.creator_from_window("0xtoken", 1, 20) == ("", "mint_without_sender")
+        store.remember_senders([("0xmint", "0xDeployer")])
+        assert store.creator_from_window("0xtoken", 1, 20) == ("0xdeployer", "found")
+        assert store.creator_from_window("0xtoken", 100, 200)[1] == "no_mint"
+    finally:
+        store.close()

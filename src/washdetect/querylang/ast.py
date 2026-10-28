@@ -175,6 +175,22 @@ class Explain:
         return f"explain {self.name}"
 
 
+@dataclass
+class Insight:
+    """A question answered from the loaded window, with no input wires."""
+
+    kind: str
+    top_n: int | None = None
+    minutes: int | None = None
+    usd: float | None = None
+    percent: float | None = None
+    min_wallets: int | None = None
+    creator: str = ""
+
+    def to_text(self) -> str:
+        return f"insight {self.kind}"
+
+
 Expr = (
     Source
     | Detect
@@ -189,6 +205,7 @@ Expr = (
     | MlScore
     | AnomalyScore
     | Explain
+    | Insight
 )
 
 

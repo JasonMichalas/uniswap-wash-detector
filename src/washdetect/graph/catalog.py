@@ -99,6 +99,107 @@ TYPES["swaps_flagged"] = TYPES["swaps"] + [
     ("path", "string"),
 ]
 
+INSIGHT_KINDS = (
+    "concentration",
+    "pnl",
+    "sandwich",
+    "insiders",
+    "fake_holders",
+    "liquidity_pull",
+    "whales",
+    "pressure",
+    "bots",
+    "wash_over_time",
+)
+
+# A chart can read a Group by, or one of the questions that already is a time series.
+CHART_STREAMS = ("grouped", "pressure", "wash_over_time")
+
+TYPES["concentration"] = [
+    ("wallet", "string"),
+    ("balance", "number"),
+    ("share_percent", "number"),
+]
+TYPES["pnl"] = [
+    ("wallet", "string"),
+    ("side", "string"),
+    ("realised_usd", "number"),
+    ("unrealised_usd", "number"),
+    ("total_usd", "number"),
+    ("cost_status", "string"),
+    ("why", "string"),
+    ("tokens_bought", "number"),
+    ("tokens_sold", "number"),
+    ("balance", "number"),
+]
+TYPES["sandwich"] = [
+    ("attacker", "string"),
+    ("victim", "string"),
+    ("pool_address", "string"),
+    ("direction", "string"),
+    ("profit_usd", "number"),
+    ("block_number", "number"),
+    ("buy_tx", "string"),
+    ("victim_tx", "string"),
+    ("sell_tx", "string"),
+]
+TYPES["insiders"] = [
+    ("wallet", "string"),
+    ("received_amount", "number"),
+    ("sold_usd", "number"),
+    ("creator", "string"),
+    ("why", "string"),
+]
+TYPES["fake_holders"] = [
+    ("source", "string"),
+    ("wallet_count", "number"),
+    ("holdings", "number"),
+    ("span_minutes", "number"),
+    ("first_block", "number"),
+    ("last_block", "number"),
+]
+TYPES["liquidity_pull"] = [
+    ("pool_address", "string"),
+    ("removed_percent", "number"),
+    ("removed_usd", "number"),
+    ("span_minutes", "number"),
+    ("remover", "string"),
+    ("original_adder", "string"),
+    ("same_wallet", "bool"),
+    ("block_timestamp", "string"),
+]
+TYPES["whales"] = [
+    ("from_address", "string"),
+    ("to_address", "string"),
+    ("amount_token", "number"),
+    ("amount_usd", "number"),
+    ("supply_percent", "number"),
+    ("tag", "string"),
+    ("tx_hash", "string"),
+    ("block_timestamp", "string"),
+]
+TYPES["pressure"] = [
+    ("day", "string"),
+    ("buy_usd", "number"),
+    ("sell_usd", "number"),
+    ("net_usd", "number"),
+    ("price_usd", "number"),
+]
+TYPES["bots"] = [
+    ("wallet", "string"),
+    ("label", "string"),
+    ("reason", "string"),
+    ("trade_count", "number"),
+    ("back_to_back_percent", "number"),
+    ("active_hours", "number"),
+]
+TYPES["wash_over_time"] = [
+    ("day", "string"),
+    ("volume_usd", "number"),
+    ("wash_usd", "number"),
+    ("wash_percent", "number"),
+]
+
 ROW_TYPES = (
     "swaps",
     "swaps_flagged",
@@ -109,6 +210,7 @@ ROW_TYPES = (
     "pools",
     "grouped",
     "explanations",
+    *INSIGHT_KINDS,
 )
 
 SOURCE_TYPES = {
@@ -130,6 +232,8 @@ def field_map(type_name: str) -> dict[str, str]:
 def can_connect(src: str, dst: str) -> bool:
     if dst == "rows":
         return src in ROW_TYPES
+    if dst == "grouped":
+        return src in CHART_STREAMS
     if dst == "timed":
         return src in {"swaps", "swaps_flagged", "transfers"}
     if dst == "walletish":
@@ -495,6 +599,129 @@ PALETTE: list[dict[str, Any]] = [
     },
 ]
 
+def _question(
+    kind: str,
+    label: str,
+    blurb: str,
+    description: str,
+    params: list[dict[str, Any]],
+    defaults: dict[str, Any],
+) -> None:
+    NODE_DEFS.append(
+        {
+            "type": kind,
+            "label": label,
+            "category": "insight",
+            "description": description,
+            "inputs": [],
+            "outputs": [{"id": "out", "label": "out", "type": kind}],
+            "params": params,
+        }
+    )
+    PALETTE.append(
+        {
+            "node_type": kind,
+            "label": label,
+            "category": "insight",
+            "blurb": blurb,
+            "data": defaults,
+        }
+    )
+
+
+_NUMBER = "number"
+_TEXT = "text"
+
+_question(
+    "concentration",
+    "Holder concentration",
+    "Share of the balances we could read held by the top wallets, plus a Gini score.",
+    "How concentrated ownership is, using balances read at the end of the window.",
+    [{"name": "top_n", "label": "How many holders", "kind": _NUMBER}],
+    {"top_n": 10},
+)
+_question(
+    "pnl",
+    "Profit and loss",
+    "Who made or lost money, with an unknown cost when the buy was before the window.",
+    "Realised and unrealised profit for wallets that traded in the loaded window.",
+    [{"name": "top_n", "label": "How many wallets", "kind": _NUMBER}],
+    {"top_n": 10},
+)
+_question(
+    "sandwich",
+    "Sandwich attacks",
+    "A wallet that trades just before and just after someone else, in one block and one pool.",
+    "Same-block sandwiches and the attacker's profit.",
+    [],
+    {},
+)
+_question(
+    "insiders",
+    "Insiders",
+    "Wallets that received the token from the creator and then sold.",
+    "Creator gifts that were sold. Paste a creator if this window cannot find one.",
+    [{"name": "creator", "label": "Creator address", "kind": _TEXT}],
+    {"creator": ""},
+)
+_question(
+    "fake_holders",
+    "Fake holders",
+    "Wallets whose first tokens came from the same wallet at about the same time.",
+    "Shared-funding clusters. This is not a wash result.",
+    [
+        {"name": "minutes", "label": "Within minutes", "kind": _NUMBER},
+        {"name": "min_wallets", "label": "Minimum wallets", "kind": _NUMBER},
+    ],
+    {"minutes": 60, "min_wallets": 5},
+)
+_question(
+    "liquidity_pull",
+    "Liquidity pulls",
+    "A pool that lost a large share of its added liquidity in a short time.",
+    "Fast liquidity removals, flagged when the remover is the original adder.",
+    [
+        {"name": "minutes", "label": "Within minutes", "kind": _NUMBER},
+        {"name": "percent", "label": "Percent removed", "kind": _NUMBER},
+    ],
+    {"minutes": 60, "percent": 50},
+)
+_question(
+    "whales",
+    "Whale moves",
+    "Large transfers, tagged when they go to or come from an exchange.",
+    "Transfers above a dollar size or a share of the balances we could read.",
+    [
+        {"name": "usd", "label": "Dollars", "kind": _NUMBER},
+        {"name": "percent", "label": "Percent of supply", "kind": _NUMBER},
+    ],
+    {"usd": 100000, "percent": 1},
+)
+_question(
+    "pressure",
+    "Buy vs sell pressure",
+    "Hourly dollars bought minus dollars sold, next to the price.",
+    "Buy and sell pressure by hour.",
+    [],
+    {},
+)
+_question(
+    "bots",
+    "Bots vs humans",
+    "Wallets that trade like bots, and the busiest wallets that do not.",
+    "A label and the reason, from trade rhythm and known MEV wallets.",
+    [{"name": "top_n", "label": "How many people", "kind": _NUMBER}],
+    {"top_n": 10},
+)
+_question(
+    "wash_over_time",
+    "Wash share over time",
+    "Each day's flagged wash dollars divided by that day's total dollars.",
+    "Wash as a share of volume, one row per day.",
+    [],
+    {},
+)
+
 NODE_BY_TYPE = {node["type"]: node for node in NODE_DEFS}
 
 
@@ -511,6 +738,7 @@ def catalog_payload() -> dict[str, Any]:
         "source_types": SOURCE_TYPES,
         "connect": {
             "rows": list(ROW_TYPES),
+            "chart": list(CHART_STREAMS),
             "timed": ["swaps", "swaps_flagged", "transfers"],
             "walletish": ["wallets", "wash_wallets"],
             "scoreable": ["swaps", "swaps_flagged", "wallets", "wash_wallets"],

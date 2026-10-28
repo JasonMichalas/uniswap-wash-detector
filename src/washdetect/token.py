@@ -23,6 +23,9 @@ class TokenData:
     wallets: pd.DataFrame
     pools: pd.DataFrame
     pool_addresses: set[str]
+    liquidity: pd.DataFrame
+    creator: str
+    creator_status: str
 
     @classmethod
     def load(
@@ -48,6 +51,8 @@ class TokenData:
             window_start_ts=start_time,
             pools=addresses,
         )
+        liquidity = store.read_liquidity(token, start_block, end_block)
+        creator, creator_status = store.creator_from_window(token, start_block, end_block)
         return cls(
             address=token,
             start_block=start_block,
@@ -59,6 +64,9 @@ class TokenData:
             wallets=wallets,
             pools=pools,
             pool_addresses=addresses,
+            liquidity=liquidity,
+            creator=creator,
+            creator_status=creator_status,
         )
 
     def frames(self) -> dict[str, object]:
@@ -68,4 +76,7 @@ class TokenData:
             "wallets": self.wallets,
             "pools": self.pools,
             "pool_addresses": self.pool_addresses,
+            "liquidity": self.liquidity,
+            "creator": self.creator,
+            "creator_status": self.creator_status,
         }

@@ -447,6 +447,38 @@ class Store:
                 [token, start, end],
             )
 
+    def read_liquidity(self, token: str, start: int, end: int) -> pd.DataFrame:
+        with self.lock:
+            return self._df(
+                """
+                SELECT * FROM liquidity_events
+                WHERE token = ? AND block_number BETWEEN ? AND ?
+                ORDER BY block_number, log_index
+                """,
+                [token, start, end],
+            )
+
+    def creator_from_window(self, token: str, start: int, end: int) -> tuple[str, str]:
+        """tx.from of the earliest mint in the window. The mint recipient is not the creator."""
+        zero = "0x" + "00" * 20
+        with self.lock:
+            row = self.con.execute(
+                """
+                SELECT tx_hash FROM transfers
+                WHERE token = ? AND block_number BETWEEN ? AND ?
+                  AND lower(from_address) = ?
+                ORDER BY block_number, log_index
+                LIMIT 1
+                """,
+                [token.lower(), start, end, zero],
+            ).fetchone()
+        if not row:
+            return "", "no_mint"
+        sender = self.known_senders([str(row[0])]).get(str(row[0]), "")
+        if sender:
+            return sender.lower(), "found"
+        return "", "mint_without_sender"
+
     def read_transfers(self, token: str, start: int, end: int) -> pd.DataFrame:
         with self.lock:
             return self._df(

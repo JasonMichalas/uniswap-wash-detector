@@ -176,6 +176,7 @@ src/washdetect/
   artifacts/        shipped model (json + joblib)
   querylang/        grammar, parser, sandboxed SQL
   graph/            box catalog, validation, compile-to-query
+  signals.py        concentration, profit, sandwiches, and the other window questions
   api.py            HTTP API and the built editor
   cli.py            fetch, detect, query, train, batch, serve
 frontend/           Vite + React + React Flow

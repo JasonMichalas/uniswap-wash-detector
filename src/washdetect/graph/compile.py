@@ -3,7 +3,7 @@ from __future__ import annotations
 import re
 from typing import Any
 
-from washdetect.graph.catalog import NODE_BY_TYPE
+from washdetect.graph.catalog import INSIGHT_KINDS, NODE_BY_TYPE
 from washdetect.graph.validate import GraphErrorItem, validate_graph
 from washdetect.querylang.ast import (
     Aggregate,
@@ -14,6 +14,7 @@ from washdetect.querylang.ast import (
     Explain,
     Filter,
     GroupBy,
+    Insight,
     Limit,
     MlScore,
     Output,
@@ -167,6 +168,10 @@ def _lower(graph: dict[str, Any]) -> Program:
             name = uname(node_id)
             statements.append(Assign(name, Explain(upstream(node_id, "in"))))
             names[(node_id, "out")] = name
+        elif ntype in INSIGHT_KINDS:
+            name = uname(node_id)
+            statements.append(Assign(name, _insight(ntype, data)))
+            names[(node_id, "out")] = name
         elif ntype in {"output_number", "output_table", "output_chart"}:
             kind = {"output_number": "number", "output_table": "table", "output_chart": "chart"}[ntype]
             fmt = str(data.get("format") or "number")
@@ -177,6 +182,19 @@ def _lower(graph: dict[str, Any]) -> Program:
         else:
             raise GraphCompileError([GraphErrorItem(f"Cannot lower box type {ntype}.", node_id)])
     return Program(statements)
+
+
+def _insight(kind: str, data: dict[str, Any]) -> Insight:
+    creator = data.get("creator")
+    return Insight(
+        kind,
+        top_n=_optional_int(data.get("top_n")),
+        minutes=_optional_int(data.get("minutes")),
+        usd=_optional_float(data.get("usd")),
+        percent=_optional_float(data.get("percent")),
+        min_wallets=_optional_int(data.get("min_wallets")),
+        creator=str(creator).strip() if isinstance(creator, str) else "",
+    )
 
 
 def _optional_float(value: Any) -> float | None:
