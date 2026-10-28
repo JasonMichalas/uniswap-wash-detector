@@ -727,6 +727,7 @@ th button.sort {
   font: inherit;
   cursor: pointer;
 }
+.addr-list { display: flex; flex-wrap: wrap; gap: 6px 10px; }
 .addr { display: inline-flex; gap: 6px; align-items: center; }
 .addr a { color: var(--accent); }
 .wrap-text {

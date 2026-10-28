@@ -175,6 +175,7 @@ const COLUMN_LABELS: Record<string, string> = {
   cycle_id: "Group",
   tx_hash: "Transaction",
   wallet: "Wallet",
+  wallets: "Wallets",
   confidence: "Confidence",
   day: "Day",
   count: "Swaps",
@@ -185,6 +186,8 @@ const COLUMN_LABELS: Record<string, string> = {
   sender: "Sender",
   recipient: "Recipient",
   trader: "Trader",
+  from_address: "From",
+  to_address: "To",
   side: "Side",
   amount_token: "Token amount",
   amount_quote: "Quote amount",
@@ -198,25 +201,133 @@ const COLUMN_LABELS: Record<string, string> = {
   ml_score: "Score",
   ml_weighted_usd: "Weighted USD",
   token: "Token",
+  wash_volume_usd: "Wash volume",
+  round_trip_count: "Round trips",
+  ring_count: "Circles",
+  net_ratio: "Net ratio",
+  volume_usd: "Volume",
+  swap_count: "Swaps",
+  buy_volume_usd: "Buy volume",
+  sell_volume_usd: "Sell volume",
+  pattern_type: "Pattern",
+  n_buyers: "Buyers",
+  n_sellers: "Sellers",
+  n_wallets: "Wallets in the group",
+  size: "Size",
+  kind: "Kind",
+  start_block: "Start block",
+  end_block: "End block",
+  balance: "Balance",
+  held_days: "Days held",
+  ever_sold: "Ever sold",
+  days_since_sell: "Days since a sell",
+};
+
+const COLUMN_TIPS: Record<string, string> = {
+  why: "Plain-English reason this swap was flagged.",
+  path: "Wallets, transactions, and blocks in the group.",
+  rules: "Which wash rules matched.",
+  is_wash: "Whether this swap belongs to a wash group.",
+  cycle_id: "The wash group this row belongs to.",
+  tx_hash: "The transaction. Open it on Etherscan or copy the full hash.",
+  wallet: "The wallet that traded. Shortened here; copy keeps the full address.",
+  wallets: "Every wallet in this wash group.",
+  confidence: "How tightly the buys and sells match. 100% is an exact match.",
+  wash_volume_usd: "Dollars of this wallet's swaps that the rules flagged.",
+  round_trip_count: "Times this wallet bought and sold with itself.",
+  ring_count: "Circles this wallet sat in, where tokens passed around and came back.",
+  net_ratio: "How far the buys and sells are from cancelling. 0% means they match.",
+  volume_usd: "Dollars traded in the window, flagged or not.",
+  swap_count: "How many swaps this wallet made.",
+  buy_volume_usd: "Dollars this wallet spent buying the token.",
+  sell_volume_usd: "Dollars this wallet received selling the token.",
+  usd_value: "Dollar value of this swap.",
+  sum_usd_value: "Dollar value added up.",
+  sum_wash_usd: "Flagged dollar value added up.",
+  ml_weighted_usd: "Model score times the dollar value.",
+  amount_token: "How much of the loaded token moved.",
+  amount_quote: "How much of the other token moved.",
+  price_source: "Where the dollar price came from: a stablecoin, ETH, a quote pool, or other swaps.",
+  trader: "The wallet that sent the transaction.",
+  sender: "The address the pool recorded as the swap sender. Often a router.",
+  recipient: "The address that received the tokens.",
+  from_address: "The wallet the tokens moved from.",
+  to_address: "The wallet the tokens moved to.",
+  side: "Whether this swap bought or sold the loaded token.",
+  pool_address: "The pool the swap traded in.",
+  pattern_type: "The shape of the group: a round trip, a fan, or a circle.",
+  n_buyers: "How many wallets bought in this group.",
+  n_sellers: "How many wallets sold in this group.",
+  n_wallets: "How many wallets are in this group.",
+  size: "How many swaps are in this group.",
+  kind: "Whether the group is a round trip, a passed-along lot, or a circle.",
+  ml_score: "The model's wash score, from 0% to 100%.",
+  balance: "Tokens this wallet held at the end of the window.",
+  held_days: "How long this wallet has held the token.",
+  ever_sold: "Whether this wallet has sold the token.",
+  block_number: "The block the event was in.",
+  block_timestamp: "When the event was mined.",
+  protocol: "Uniswap v2, v3, or v4, or a fork if that option was on.",
+  quote_token: "The other token in the pool.",
 };
 
 const ADDRESS_COLUMNS = new Set([
   "tx_hash",
   "wallet",
+  "wallets",
   "pool_address",
   "sender",
   "recipient",
   "trader",
+  "from_address",
+  "to_address",
   "quote_token",
   "token",
 ]);
 
-const USD_COLUMNS = new Set(["usd_value", "sum_usd_value", "sum_wash_usd", "ml_weighted_usd"]);
+const INTEGER_COLUMNS = new Set([
+  "count",
+  "swap_count",
+  "round_trip_count",
+  "ring_count",
+  "n_buyers",
+  "n_sellers",
+  "n_wallets",
+  "size",
+  "rank",
+  "block_number",
+  "log_index",
+  "fee",
+  "start_block",
+  "end_block",
+  "held_days",
+  "days_since_sell",
+]);
 const TOKEN_COLUMNS = new Set(["amount_token", "sum_amount_token"]);
 const PAGE_SIZE = 50;
 
 function columnLabel(column: string): string {
-  return COLUMN_LABELS[column] ?? column.replaceAll("_", " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
+  if (COLUMN_LABELS[column]) return COLUMN_LABELS[column];
+  const words = column.replaceAll("_", " ");
+  return words.charAt(0).toUpperCase() + words.slice(1);
+}
+
+function columnTip(column: string): string {
+  return COLUMN_TIPS[column] ?? `What ${columnLabel(column).toLowerCase()} means for this row.`;
+}
+
+function isUsd(column: string): boolean {
+  return column === "usd_value" || column.endsWith("_usd") || column.endsWith("_usd_value");
+}
+
+function isPercent(column: string): boolean {
+  return (
+    column === "confidence" ||
+    column === "ml_score" ||
+    column === "heuristic_confidence" ||
+    column.endsWith("_ratio") ||
+    column.endsWith("_fraction")
+  );
 }
 
 function wraps(column: string): boolean {
@@ -269,7 +380,7 @@ function TableCard({ output, noSwaps, symbol }: { output: OutputResult; noSwaps:
                 <tr>
                   {output.columns.map((column) => (
                     <th key={column} className={wraps(column) ? "wrap" : undefined}>
-                      <button type="button" className="sort" onClick={() => toggleSort(column)}>
+                      <button type="button" className="sort" title={columnTip(column)} onClick={() => toggleSort(column)}>
                         {columnLabel(column)}
                         {sort?.column === column ? (sort.dir === "asc" ? " ↑" : " ↓") : ""}
                       </button>
@@ -391,8 +502,19 @@ function Cell({
 
 function AddressCell({ value, tx }: { value: unknown; tx: boolean }) {
   const text = value === null || value === undefined ? "" : String(value);
-  if (!text.startsWith("0x") || text.length < 12) return <>{text}</>;
-  const short = `${text.slice(0, 6)}…${text.slice(-4)}`;
+  const parts = text.split(/[,\s]+/).filter((part) => part.startsWith("0x") && part.length >= 12);
+  if (parts.length === 0) return <>{text}</>;
+  return (
+    <span className="addr-list">
+      {parts.map((part) => (
+        <OneAddress key={part} text={part} tx={tx && parts.length === 1} />
+      ))}
+    </span>
+  );
+}
+
+function OneAddress({ text, tx }: { text: string; tx: boolean }) {
+  const short = `${text.slice(0, 6)}…${text.slice(-5)}`;
   const href = tx ? `https://etherscan.io/tx/${text}` : `https://etherscan.io/address/${text}`;
   return (
     <span className="addr">
@@ -409,17 +531,21 @@ function AddressCell({ value, tx }: { value: unknown; tx: boolean }) {
 function formatCell(value: unknown, column: string, symbol: string): string {
   if (value === null || value === undefined) return "";
   if (typeof value === "boolean") return value ? "yes" : "no";
-  if (USD_COLUMNS.has(column)) {
-    const numeric = Number(value);
-    if (!Number.isFinite(numeric)) return String(value);
-    return numeric.toLocaleString(undefined, { style: "currency", currency: "USD", maximumFractionDigits: 2 });
+  const numeric = typeof value === "number" ? value : Number(value);
+  if (isUsd(column) && Number.isFinite(numeric)) {
+    return numeric.toLocaleString(undefined, { style: "currency", currency: "USD", maximumFractionDigits: 0 });
+  }
+  if (isPercent(column) && Number.isFinite(numeric)) {
+    const pct = numeric * 100;
+    const digits = Number.isInteger(pct) ? 0 : 1;
+    return `${pct.toLocaleString(undefined, { maximumFractionDigits: digits })}%`;
   }
   if (TOKEN_COLUMNS.has(column) || column === "amount_quote") {
-    const numeric = Number(value);
     if (!Number.isFinite(numeric)) return String(value);
     const formatted = numeric.toLocaleString(undefined, { maximumFractionDigits: 4 });
     return TOKEN_COLUMNS.has(column) && symbol ? `${formatted} ${symbol}` : formatted;
   }
+  if (INTEGER_COLUMNS.has(column) && Number.isFinite(numeric)) return Math.round(numeric).toLocaleString();
   if (typeof value === "number") return value.toLocaleString(undefined, { maximumFractionDigits: 4 });
   return String(value);
 }
