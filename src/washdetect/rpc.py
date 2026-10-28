@@ -569,10 +569,9 @@ class RpcClient:
                 continue
             by_id = {item.get("id"): item for item in body if isinstance(item, dict)}
             results = [(by_id.get(rpc_id) or {}).get("result") for rpc_id in ids]
-            # Some endpoints cap a batch and answer the rest with errors; those are not answers.
+            # Some endpoints cap a batch or keep no history and answer with errors; ask the next one.
             if sum(item is None for item in results) * 2 <= len(results):
                 break
-            self.book.refuse_batches(url)
             self.detail(f"batch of {len(chunk)} on {url} came back mostly empty")
         return [
             item if item is not None else self._single(method, params)
