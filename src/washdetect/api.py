@@ -16,7 +16,6 @@ from pydantic import BaseModel, ConfigDict, Field
 from washdetect.config import DEFAULT_DB
 from washdetect.graph.catalog import catalog_payload
 from washdetect.graph.compile import GraphCompileError, compile_graph
-from washdetect.graph.validate import validate_graph
 from washdetect.pipeline import load_token
 from washdetect.querylang.engine import QueryEngine
 from washdetect.querylang.errors import QueryError
@@ -222,12 +221,6 @@ def job(job_id: str) -> dict[str, Any]:
         if not found:
             raise HTTPException(404, "Unknown job.")
         return {"id": job_id, **found}
-
-
-@app.post("/api/graph/validate")
-def validate(body: GraphModel) -> dict[str, Any]:
-    errors = validate_graph(body.plain())
-    return {"ok": not errors, "errors": [item.to_dict() for item in errors]}
 
 
 @app.post("/api/graph/compile")

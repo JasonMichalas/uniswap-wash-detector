@@ -58,10 +58,6 @@ export function fetchTemplate(id: string): Promise<ApiGraph> {
   return request(`/api/templates/${encodeURIComponent(id)}`);
 }
 
-export function validateGraph(graph: ApiGraph): Promise<{ ok: boolean; errors: GraphError[] }> {
-  return request("/api/graph/validate", { method: "POST", body: JSON.stringify(graph) });
-}
-
 export function compileGraph(
   graph: ApiGraph,
 ): Promise<{ ok: boolean; errors: GraphError[]; query: string; sql: string }> {
