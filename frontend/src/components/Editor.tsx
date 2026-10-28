@@ -50,6 +50,7 @@ import { Results, ResultsModal, resultRowCount, resultsWindowLabel } from "./Res
 import { TokenWindow } from "./TokenWindow";
 
 const nodeTypes = { box: BoxNodeView };
+const STALL_SECONDS = 60;
 
 export function Editor({ catalog }: { catalog: Catalog }) {
   const [nodes, setNodes, onNodesChange] = useNodesState<BoxNode>([]);
@@ -65,6 +66,7 @@ export function Editor({ catalog }: { catalog: Catalog }) {
   const [progress, setProgress] = useState("");
   const [forks, setForks] = useState(false);
   const jobRef = useRef<string | null>(null);
+  const [stalled, setStalled] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [loadErrorDetail, setLoadErrorDetail] = useState<string | null>(null);
   const [loaded, setLoaded] = useState<LoadResult | null>(null);
@@ -230,6 +232,7 @@ export function Editor({ catalog }: { catalog: Catalog }) {
     setLoadErrorDetail(null);
     setBanner(null);
     setLoading(true);
+    setStalled(false);
     setProgress("Starting");
     setRun(null);
     setRunError(null);
@@ -242,8 +245,9 @@ export function Editor({ catalog }: { catalog: Catalog }) {
       jobRef.current = jobId;
       for (;;) {
         const job = await fetchJob(jobId);
-        if (!alive.current) return;
+        if (!alive.current || jobRef.current !== jobId) return;
         setProgress(job.message);
+        setStalled(job.status === "running" && job.quiet_for >= STALL_SECONDS);
         if (job.status === "done" && job.result) {
           setLoaded(job.result);
           setLoading(false);
@@ -274,7 +278,15 @@ export function Editor({ catalog }: { catalog: Catalog }) {
   function onCancel() {
     const jobId = jobRef.current;
     if (jobId) void cancelJob(jobId).catch(() => undefined);
+    setStalled(false);
     setProgress("Cancelling…");
+  }
+
+  function onRetry() {
+    const jobId = jobRef.current;
+    jobRef.current = null;
+    if (jobId) void cancelJob(jobId).catch(() => undefined);
+    void onLoad();
   }
 
   async function onRun() {
@@ -459,6 +471,9 @@ export function Editor({ catalog }: { catalog: Catalog }) {
         loadErrorDetail={loadErrorDetail}
         loading={loading}
         progress={progress}
+        stalled={stalled}
+        onRetry={onRetry}
+        onCancel={onCancel}
         loaded={loaded}
         ran={run !== null}
       />

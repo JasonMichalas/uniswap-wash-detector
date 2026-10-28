@@ -9,6 +9,9 @@ export function LoadStatus({
   loadErrorDetail,
   loading,
   progress,
+  stalled,
+  onRetry,
+  onCancel,
   loaded,
   ran,
 }: {
@@ -19,6 +22,9 @@ export function LoadStatus({
   loadErrorDetail: string | null;
   loading: boolean;
   progress: string;
+  stalled: boolean;
+  onRetry: () => void;
+  onCancel: () => void;
   loaded: LoadResult | null;
   ran: boolean;
 }) {
@@ -40,6 +46,17 @@ export function LoadStatus({
             </p>
           )}
           {loading && <p className="banner load-progress">{progress || "Starting"}</p>}
+          {loading && stalled && (
+            <p className="banner warn stalled">
+              No progress for a minute. The free data servers may be slow. Retry keeps everything already saved.
+              <button type="button" onClick={onRetry}>
+                Retry
+              </button>
+              <button type="button" className="text cancel" onClick={onCancel}>
+                Cancel
+              </button>
+            </p>
+          )}
         </div>
       )}
 

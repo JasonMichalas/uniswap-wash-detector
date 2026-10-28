@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 import threading
+import time
 import uuid
 from datetime import datetime
 from pathlib import Path
@@ -160,7 +161,13 @@ def start_load(body: LoadRequest) -> dict[str, str]:
     job_id = uuid.uuid4().hex[:12]
     stopped = threading.Event()
     with _jobs_lock:
-        _jobs[job_id] = {"status": "running", "message": "Starting", "result": None, "error": None}
+        _jobs[job_id] = {
+            "status": "running",
+            "message": "Starting",
+            "result": None,
+            "error": None,
+            "moved_at": time.monotonic(),
+        }
         _cancels[job_id] = stopped
 
     def work() -> None:
@@ -168,6 +175,7 @@ def start_load(body: LoadRequest) -> dict[str, str]:
             with _jobs_lock:
                 if job_id in _jobs and not stopped.is_set():
                     _jobs[job_id]["message"] = message
+                    _jobs[job_id]["moved_at"] = time.monotonic()
 
         try:
             report = load_token(
@@ -220,7 +228,10 @@ def job(job_id: str) -> dict[str, Any]:
         found = _jobs.get(job_id)
         if not found:
             raise HTTPException(404, "Unknown job.")
-        return {"id": job_id, **found}
+        shown = {key: value for key, value in found.items() if key != "moved_at"}
+        # Every progress note means a range finished, so silence means the servers are stuck.
+        quiet = time.monotonic() - found["moved_at"] if found["status"] == "running" else 0.0
+        return {"id": job_id, **shown, "quiet_for": round(quiet)}
 
 
 @app.post("/api/graph/compile")

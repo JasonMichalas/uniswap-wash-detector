@@ -101,6 +101,7 @@ export function fetchJob(id: string): Promise<{
   result: LoadResult | null;
   error: string | null;
   error_detail?: string | null;
+  quiet_for: number;
 }> {
   return request(`/api/jobs/${encodeURIComponent(id)}`);
 }
