@@ -24,6 +24,15 @@ export function CategoryIcon({ name }: { name: string }) {
       </svg>
     );
   }
+  if (name === "questions") {
+    return (
+      <svg {...common}>
+        <circle cx="8" cy="8" r="5.5" />
+        <path d="M6.3 6.4a1.8 1.8 0 1 1 2.5 1.7c-.6.3-.9.7-.9 1.4" />
+        <path d="M8 11.4h.01" strokeLinecap="round" />
+      </svg>
+    );
+  }
   if (name === "detect") {
     return (
       <svg {...common}>

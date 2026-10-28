@@ -339,6 +339,46 @@ const COLUMN_LABELS: Record<string, string> = {
   held_days: "Days held",
   ever_sold: "Ever sold",
   days_since_sell: "Days since a sell",
+  share_percent: "Share",
+  realised_usd: "Realised profit",
+  unrealised_usd: "Unrealised profit",
+  total_usd: "Total profit",
+  cost_status: "Cost",
+  tokens_bought: "Bought",
+  tokens_sold: "Sold",
+  attacker: "Attacker",
+  victim: "Victim",
+  direction: "Direction",
+  profit_usd: "Profit",
+  buy_tx: "Buy transaction",
+  victim_tx: "Victim transaction",
+  sell_tx: "Sell transaction",
+  received_amount: "Received",
+  creator: "Creator",
+  source: "Source",
+  wallet_count: "Wallets",
+  holdings: "Holdings",
+  span_minutes: "Minutes",
+  first_block: "First block",
+  last_block: "Last block",
+  removed_percent: "Removed",
+  removed_usd: "Dollars removed",
+  remover: "Remover",
+  original_adder: "Original adder",
+  same_wallet: "Same wallet",
+  amount_usd: "Dollars",
+  supply_percent: "Share of supply",
+  tag: "Tag",
+  buy_usd: "Bought",
+  sell_usd: "Sold",
+  net_usd: "Net",
+  price_usd: "Price",
+  label: "Label",
+  reason: "Reason",
+  trade_count: "Trades",
+  back_to_back_percent: "Back to back",
+  active_hours: "Hours active",
+  wash_percent: "Wash share",
 };
 
 const COLUMN_TIPS: Record<string, string> = {
@@ -373,7 +413,7 @@ const COLUMN_TIPS: Record<string, string> = {
   recipient: "The address that received the tokens.",
   from_address: "The wallet the tokens moved from.",
   to_address: "The wallet the tokens moved to.",
-  side: "Whether this swap bought or sold the loaded token.",
+  side: "Buy or sell on a swap. Winner, Loser, or Unknown on a profit row.",
   pool_address: "The pool the swap traded in.",
   pattern_type: "The shape of the group: a round trip, a fan, or a circle.",
   n_buyers: "How many wallets bought in this group.",
@@ -383,6 +423,43 @@ const COLUMN_TIPS: Record<string, string> = {
   kind: "Whether the group is a round trip, a passed-along lot, or a circle.",
   ml_score: "The model's wash score, from 0% to 100%.",
   balance: "Tokens this wallet held at the end of the window.",
+  share_percent: "This wallet's balance divided by the balances we could read.",
+  realised_usd: "Dollars from sells minus the average cost of buys in this window.",
+  unrealised_usd: "Tokens still held, at the last trade price, minus the average buy cost.",
+  total_usd: "Realised plus unrealised. Blank when the cost is unknown.",
+  cost_status: "Known uses buys in this window. Unknown means the earlier price is not here.",
+  tokens_bought: "Tokens bought in this window.",
+  tokens_sold: "Tokens sold in this window.",
+  attacker: "The wallet that traded on both sides of the victim.",
+  victim: "The wallet that traded between the attacker's two trades.",
+  profit_usd: "The attacker's sell dollars minus their buy dollars.",
+  buy_tx: "The attacker's buy. Open it on Etherscan.",
+  victim_tx: "The victim's swap. Open it on Etherscan.",
+  sell_tx: "The attacker's sell. Open it on Etherscan.",
+  received_amount: "Tokens this wallet received from the creator.",
+  creator: "The creator address used for this row.",
+  source: "The wallet that sent these holders their first tokens.",
+  wallet_count: "How many wallets are in this cluster.",
+  holdings: "Their end balances added up.",
+  span_minutes: "Minutes from the first funding in the cluster to the last.",
+  removed_percent: "Share of the liquidity added in this window that was removed.",
+  removed_usd: "Dollar value. Blank when the pool units cannot be priced.",
+  remover: "The wallet that removed the most in this pull.",
+  original_adder: "The wallet that added liquidity first in this window.",
+  same_wallet: "Whether the remover is the original adder.",
+  amount_usd: "Transfer size at the average trade price in this window.",
+  supply_percent: "Transfer size divided by the balances we could read.",
+  tag: "Sent to an exchange, withdrew from an exchange, or just a large transfer.",
+  buy_usd: "Dollars bought in this hour.",
+  sell_usd: "Dollars sold in this hour.",
+  net_usd: "Dollars bought minus dollars sold.",
+  price_usd: "Average dollar price of the token in this hour.",
+  label: "Bot or Human.",
+  reason: "Which check matched, in plain language.",
+  trade_count: "How many swaps this wallet made.",
+  back_to_back_percent: "Share of steps from one trade to the next that land in the same block or the next one.",
+  active_hours: "Hours from the first trade to the last.",
+  wash_percent: "Flagged wash dollars divided by all swap dollars that day.",
   held_days: "How long this wallet has held the token.",
   ever_sold: "Whether this wallet has sold the token.",
   block_number: "The block the event was in.",
@@ -403,6 +480,15 @@ const ADDRESS_COLUMNS = new Set([
   "to_address",
   "quote_token",
   "token",
+  "attacker",
+  "victim",
+  "source",
+  "creator",
+  "remover",
+  "original_adder",
+  "buy_tx",
+  "victim_tx",
+  "sell_tx",
 ]);
 
 const INTEGER_COLUMNS = new Set([
@@ -422,8 +508,19 @@ const INTEGER_COLUMNS = new Set([
   "end_block",
   "held_days",
   "days_since_sell",
+  "wallet_count",
+  "trade_count",
+  "first_block",
+  "last_block",
 ]);
-const TOKEN_COLUMNS = new Set(["amount_token", "sum_amount_token"]);
+const TOKEN_COLUMNS = new Set([
+  "amount_token",
+  "sum_amount_token",
+  "tokens_bought",
+  "tokens_sold",
+  "received_amount",
+  "holdings",
+]);
 const PAGE_SIZE = 50;
 
 function columnLabel(column: string): string {
@@ -446,12 +543,13 @@ function isPercent(column: string): boolean {
     column === "ml_score" ||
     column === "heuristic_confidence" ||
     column.endsWith("_ratio") ||
-    column.endsWith("_fraction")
+    column.endsWith("_fraction") ||
+    column.endsWith("_percent")
   );
 }
 
 function wraps(column: string): boolean {
-  return column === "why" || column === "path" || column === "rules" || column === "wallets_used";
+  return column === "why" || column === "path" || column === "rules" || column === "wallets_used" || column === "reason";
 }
 
 type FlowStep = {
@@ -562,6 +660,7 @@ function TableCard({ output, noSwaps, symbol }: { output: OutputResult; noSwaps:
         </p>
       ) : (
         <>
+          {output.note && <p className="hint">{output.note}</p>}
           <div className="table-scroll">
             <table>
               <thead>
@@ -648,22 +747,57 @@ function TableCard({ output, noSwaps, symbol }: { output: OutputResult; noSwaps:
 
 function ChartCard({ output }: { output: OutputResult }) {
   const rows = output.rows;
+  const pressure = rows.some((row) => row.buy_usd !== undefined || row.sell_usd !== undefined);
+  const washShare = !pressure && rows.some((row) => row.wash_percent !== undefined && row.wash_percent !== null);
   const totals = rows.map((row) => numberOf(row.sum_usd_value));
   const wash = rows.map((row) => numberOf(row.sum_wash_usd));
   const hasWash = rows.some((row) => row.sum_wash_usd !== undefined && row.sum_wash_usd !== null);
-  const max = Math.max(1, ...totals, ...wash);
+  const max = pressure
+    ? Math.max(1, ...rows.map((row) => Math.max(numberOf(row.buy_usd), numberOf(row.sell_usd))))
+    : Math.max(1, ...totals, ...wash);
   return (
     <article className="chart-card">
       <h3>{output.title}</h3>
+      {output.note && <p className="hint">{output.note}</p>}
       {rows.length === 0 ? (
-        <p className="muted">No days to plot.</p>
+        output.note ? null : <p className="muted">No days to plot.</p>
       ) : (
         <div className="bars" role="img" aria-label={output.title}>
           {rows.map((row, index) => {
+            const label = String(row.day ?? row.wallet ?? row.pool_address ?? index);
+            if (pressure) {
+              const buy = numberOf(row.buy_usd);
+              const sell = numberOf(row.sell_usd);
+              const price = row.price_usd == null ? "" : ` · ${numberOf(row.price_usd).toLocaleString(undefined, { style: "currency", currency: "USD", maximumFractionDigits: 4 })}`;
+              return (
+                <div key={label} className="bar-col" title={`${label}: bought ${buy}, sold ${sell}${price}`}>
+                  <div className="bar pair">
+                    <span className="buy" style={{ height: `${(buy / max) * 100}%` }} />
+                    <span className="sell" style={{ height: `${(sell / max) * 100}%` }} />
+                  </div>
+                  <span className="bar-label">{label.slice(5, 16)}</span>
+                  {row.price_usd != null && (
+                    <span className="bar-price">
+                      {numberOf(row.price_usd).toLocaleString(undefined, { style: "currency", currency: "USD", maximumFractionDigits: 2 })}
+                    </span>
+                  )}
+                </div>
+              );
+            }
+            if (washShare) {
+              const share = numberOf(row.wash_percent);
+              return (
+                <div key={label} className="bar-col" title={`${label}: ${(share * 100).toFixed(1)}% wash`}>
+                  <div className="bar">
+                    <span className="wash" style={{ height: `${share * 100}%` }} />
+                  </div>
+                  <span className="bar-label">{label.slice(5)}</span>
+                </div>
+              );
+            }
             const total = totals[index] ?? 0;
             const washPart = Math.min(wash[index] ?? 0, total);
             const rest = Math.max(0, total - washPart);
-            const label = String(row.day ?? row.wallet ?? row.pool_address ?? index);
             return (
               <div key={label} className="bar-col" title={`${label}: ${total}`}>
                 <div className="bar">
@@ -677,10 +811,23 @@ function ChartCard({ output }: { output: OutputResult }) {
         </div>
       )}
       <p className="legend">
-        <i className="swatch rest" /> volume
-        {hasWash && (
+        {pressure ? (
           <>
-            <i className="swatch wash" /> flagged wash
+            <i className="swatch buy" /> bought
+            <i className="swatch sell" /> sold
+          </>
+        ) : washShare ? (
+          <>
+            <i className="swatch wash" /> wash share of volume
+          </>
+        ) : (
+          <>
+            <i className="swatch rest" /> volume
+            {hasWash && (
+              <>
+                <i className="swatch wash" /> flagged wash
+              </>
+            )}
           </>
         )}
       </p>
@@ -699,7 +846,7 @@ function Cell({
   symbol: string;
   expanded: boolean;
 }) {
-  if (ADDRESS_COLUMNS.has(column)) return <AddressCell value={value} tx={column === "tx_hash"} />;
+  if (ADDRESS_COLUMNS.has(column)) return <AddressCell value={value} tx={column === "tx_hash" || column.endsWith("_tx")} />;
   const text = formatCell(value, column, symbol);
   if (!wraps(column)) return <>{text}</>;
   return <span className={expanded ? "wrap-text open" : "wrap-text"}>{text}</span>;

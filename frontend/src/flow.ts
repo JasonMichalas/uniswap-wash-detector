@@ -91,6 +91,7 @@ export function sourceLabel(catalog: Catalog, nodeType: string, params: Record<s
 
 export function canConnectTypes(src: string, dst: string, catalog: Catalog): boolean {
   if (dst === "rows") return catalog.connect.rows.includes(src);
+  if (dst === "grouped") return (catalog.connect.chart ?? ["grouped"]).includes(src);
   if (dst === "timed") return catalog.connect.timed.includes(src);
   if (dst === "walletish") return catalog.connect.walletish.includes(src);
   if (dst === "scoreable") return catalog.connect.scoreable.includes(src);
@@ -124,6 +125,11 @@ function produce(
 ): Record<string, StreamInfo> {
   const ntype = node.data.nodeType;
   const params = node.data.params;
+  const definition = nodeDef(catalog, ntype);
+  if (definition?.category === "insight") {
+    const typeName = String(definition.outputs[0]?.type ?? ntype);
+    return { out: { type: typeName, fields: catalog.types[typeName] ?? [] } };
+  }
   if (ntype === "source") {
     const source = String(params.source ?? "");
     const typeName = catalog.source_types[source];
@@ -265,7 +271,22 @@ export function nextSteps(typeName: string | undefined): Array<{
     return [condition, { nodeType: "group_by", label: "Group by", params: { by: "day" } }, sort, table];
   }
   if (typeName === "transfers") return [{ nodeType: "detect_cycles", label: "Find wash groups", params: {} }, table];
-  if (typeName === "grouped") return [{ nodeType: "output_chart", label: "Chart", params: { title: "Volume" } }, table];
+  if (typeName === "grouped" || typeName === "pressure" || typeName === "wash_over_time") {
+    const title = typeName === "pressure" ? "Buy vs sell" : typeName === "wash_over_time" ? "Wash share" : "Volume";
+    return [{ nodeType: "output_chart", label: "Chart", params: { title } }, table];
+  }
+  if (
+    typeName === "concentration" ||
+    typeName === "pnl" ||
+    typeName === "sandwich" ||
+    typeName === "insiders" ||
+    typeName === "fake_holders" ||
+    typeName === "liquidity_pull" ||
+    typeName === "whales" ||
+    typeName === "bots"
+  ) {
+    return [table];
+  }
   if (typeName === "scalar") return [{ nodeType: "output_number", label: "Number", params: { title: "Result", format: "number" } }];
   if (typeName === "cycles") return [sort, table];
   return [sort, first, table];

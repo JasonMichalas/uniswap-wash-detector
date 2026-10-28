@@ -103,6 +103,7 @@ function BoxTip({ anchor, text }: { anchor: HTMLElement; text: string }) {
 function friendlyCategory(category: string | undefined): string {
   if (category === "source") return "Data";
   if (category === "filter") return "Filter";
+  if (category === "insight") return "Questions";
   if (category === "detector") return "Detect";
   if (category === "aggregate" || category === "arrange") return "Combine";
   if (category === "output") return "Show";

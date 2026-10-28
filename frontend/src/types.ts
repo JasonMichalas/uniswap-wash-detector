@@ -42,6 +42,7 @@ export type Catalog = {
   source_types: Record<string, string>;
   connect: {
     rows: string[];
+    chart?: string[];
     timed: string[];
     walletish: string[];
     scoreable: string[];

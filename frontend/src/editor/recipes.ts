@@ -222,4 +222,134 @@ export const RECIPES: Recipe[] = [
       ],
     ),
   },
+  {
+    id: "concentration",
+    title: "How concentrated is ownership?",
+    blurb: "Share held by the biggest wallets, and a Gini score. Change how many in the box.",
+    graph: chain(
+      "How concentrated is ownership?",
+      [
+        { id: "q1", type: "concentration", data: { top_n: 10 } },
+        { id: "out1", type: "output_table", data: { title: "Holder concentration" } },
+      ],
+      [{ from: "q1", to: "out1" }],
+    ),
+  },
+  {
+    id: "pnl",
+    title: "Who made or lost money?",
+    blurb: "Top winners and losers. Cost stays blank when the buy was before this window.",
+    graph: chain(
+      "Who made or lost money?",
+      [
+        { id: "q1", type: "pnl", data: { top_n: 10 } },
+        { id: "out1", type: "output_table", data: { title: "Profit and loss" } },
+      ],
+      [{ from: "q1", to: "out1" }],
+    ),
+  },
+  {
+    id: "sandwich",
+    title: "Sandwich attacks",
+    blurb: "Same wallet, same block, same pool, around someone else's swap.",
+    graph: chain(
+      "Sandwich attacks",
+      [
+        { id: "q1", type: "sandwich", data: {} },
+        { id: "out1", type: "output_table", data: { title: "Sandwich attacks" } },
+      ],
+      [{ from: "q1", to: "out1" }],
+    ),
+  },
+  {
+    id: "insiders",
+    title: "Insiders who sold",
+    blurb: "Got the token from the creator, then sold. Paste a creator if the box cannot find one.",
+    graph: chain(
+      "Insiders who sold",
+      [
+        { id: "q1", type: "insiders", data: { creator: "" } },
+        { id: "out1", type: "output_table", data: { title: "Insiders" } },
+      ],
+      [{ from: "q1", to: "out1" }],
+    ),
+  },
+  {
+    id: "fake-holders",
+    title: "Fake holders",
+    blurb: "At least 5 wallets first funded by one source within 1 hour.",
+    graph: chain(
+      "Fake holders",
+      [
+        { id: "q1", type: "fake_holders", data: { minutes: 60, min_wallets: 5 } },
+        { id: "out1", type: "output_table", data: { title: "Fake holders" } },
+      ],
+      [{ from: "q1", to: "out1" }],
+    ),
+  },
+  {
+    id: "liquidity-pulls",
+    title: "Liquidity pulls",
+    blurb: "A pool lost at least 50% of the liquidity added here, within 1 hour.",
+    graph: chain(
+      "Liquidity pulls",
+      [
+        { id: "q1", type: "liquidity_pull", data: { minutes: 60, percent: 50 } },
+        { id: "out1", type: "output_table", data: { title: "Liquidity pulls" } },
+      ],
+      [{ from: "q1", to: "out1" }],
+    ),
+  },
+  {
+    id: "whales",
+    title: "Whale moves",
+    blurb: "Transfers of at least $100,000 or 1% of the balances we could read.",
+    graph: chain(
+      "Whale moves",
+      [
+        { id: "q1", type: "whales", data: { usd: 100000, percent: 1 } },
+        { id: "out1", type: "output_table", data: { title: "Whale moves" } },
+      ],
+      [{ from: "q1", to: "out1" }],
+    ),
+  },
+  {
+    id: "pressure",
+    title: "Buy vs sell pressure",
+    blurb: "Each hour's dollars bought and sold, with the price under the bars.",
+    graph: chain(
+      "Buy vs sell pressure",
+      [
+        { id: "q1", type: "pressure", data: {} },
+        { id: "out1", type: "output_chart", data: { title: "Buy vs sell pressure" } },
+      ],
+      [{ from: "q1", to: "out1" }],
+    ),
+  },
+  {
+    id: "bots",
+    title: "Bots vs humans",
+    blurb: "A bot or person label, and the reason, for busy wallets.",
+    graph: chain(
+      "Bots vs humans",
+      [
+        { id: "q1", type: "bots", data: { top_n: 10 } },
+        { id: "out1", type: "output_table", data: { title: "Bots vs humans" } },
+      ],
+      [{ from: "q1", to: "out1" }],
+    ),
+  },
+  {
+    id: "wash-over-time",
+    title: "Wash share over time",
+    blurb: "Each day's flagged wash dollars as a percent of that day's volume.",
+    graph: chain(
+      "Wash share over time",
+      [
+        { id: "q1", type: "wash_over_time", data: {} },
+        { id: "out1", type: "output_chart", data: { title: "Wash share over time" } },
+      ],
+      [{ from: "q1", to: "out1" }],
+    ),
+  },
 ];

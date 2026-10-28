@@ -1,6 +1,7 @@
 import {
   groupKeysFor,
   inferOutputs,
+  nodeDef,
   inputOnHandle,
   singleInput,
   sourceLabel,
@@ -55,6 +56,7 @@ export function Inspector({
     );
   }
   const outputs = inferOutputs(nodes, edges, catalog);
+  const definition = nodeDef(catalog, node.data.nodeType);
   const input = singleInput(node, edges, outputs, catalog);
   const part = inputOnHandle(node, "in_part", edges, outputs);
   const whole = inputOnHandle(node, "in_whole", edges, outputs);
@@ -242,6 +244,28 @@ export function Inspector({
           onChange={(value) => update("title", value)}
         />
       )}
+      {definition?.category === "insight" &&
+        definition.params.map((param) =>
+          param.kind === "number" ? (
+            <NumberField
+              key={param.name}
+              label={settingLabel(node.data.nodeType, param.name)}
+              hint={hint(param.name)}
+              value={node.data.params[param.name]}
+              min={insightBound(param.name, "min")}
+              max={insightBound(param.name, "max")}
+              onChange={(value) => update(param.name, value)}
+            />
+          ) : (
+            <TextField
+              key={param.name}
+              label={settingLabel(node.data.nodeType, param.name)}
+              hint={hint(param.name)}
+              value={node.data.params[param.name]}
+              onChange={(value) => update(param.name, value)}
+            />
+          ),
+        )}
       <button type="button" className="ghost danger" onClick={() => onDelete(node.id)}>
         Remove box
       </button>
@@ -574,6 +598,18 @@ function TextField({
       {hint && <span className="hint">{hint}</span>}
     </label>
   );
+}
+
+function insightBound(name: string, edge: "min" | "max"): number {
+  const bounds: Record<string, [number, number]> = {
+    top_n: [1, 100],
+    minutes: [1, 10080],
+    min_wallets: [2, 500],
+    percent: [0, 100],
+    usd: [0, 1_000_000_000_000],
+  };
+  const pair = bounds[name] ?? [0, 1_000_000];
+  return edge === "min" ? pair[0] : pair[1];
 }
 
 function finite(value: unknown, fallback: number): number {

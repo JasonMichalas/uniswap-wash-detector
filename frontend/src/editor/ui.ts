@@ -5,6 +5,7 @@ export const PRESETS = [7, 30, 60, 90];
 export const GROUPS: { id: string; title: string; categories: string[] }[] = [
   { id: "data", title: "Data", categories: ["source"] },
   { id: "filter", title: "Filter", categories: ["filter"] },
+  { id: "questions", title: "Questions", categories: ["insight"] },
   { id: "detect", title: "Detect", categories: ["detector"] },
   { id: "combine", title: "Combine", categories: ["aggregate", "arrange"] },
   { id: "show", title: "Show", categories: ["output"] },

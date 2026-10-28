@@ -30,6 +30,7 @@ html[data-theme="light"] {
   --cat-detect: #8a3d3d;
   --cat-combine: #3d6b4f;
   --cat-show: #3f4d8a;
+  --cat-questions: #5c4d8a;
   --handle-ring: #ffffff;
   --menu-shadow: 0 8px 24px rgba(28, 25, 21, 0.12);
 }
@@ -65,6 +66,7 @@ html[data-theme="dark"] {
   --cat-detect: #e09a90;
   --cat-combine: #8fbf9e;
   --cat-show: #a8b4e4;
+  --cat-questions: #c4b6e0;
   --handle-ring: #211f1c;
   --menu-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
 }
@@ -396,6 +398,7 @@ button.theme { flex: none; border: 1px solid var(--line); background: var(--pane
 .tool-label.cat-detect { color: var(--cat-detect); }
 .tool-label.cat-combine { color: var(--cat-combine); }
 .tool-label.cat-show { color: var(--cat-show); }
+.tool-label.cat-questions { color: var(--cat-questions); }
 
 .tool-chips { display: flex; gap: 6px; }
 
@@ -443,6 +446,7 @@ button.theme { flex: none; border: 1px solid var(--line); background: var(--pane
 .chip.cat-detect { box-shadow: inset 3px 0 0 var(--cat-detect); }
 .chip.cat-combine { box-shadow: inset 3px 0 0 var(--cat-combine); }
 .chip.cat-show { box-shadow: inset 3px 0 0 var(--cat-show); }
+.chip.cat-questions { box-shadow: inset 3px 0 0 var(--cat-questions); }
 
 .examples { position: relative; flex: none; align-self: flex-end; }
 
@@ -477,6 +481,14 @@ button.theme { flex: none; border: 1px solid var(--line); background: var(--pane
 
 .examples li button:hover { background: var(--panel-2); }
 .examples li button span { color: var(--muted); font-size: 12px; font-weight: 400; }
+
+.quick-start ul {
+  width: min(760px, 94vw);
+  max-height: min(78vh, 840px);
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2px;
+}
 
 .action-bar {
   flex: none;
@@ -681,6 +693,7 @@ button.show-results {
 .box.cat-detector { --swatch: var(--cat-detect); }
 .box.cat-aggregate, .box.cat-arrange { --swatch: var(--cat-combine); }
 .box.cat-output { --swatch: var(--cat-show); }
+.box.cat-insight { --swatch: var(--cat-questions); }
 .box { border-top: 3px solid var(--swatch); }
 
 .react-flow__node.selected .box { border-color: var(--accent); }
@@ -869,9 +882,13 @@ th { color: var(--muted); font-weight: 600; }
 .bars { display: flex; align-items: flex-end; gap: 4px; height: 120px; overflow-x: auto; }
 .bar-col { display: flex; flex-direction: column; align-items: center; min-width: 18px; height: 100%; }
 .bar { flex: 1; width: 12px; display: flex; flex-direction: column; justify-content: flex-end; }
-.bar .rest, .swatch.rest { background: var(--rest); }
-.bar .wash, .swatch.wash { background: var(--wash); }
+.bar .rest, .swatch.rest, .bar .buy, .swatch.buy { background: var(--rest); }
+.bar .wash, .swatch.wash, .bar .sell, .swatch.sell { background: var(--wash); }
+.bar.pair { flex-direction: row; align-items: flex-end; gap: 2px; }
+.bar-price { display: block; color: var(--muted); font-size: 10px; text-align: center; }
 .bar span { display: block; width: 100%; min-height: 0; }
+.bar.pair { width: 16px; }
+.bar.pair span { width: 6px; flex: none; }
 .bar-label { font-size: 10px; color: var(--muted); margin-top: 4px; }
 .legend { display: flex; gap: 8px; align-items: center; color: var(--muted); font-size: 13px; }
 .swatch { width: 10px; height: 10px; display: inline-block; border-radius: 2px; }
