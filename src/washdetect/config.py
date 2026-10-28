@@ -80,6 +80,7 @@ RULE_IDS = ("R1", "R2", "R3", "R4", "R5", "R6")
 # those and says "10000" while actually capping near 100 blocks; Blast caps at 10.
 DEFAULT_RPCS = (
     "https://rpc.mevblocker.io",
+    "https://gateway.tenderly.co/public/mainnet",
     "https://ethereum-rpc.publicnode.com",
     "https://rpc.flashbots.net",
     "https://eth.drpc.org",
