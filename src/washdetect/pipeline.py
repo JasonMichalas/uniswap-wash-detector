@@ -127,7 +127,9 @@ def fetch_balances(
         found: dict[str, float] = {}
         calls = [(token, True, encode_balance_of(wallet)) for wallet in part]
         try:
-            decoded = decode_aggregate3(client.eth_call(MULTICALL3, encode_aggregate3(calls), block))
+            decoded = decode_aggregate3(
+                client.eth_call(MULTICALL3, encode_aggregate3(calls), block)
+            )
         except Exception:
             for wallet in part:
                 try:
@@ -221,7 +223,9 @@ def format_load_line(
 ) -> str:
     """One status line. The phase does not carry its own percentage."""
     swap_bit = f"{swaps:,} swaps found" if swaps_started else "swaps not started yet"
-    transfer_bit = f"{transfers:,} transfers found" if transfers_started else "transfers not started yet"
+    transfer_bit = (
+        f"{transfers:,} transfers found" if transfers_started else "transfers not started yet"
+    )
     counts = f"{swap_bit} · {transfer_bit}"
     tail = f"{elapsed:.0f}s elapsed · {network:,} blocks from network, {cached:,} cached"
     if not show_blocks or end <= 0:
@@ -249,7 +253,10 @@ def render_progress(
     if found:
         stats["at"] = int(found.group(1).replace(",", ""))
         stats["end"] = int(found.group(2).replace(",", ""))
-    phase = _EMBEDDED_PCT.sub("", _PHASE_NOISE.sub("", message.split(" · ")[0])).strip(" :") or "Working"
+    phase = (
+        _EMBEDDED_PCT.sub("", _PHASE_NOISE.sub("", message.split(" · ")[0])).strip(" :")
+        or "Working"
+    )
     if phase.startswith("Reading swaps"):
         stats["swaps_started"] = 1
     if phase.startswith("Reading transfers"):
@@ -307,6 +314,7 @@ def load_token(
         "network": 0,
         "cached": 0,
     }
+
     def say(message: str) -> None:
         raw_progress(
             render_progress(
@@ -361,8 +369,16 @@ def load_token(
         store.save_pools(
             [
                 (
-                    token, p.pool_address, p.protocol, p.token0, p.token1, p.fee,
-                    p.token0_decimals, p.token1_decimals, p.token0_symbol, p.token1_symbol,
+                    token,
+                    p.pool_address,
+                    p.protocol,
+                    p.token0,
+                    p.token1,
+                    p.fee,
+                    p.token0_decimals,
+                    p.token1_decimals,
+                    p.token0_symbol,
+                    p.token1_symbol,
                 )
                 for p in pools
             ]
@@ -382,12 +398,28 @@ def load_token(
             swap_logs, _ = _together(
                 stop,
                 lambda halt: _fetch_planned(
-                    store, swap_client, token, pools, groups, start_block, end_block,
-                    head_ts, say, halt, meter,
+                    store,
+                    swap_client,
+                    token,
+                    pools,
+                    groups,
+                    start_block,
+                    end_block,
+                    head_ts,
+                    say,
+                    halt,
+                    meter,
                 ),
                 lambda halt: _fetch_transfers(
-                    store, transfer_client, token, decimals, transfer_gaps, end_block,
-                    head_ts, halt, meter,
+                    store,
+                    transfer_client,
+                    token,
+                    decimals,
+                    transfer_gaps,
+                    end_block,
+                    head_ts,
+                    halt,
+                    meter,
                 ),
             )
         finally:
@@ -444,7 +476,9 @@ def load_token(
         )
         if report.swaps == 0:
             # The whole window was checked. blocks_fetched is only the part that was not cached.
-            report.notes.insert(0, _empty_window_note(token, start_ts, report.swap_logs, span_blocks))
+            report.notes.insert(
+                0, _empty_window_note(token, start_ts, report.swap_logs, span_blocks)
+            )
         say(
             f"Cached {report.swaps:,} swaps and {report.transfers:,} transfers "
             f"in {report.seconds:.1f}s. No analysis was run."
@@ -577,8 +611,18 @@ def _fetch_planned(
     for gaps, group in groups.items():
         for gap_start, gap_end in gaps:
             raw += _fetch_one_gap(
-                store, client, token, group, gap_start, gap_end, start_block, end_block,
-                head_ts, say, cancel, on_read,
+                store,
+                client,
+                token,
+                group,
+                gap_start,
+                gap_end,
+                start_block,
+                end_block,
+                head_ts,
+                say,
+                cancel,
+                on_read,
             )
     return raw
 
@@ -592,7 +636,9 @@ _LOG_SPAN = 20_000
 
 def _too_many_addresses(message: str) -> bool:
     text = message.lower()
-    return "address" in text and any(hint in text for hint in ("maximum", "too many", "limit", "allowed", "exceed"))
+    return "address" in text and any(
+        hint in text for hint in ("maximum", "too many", "limit", "allowed", "exceed")
+    )
 
 
 def _event_topics(chunk: list[PoolMeta]) -> list[str]:
@@ -627,7 +673,9 @@ def _fetch_one_gap(
     v4 = [pool for pool in group if protocol_family(pool.protocol) == "v4"]
     rest = [pool for pool in group if protocol_family(pool.protocol) != "v4"]
 
-    def consume(logs: list[dict[str, Any]], pools_in_call: list[PoolMeta], frm: int, to: int) -> None:
+    def consume(
+        logs: list[dict[str, Any]], pools_in_call: list[PoolMeta], frm: int, to: int
+    ) -> None:
         nonlocal raw
         by_addr = {pool.pool_address: pool for pool in pools_in_call}
         by_id = {pool.pool_address.lower(): pool for pool in pools_in_call}
@@ -659,7 +707,9 @@ def _fetch_one_gap(
     for offset in range(0, len(v4), _V4_ID_BATCH):
         chunk = v4[offset : offset + _V4_ID_BATCH]
         topics = [_pool_topics("v4")[0], [pool.pool_address for pool in chunk]]
-        _scan(client, chunk, POOL_MANAGER, topics, gap_start, gap_end, workers, span, cancel, consume)
+        _scan(
+            client, chunk, POOL_MANAGER, topics, gap_start, gap_end, workers, span, cancel, consume
+        )
     return raw
 
 
@@ -846,15 +896,34 @@ def _store_pool_logs(
         if kind == "swap":
             swaps.append(
                 _swap_tuple(
-                    token, tx_hash, log_index, block, ts, pool.pool_address, pool.protocol,
-                    fields["sender"], fields["recipient"], None, fields, None,
+                    token,
+                    tx_hash,
+                    log_index,
+                    block,
+                    ts,
+                    pool.pool_address,
+                    pool.protocol,
+                    fields["sender"],
+                    fields["recipient"],
+                    None,
+                    fields,
+                    None,
                 )
             )
         else:
             liquidity.append(
                 (
-                    token, tx_hash, log_index, block, ts, pool.pool_address, pool.protocol,
-                    fields["kind"], fields["sender"], fields["amount0_raw"], fields["amount1_raw"],
+                    token,
+                    tx_hash,
+                    log_index,
+                    block,
+                    ts,
+                    pool.pool_address,
+                    pool.protocol,
+                    fields["kind"],
+                    fields["sender"],
+                    fields["amount0_raw"],
+                    fields["amount1_raw"],
                 )
             )
     store.insert_swaps(swaps)
@@ -879,9 +948,7 @@ def _store_transfers(
     for log in logs:
         raw_ts = _log_ts(log)
         if raw_ts is not None:
-            embedded[_hex_int(log["blockNumber"])] = _naive(
-                datetime.fromtimestamp(raw_ts, UTC)
-            )
+            embedded[_hex_int(log["blockNumber"])] = _naive(datetime.fromtimestamp(raw_ts, UTC))
     if allow_rpc:
         stamps = fetch_timestamps(client, store, numbers, head, head_ts)
         stamps.update(embedded)
@@ -921,6 +988,9 @@ def _store_transfers(
     store.insert_transfers(rows)
 
 
+_SENDER_PART = 2_000
+
+
 def _resolve_traders(
     store: Store, client: RpcClient, token: str, start: int, end: int, say: Progress
 ) -> None:
@@ -929,17 +999,22 @@ def _resolve_traders(
         return
     known = store.known_senders(missing)
     need = [tx for tx in missing if tx not in known]
-    say(f"Looking up {len(need)} transaction senders ({len(known)} cached)")
-    fetched: list[tuple[str, str]] = []
-    calls = [("eth_getTransactionByHash", [tx]) for tx in need]
-    results = client.batch(calls) if need else []
-    for tx, result in zip(need, results, strict=False):
-        if isinstance(result, dict) and result.get("from"):
+    # Saved in parts so a lookup that is stopped halfway picks up where it was.
+    for done in range(0, len(need), _SENDER_PART):
+        say(f"Looking up transaction senders: {done:,} of {len(need):,} ({len(known):,} cached)")
+        part = need[done : done + _SENDER_PART]
+        fetched = [
             # tx.from is the trader. Swap.sender is often the router.
-            sender = normalize_address(str(result["from"]))
-            known[tx] = sender
-            fetched.append((tx, sender))
-    store.remember_senders(fetched)
+            (tx, normalize_address(str(result["from"])))
+            for tx, result in zip(
+                part,
+                client.batch([("eth_getTransactionByHash", [tx]) for tx in part]),
+                strict=False,
+            )
+            if isinstance(result, dict) and result.get("from")
+        ]
+        store.remember_senders(fetched)
+        store.apply_traders(token, fetched)
     store.apply_traders(token, list(known.items()))
 
 
@@ -983,7 +1058,9 @@ def _price_swaps(
         quotes = sorted({str(row["quote"]) for row in rows if row["usd"] is None and row["quote"]})
 
         def sample(quote: str) -> list[tuple[int, float]]:
-            blocks = [int(row["block"]) for row in rows if row["quote"] == quote and row["usd"] is None]
+            blocks = [
+                int(row["block"]) for row in rows if row["quote"] == quote and row["usd"] is None
+            ]
             return oracle.samples(quote, blocks, eth_usd)
 
         workers = 1 if getattr(client, "_transport", None) is not None else 6
