@@ -312,7 +312,7 @@ Window: the last 7 day(s) ending when each token was fetched, Ethereum mainnet, 
 
 Train tokens: 210. Calibration tokens: 1. Test tokens: 90.
 
-Planted groups (kept separate from the chain cache, addresses start with `0x57`) cover every rule: a same-wallet round trip (R1), a partial lot and fan-in / fan-out / many-to-many flows (R2), a 16-wallet chain and a 21-wallet chain, a fan-in whose sell is 3,000 blocks later, a shared funder (R3), rings (R4), a wallet that churns flat (R5), and a buy and a sell in one transaction (R6). A negative decoy, two strangers buying 2 and selling 2 about 40 blocks apart, is inserted and labelled not-wash. Group sizes run from 1 to 21 wallets.
+Planted groups (kept separate from the chain cache, addresses start with `0x57`) cover every rule: a same-wallet round trip (R1), a partial lot and fan-in / fan-out / many-to-many flows (R2), a 16-wallet chain and a 21-wallet chain, a fan-in whose sell is 3,000 blocks later, rings (R4), a wallet that churns flat (R5), and a buy and a sell in one transaction (R6). Two negative decoys are inserted and labelled not-wash: two strangers buying 2 and selling 2 about 40 blocks apart, and wallets with one shared funder but no token path between them (R3 is retired, see Wash policy). Group sizes run from 1 to 21 wallets.
 
 ## Features
 
@@ -348,6 +348,8 @@ Swap-level recall: fraction of planted swaps of that pattern with probability �
 ![Recall by pattern](figures/recall_by_pattern.png)
 
 ## Recall by rule
+
+These tables are from the run before R3 was retired; its R3 rows are kept for the record.
 
 Model precision, recall, and F1 are on planted test swaps of that rule. Other rules' plants are left out of that rule's negatives. Real test swaps are the negatives. Detector recall is the fraction of planted groups on the test tokens whose swaps the rule labelled with that rule id. A 21-wallet chain and the 3,000-block fan-in are scored with a 8,000-block gap and a 32-wallet cap. The other plants use the 200-block, 16-wallet default.
 
@@ -906,6 +908,10 @@ the app defaults (net_ratio 0.05, max_block_gap 7200, max_group_size 24).
 | Flagged trades outside the 740 | 0 | 10 |
 | Groups | | 333 (R2 252, R1 57, R4 24) |
 
+With R3 retired (no shared-funder links), the detector still finds all 30 wallets in one
+component; it flags 658 / 740 CLS trades (88.9%, 89.7% of USD) in 317 groups (R2 236, R1 57,
+R4 24), and the same 10 extra trades.
+
 All 30 wallets fall in one linked component. The 10 extra trades all belong to one holder,
 `0x8a5d87…`, which is not on the CLS list. One gas payer buys about 190M NEXF and another sells
 about 185M through the same contract, alternating over about four days. That is a two-key volume bot,
@@ -969,15 +975,14 @@ databases (for example labelled swaps and wallet features) stay stale until they
 
 - The fixes were tuned on the same 80 cases, so the after figures are optimistic.
 - NexF is one token, one pool and one actor, on Uniswap v2 only.
-- R3 uses each wallet's first inbound transfer within the loaded window, not its true first
-  funder.
+- The figures above include R3, which was later retired (see Wash policy).
 - Labels are from one annotator, and the wide definition counts market makers as wash.
 
 ## Weak supervision
 
 ### Method
 
-Every rule is treated as a noisy vote on every swap: R1–R6, the N-buy/M-sell matcher (an R1 group
+Every rule is treated as a noisy vote on every swap: R1, R2 and R4–R6, the N-buy/M-sell matcher (an R1 group
 with three or more swaps), and the Chainalysis 2025 quick-flip rule (a buy and a sell by the same
 address within 25 blocks, USD within 1%, at least three such pairs). Four votes say "not wash": the
 wallet only trades one side, it has a single swap, the resolver dropped the swap, or its buys and
@@ -993,7 +998,8 @@ not look at (`washdetect.behaviour`): timing regularity and gap spread, 24-hour 
 round token and USD sizes, repeated sizes, first-digit fit, gas price against nearby blocks,
 priority tip, gas-limit variety, top-of-block position, nonce (a proxy for wallet age) and nonce
 rate, fees against volume, profit against volume, pools and contracts used, and the number of
-counterparties. Gas, nonce and the `to` address come from the transaction lookup the loader already
+counterparties. Optional context and funding features are described under Context and funding
+features; the shipped model does not use them. Gas, nonce and the `to` address come from the transaction lookup the loader already
 makes for traders (`tx_meta` table). Fees use gas limit × gas price, an upper bound, because receipts
 are not fetched.
 
@@ -1016,7 +1022,7 @@ used only for the numbers below. `docs/realtest/train_weak.py` trains the model 
 ### Results
 
 95% bootstrap intervals in brackets (1,000 resamples; swaps are resampled by wallet). P and R
-are taken at 0.5, except the weak model, which uses its calibration cut-off (wallet 0.18, swap 0.23).
+are taken at 0.5, except the weak model, which uses its calibration cut-off (wallet 0.10, swap 0.22).
 AP is average precision.
 
 **NexFundAI.** 59 traders, 30 CLS; 827 swaps, 740 CLS. Positives are the majority, so AP has a high
@@ -1024,13 +1030,13 @@ floor (0.51 for wallets, 0.89 for swaps).
 
 | Method | Wallet P | Wallet R | Wallet AP | Swap P | Swap R | Swap AP |
 |---|---|---|---|---|---|---|
-| Rules | 0.94 [0.84, 1.00] | 1.00 [1.00, 1.00] | 0.94 [0.84, 1.00] | 0.98 [0.95, 1.00] | 0.90 [0.86, 0.94] | 0.98 [0.94, 1.00] |
+| Rules | 0.94 [0.84, 1.00] | 1.00 [1.00, 1.00] | 0.94 [0.84, 1.00] | 0.98 [0.95, 1.00] | 0.89 [0.86, 0.93] | 0.97 [0.94, 1.00] |
 | Label model | 0.94 [0.84, 1.00] | 1.00 [1.00, 1.00] | 1.00 [0.98, 1.00] | 0.96 [0.86, 1.00] | 0.33 [0.21, 0.41] | 0.99 [0.96, 1.00] |
 | 25-block rule | – | 0.00 | 0.51 [0.37, 0.63] | – | 0.00 | 0.90 [0.76, 0.97] |
 | Victor & Weintraud | 1.00 [1.00, 1.00] | 1.00 [1.00, 1.00] | 1.00 [1.00, 1.00] | 1.00 [1.00, 1.00] | 0.43 [0.40, 0.46] | 0.94 [0.86, 0.98] |
 | Old XGBoost (synthetic) | – | 0.00 | 1.00 [1.00, 1.00] | – | 0.00 | 1.00 [1.00, 1.00] |
-| Weak XGBoost | 0.94 [0.84, 1.00] | 1.00 [1.00, 1.00] | 0.98 [0.92, 1.00] | 0.93 [0.80, 1.00] | 1.00 [1.00, 1.00] | 1.00 [1.00, 1.00] |
-| Weak XGBoost at 0.5 | 0.97 [0.89, 1.00] | 1.00 [1.00, 1.00] | 0.98 [0.92, 1.00] | 1.00 [1.00, 1.00] | 0.06 [0.03, 0.11] | 1.00 [1.00, 1.00] |
+| Weak XGBoost | 0.91 [0.79, 1.00] | 1.00 [1.00, 1.00] | 1.00 [0.99, 1.00] | 0.93 [0.80, 1.00] | 1.00 [1.00, 1.00] | 1.00 [1.00, 1.00] |
+| Weak XGBoost at 0.5 | 0.97 [0.89, 1.00] | 1.00 [1.00, 1.00] | 1.00 [0.99, 1.00] | 1.00 [1.00, 1.00] | 0.05 [0.02, 0.08] | 1.00 [1.00, 1.00] |
 
 **Hand-checked cases.** The 80 groups plus 20 controls with their original labels (wide: 12
 positives, strict: 3). A group scores the maximum over its swaps (or its wallets for the wallet
@@ -1044,9 +1050,9 @@ models); a control scores the maximum over its wallet's swaps.
 | Victor & Weintraud | 0.21 [0.06, 0.38] | 0.42 [0.12, 0.70] | 0.16 [0.07, 0.29] | 0.12 [0.00, 0.27] | 1.00 | 0.12 [0.04, 0.27] |
 | Old XGBoost, swaps | 0.04 [0.00, 0.14] | 0.08 [0.00, 0.27] | 0.14 [0.08, 0.24] | 0.00 | 0.00 | 0.07 [0.02, 0.16] |
 | Old XGBoost, wallets | 0.17 [0.06, 0.30] | 0.58 [0.30, 0.88] | 0.14 [0.08, 0.25] | 0.07 [0.00, 0.16] | 1.00 | 0.09 [0.03, 0.20] |
-| Weak XGBoost, swaps | 0.16 [0.08, 0.26] | 0.83 [0.60, 1.00] | 0.34 [0.15, 0.65] | 0.05 [0.00, 0.11] | 1.00 | 0.44 [0.12, 1.00] |
-| Weak XGBoost, wallets | 0.16 [0.08, 0.27] | 0.83 [0.60, 1.00] | 0.39 [0.17, 0.70] | 0.05 [0.00, 0.11] | 1.00 | 0.60 [0.24, 1.00] |
-| Weak XGBoost, wallets at 0.5 | 0.25 [0.06, 0.47] | 0.42 [0.13, 0.70] | 0.39 [0.17, 0.70] | 0.15 [0.00, 0.33] | 1.00 | 0.60 [0.24, 1.00] |
+| Weak XGBoost, swaps | 0.17 [0.09, 0.28] | 0.92 [0.73, 1.00] | 0.34 [0.15, 0.65] | 0.05 [0.00, 0.11] | 1.00 | 0.44 [0.12, 1.00] |
+| Weak XGBoost, wallets | 0.14 [0.07, 0.23] | 0.83 [0.60, 1.00] | 0.37 [0.15, 0.63] | 0.04 [0.00, 0.10] | 1.00 | 0.30 [0.09, 0.67] |
+| Weak XGBoost, wallets at 0.5 | 0.25 [0.06, 0.47] | 0.42 [0.13, 0.70] | 0.37 [0.15, 0.63] | 0.15 [0.00, 0.33] | 1.00 | 0.30 [0.09, 0.67] |
 
 **Token-level trade-size tests** (Cong et al. style, on token amounts): first-digit MAD against
 Benford, the share of sizes within 0.1% of a two-significant-figure number divided by its chance
@@ -1056,15 +1062,15 @@ USD:
 | Wash share from | Tokens | Benford MAD | Round-size ratio | Tail exponent |
 |---|---:|---|---|---|
 | Rules | 19 | 0.10 [−0.44, 0.57] | −0.32 [−0.70, 0.18] | 0.43 [−0.13, 0.81] |
-| Weak XGBoost (test tokens only) | 7 | 0.71 [−0.18, 0.96] | 0.32 [−0.87, 0.89] | 0.93 [0.41, 1.00] |
+| Weak XGBoost (test tokens only) | 7 | 0.61 [−0.18, 0.89] | 0.36 [−0.75, 1.00] | 0.96 [0.70, 1.00] |
 
 ### Reading the results
 
-- On NexF every method that fires finds all 30 CLS wallets. At swap level the rules recall 90%
+- On NexF every method that fires finds all 30 CLS wallets. At swap level the rules recall 89%
   of CLS swaps; the weak model ranks them as well (AP 1.00) and recalls all of them at its
   cut-off, with precision 0.93.
 - On the hand-checked cases the weak model ranks better than the rules and the old model (wallet
-  AP 0.39 against 0.30 and 0.14 on the wide labels; 0.60 against 0.09 on the strict ones), but the
+  AP 0.37 against 0.30 and 0.14 on the wide labels; 0.30 against 0.09 on the strict ones), but the
   intervals overlap and there are only 12 wide and 3 strict positives. At its cut-off it flags
   more than the rules, so its precision is lower. The rules stay the primary detector; the weak
   model replaces the synthetic model as the ML score in the app.
@@ -1074,7 +1080,7 @@ USD:
   probabilities are not usable as they stand.
 - The size tests do not agree with the rules' wash share across 19 tokens. The weak model's
   share correlates with the tail exponent on the 7 test tokens, but 7 tokens is too few to rely
-  on. The weak model's share is high on most tokens (RLUSD 92%), so read it as a ranking within
+  on. The weak model's share is high on most tokens (RLUSD 94%), so read it as a ranking within
   a token, not as a wash percentage.
 
 ### Caveats
@@ -1091,6 +1097,119 @@ USD:
 - Training is 12 tokens over four days. NexF is from 2024, when gas prices were different, and it
   is one actor on one pool.
 - Fees are an upper bound (gas limit, not gas used), and nonce is only a proxy for wallet age.
+
+## Wash policy
+
+- A wash group of two or more wallets needs a token transfer path between them (direct, through
+  hops, or a ring). One wallet's own round trip (R1, R5, R6) needs no path.
+- R3 (shared funder or shared exit) no longer creates groups. Sharing a funder is common for
+  wallets of one exchange user or one airdrop, so it is evidence, not proof. It is now only a model
+  feature and is not a vote in the label model.
+
+Each overlapping behaviour has one role:
+
+| Behaviour | Role |
+|---|---|
+| Token path between wallets | Rules (R2, R4); required for any multi-wallet group |
+| Own round trip, flat inventory | Rules (R1, R5) |
+| Buy and sell in one transaction | Rule (R6) |
+| Shared funder, shared exit, fresh-funded wallet | Model features only (batch 2) |
+| Trades per active block | Model feature; counts same-block activity across transactions, which R6 does not |
+| Burstiness, sleepiness | Model features; they overlap mildly with the "slow" not-wash vote |
+| LP is trader | Model feature only |
+
+## Context and funding features
+
+Two optional feature sets were added and tested against the base behaviour set. All three were
+trained on the same split, with the same parameters, labels and calibration tokens; the test sets
+were used only for the numbers below (`docs/realtest/ablate.py`, results in
+`docs/realtest/ablation.json` and `docs/realtest/shap.json`).
+
+**Batch 1, from data already loaded** (`washdetect.context`): first trade time within the window,
+share of volume in the first two days, active days, whether the wallet or its funder provides
+liquidity, wallets sharing the same gas limit and tip (common wallet defaults excluded), burstiness,
+longest quiet gap, trades per active block, day-to-day USD spread, pool fees paid against volume,
+and loss against fees.
+
+**Batch 2, from Blockscout** (`washdetect.funding`): fan-out of the wallet's first ETH funder, whether
+that funder is a hub (more than 2,000 transactions or a known exchange), wallets funded in the same
+transaction, whether the funder provides liquidity, hours from funding to first trade, fan-in of
+the wallet's main exit, and hours from pool creation to the wallet's first trade. Blockscout's
+keyless v2 API allows about 180 requests a minute, so lookups run at 2.8 requests a second on 4
+threads, are cached in sqlite (`~/.cache/washdetect/blockscout.sqlite`), and are made only for
+wallets with two or more swaps. A failed lookup gives a missing value. In the app the lookup has a
+time budget (`WASHDETECT_FUNDING_SECONDS`, default 10 s); wallets not reached stay missing.
+
+### Results
+
+Weak XGBoost only; P and R at each model's calibration cut-off.
+
+| Set | NexF wallet P / R / AP | NexF swap P / R / AP | Hand-check wide wallet AP | Wide swap AP | Strict wallet AP | Strict swap AP |
+|---|---|---|---|---|---|---|
+| Base | 0.91 / 1.00 / 1.00 [0.99, 1.00] | 0.93 / 1.00 / 1.00 | 0.37 [0.15, 0.63] | 0.34 [0.15, 0.65] | 0.30 [0.09, 0.67] | 0.44 [0.12, 1.00] |
+| + Batch 1 | 0.94 / 1.00 / 0.94 [0.82, 1.00] | 0.93 / 1.00 / 0.99 | 0.35 [0.17, 0.63] | 0.38 [0.13, 0.62] | 0.30 [0.09, 0.67] | 0.81 [0.20, 1.00] |
+| + Batch 2 | 0.94 / 1.00 / 0.93 [0.83, 1.00] | 0.93 / 1.00 / 0.99 | 0.25 [0.13, 0.51] | 0.19 [0.10, 0.38] | 0.11 [0.03, 0.25] | 0.16 [0.06, 0.43] |
+| Rules | 0.94 / 1.00 / 0.94 | 0.98 / 0.89 / 0.97 | 0.30 [0.14, 0.48] | | 0.09 [0.03, 0.19] | |
+
+Neither batch improves on the base set. Batch 1 is within noise; batch 2 lowers hand-check AP.
+The shipped model is the base set, retrained without R3.
+
+Top 10 features by mean |SHAP| on the training rows, batch 2 model:
+
+- Wallet: token_tx_share 0.71, log_nonce 0.39, log_gap_median 0.38, fee_to_volume 0.34,
+  log_since_pool_h 0.29, log_tip 0.27, first_trade_rel 0.23, log_mean_usd 0.23,
+  pnl_to_volume 0.21, sleepiness_h 0.18.
+- Swap: first_trade_rel 0.40, gas_limit_variety 0.33, pnl_to_volume 0.28, t_hour_cos 0.21,
+  token_tx_share 0.19, log_since_pool_h 0.18, log_nonce 0.16, t_hour_sin 0.14, t_log_usd 0.13,
+  sleepiness_h 0.12.
+
+Base model, for comparison: wallet token_tx_share 0.78, log_nonce 0.52, fee_to_volume 0.44,
+log_tip 0.43, log_gap_median 0.32; swap pnl_to_volume 0.43, gas_limit_variety 0.32, log_nonce 0.32.
+
+Single features on NexF (CLS against the other 29 wallets, AUC; below 0.5 means CLS score lower):
+
+| Feature | AUC |
+|---|---:|
+| active_days | 0.95 |
+| early_volume_share | 0.85 |
+| log_gas_twins (49% of wallets have a value) | 0.74 |
+| loss_to_burn | 0.71 |
+| log_funder_fanout (wallets looked up) | 1.00 |
+| first_trade_rel | 0.05 |
+| log_since_pool_h | 0.05 |
+| fee_burn | 0.01 |
+
+All 30 CLS wallets were first funded by one address (`0x0ab856…`, 789 transactions), so funder
+fan-out separates them perfectly from the 4 other looked-up wallets (fan-out 30 against at most 2).
+The model does not learn this: its labels come from the rules, and with R3 gone nothing in the
+labels rewards a shared funder. The lifecycle features (first trade time, time since pool creation)
+are the model's strongest new inputs, but their meaning depends on the window: the training tokens
+are old and their windows arbitrary, while NexF is a new pool. The sign the model learns does not
+carry over.
+
+### Caveats
+
+- Labels are rule-derived, so the model can only learn what the rules already call wash.
+- The test sets are small (12 wide and 3 strict hand-check positives; NexF is one actor) and the
+  intervals are wide. Choosing the base set was made after seeing these numbers.
+- Funding coverage is partial: single-swap wallets are not looked up, GATO has 983 of 1,439
+  repeat traders cached, and a token opened in the app for the first time gets mostly missing
+  funding values within the 10 s budget.
+- Exit addresses are a snapshot at lookup time, not at the trade window.
+- Liquidity data is sparse (mint and burn events in the loaded window only).
+
+### Load time
+
+Load plus scoring for one token, on the box, before and after these changes:
+
+| Token | Wallets | Before | After (shipped base) | Batch 2, warm cache | Batch 2, cold cache |
+|---|---:|---:|---:|---:|---:|
+| NexF | 59 | 1.5 s | 1.5 s | 1.7 s | 11.6 s |
+| GATO | 1,468 | 8.8 s | 9.0 s | 16.1 s | 23.9 s |
+| SPX | 651 | 4.1 s | 4.2 s | 15.6 s | 15.8 s |
+
+The shipped model skips the context and funding features, so it makes no Blockscout calls. A
+model using batch 2 adds up to the 10 s lookup budget plus the context features.
 
 ## Limitations
 
