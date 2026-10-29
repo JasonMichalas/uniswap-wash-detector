@@ -139,6 +139,12 @@ def _hash(side: object) -> str:
 _POOL: ThreadPoolExecutor | None = None
 
 
+def repeat_traders(swaps: pd.DataFrame) -> list[str]:
+    """Only wallets with two or more swaps are looked up; a single swap cannot be wash on its own."""
+    counts = swaps["trader"].dropna().str.lower().value_counts()
+    return sorted(counts[counts >= 2].index)
+
+
 def lookup(wallets: list[str], pools: list[str], budget: float | None = None, client: Blockscout | None = None) -> tuple[dict, dict]:
     """Looks wallets and pools up in parallel. With a budget, returns what finished in time and lets the rest fill the cache.
 

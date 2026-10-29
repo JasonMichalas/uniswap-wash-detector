@@ -8,7 +8,7 @@ from washdetect.behaviour import BehaviourFeatures
 from washdetect.dataset import events_from_frames
 from washdetect.detector import Detection
 from washdetect.features import build_feature_frame, build_trade_frame
-from washdetect.funding import BUDGET, FUNDING_FEATURES, lookup
+from washdetect.funding import BUDGET, FUNDING_FEATURES, lookup, repeat_traders
 from washdetect.models import ModelBundle, ModelNotTrained, ShapExplainer, WashModel
 from washdetect.weakmodel import WEAK_DIR, WeakWashModel, pool_fees, wallet_table
 
@@ -62,8 +62,7 @@ class ScoreCache:
         features = BehaviourFeatures(swaps, transfers, excluded)
         funding = None
         if BUDGET > 0 and any(c in self.weak.wallet.columns for c in FUNDING_FEATURES):
-            traders = sorted(features.swaps["trader"].unique())
-            funding = lookup(traders, sorted(features.swaps["pool_address"].str.lower().unique()), BUDGET)
+            funding = lookup(repeat_traders(features.swaps), sorted(features.swaps["pool_address"].str.lower().unique()), BUDGET)
         self.weak_wallets = wallet_table(features, self.liquidity, pool_fees(self.pools), funding)
         self.weak_wallets["ml_score"] = self.weak.wallet.proba(self.weak_wallets)
         trades = features.trades(self.weak_wallets)

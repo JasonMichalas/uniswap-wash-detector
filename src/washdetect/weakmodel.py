@@ -219,7 +219,7 @@ def split_tokens(names: list[str], n_calib: int = 2, seed: int = 0) -> tuple[lis
 
 def frames_from_db(name: str, db_path: str, token: str, budget: float | None = None) -> TokenFrames:
     """Funding lookups wait up to `budget` seconds (forever when None); what is not back yet stays missing."""
-    from washdetect.funding import lookup
+    from washdetect.funding import lookup, repeat_traders
     from washdetect.store import Store
 
     store = Store(db_path)
@@ -230,7 +230,7 @@ def frames_from_db(name: str, db_path: str, token: str, budget: float | None = N
     listed = store.pools_for(token)
     pools = {str(p["pool_address"]).lower() for p in listed}
     swaps = store.read_swaps(token, lo, hi)
-    traders = sorted(swaps["trader"].dropna().str.lower().unique())
+    traders = repeat_traders(swaps)
     used = sorted(swaps["pool_address"].str.lower().unique())
     return TokenFrames.build(
         name,
