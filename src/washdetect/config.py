@@ -74,6 +74,8 @@ AGGREGATORS = frozenset(
     {
         "0x1111111254eeb25477b68fb85ed929f73a960582",  # 1inch v5
         "0x111111125421ca6dc452d289314280a0f8842a65",  # 1inch v6
+        "0x111116058b9828cdcdd810c502b925c14f34ca11",  # 1inch v6 executor
+        "0xfdcb36127c3d4d188d3cbd127a3502e5369bc264",  # solver executor
         "0xdef1c0ded9bec7f1a1670819833240f027b25eff",  # 0x Exchange Proxy
         "0x0000000000001ff3684f28c67538d4d072c22734",  # 0x Allowance Holder
         "0x6131b5fae19ea4f9d964eac0408e4408b66337b5",  # KyberSwap Meta Aggregation v2
@@ -97,6 +99,7 @@ AGGREGATORS = frozenset(
 PROTOCOLS = frozenset(
     {
         "0x87870bca3f3fd6335c3f4ce8392d69350b4fa4e2",  # Aave Pool v3
+        "0x377900904c573b02148025e1d8ea660808c8c757",  # MOG LayerZero bridge adapter
         "0xbbbbbbbbbb9cc5e90e3b3af64bdaf62c37eeffcb",  # Morpho
         "0x38b0c12ab81976e9417d4ebfe2a34db6df22e6ad",  # Morpho Blue bundler
         "0x02912516d49de997db75b9d7858faae59209650b",  # Morpho vault bundler
