@@ -7,13 +7,13 @@ from collections import defaultdict
 import pandas as pd
 
 from washdetect.config import (
-    AGGREGATORS,
     BURN_ADDRESS,
     CEX_HOT,
     MEV_ACTORS,
     ROUTERS,
     ZERO_ADDRESS,
     HeuristicConfig,
+    hop_addresses,
 )
 from washdetect.detector import WashDetector
 from washdetect.events import SwapEvent, TransferEvent
@@ -24,7 +24,7 @@ _BLOCKS_PER_MINUTE = 5
 _KNOWN_MEV = {
     "0xae2fc483527b8ef99eb5d9b44875f005ba1fae13": "jaredfromsubway.eth",
 }
-_SKIP_FUNDERS = set(ROUTERS) | set(CEX_HOT) | set(AGGREGATORS) | set(MEV_ACTORS)
+_SKIP_FUNDERS = hop_addresses()
 
 
 def _num(value: object) -> float | None:

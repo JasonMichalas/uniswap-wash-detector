@@ -12,14 +12,7 @@ from __future__ import annotations
 from collections import defaultdict
 from dataclasses import dataclass, field
 
-from washdetect.config import (
-    AGGREGATORS,
-    CEX_HOT,
-    MEV_ACTORS,
-    POOL_MANAGER,
-    ROUTERS,
-    HeuristicConfig,
-)
+from washdetect.config import HeuristicConfig, hop_addresses
 from washdetect.events import SwapEvent, TransferEvent
 
 RULE_NAMES = {
@@ -61,15 +54,8 @@ class _Lot:
 
 def hop_blocklist(excluded: set[str]) -> set[str]:
     """Routers, aggregators, MEV actors, CEX hot wallets, pools, and the zero address are not hops."""
-    blocked = {addr.lower() for addr in excluded}
-    blocked.update(addr.lower() for addr in ROUTERS)
-    blocked.update(addr.lower() for addr in AGGREGATORS)
-    blocked.update(addr.lower() for addr in CEX_HOT)
-    blocked.update(addr.lower() for addr in MEV_ACTORS)
-    # Uniswap v4 keeps every pool's tokens in one contract. A transfer through it is
-    # the pool, not a hop between two traders.
-    blocked.add(POOL_MANAGER.lower())
-    return blocked
+    # Uniswap v4 keeps every pool's tokens in the PoolManager, so it is a pool, not a hop.
+    return {addr.lower() for addr in excluded} | hop_addresses()
 
 
 def find_rule_hits(
