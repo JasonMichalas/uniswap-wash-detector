@@ -734,6 +734,158 @@ Rule % is the Gan-style hard label on the real swaps only (plants removed). ML %
 
 ![Rule vs ML wash percent](figures/wash_percent_comparison.png)
 
+## Hand-checked evaluation
+
+The planted-swap numbers above test the detector against its own generator. This section
+checks it against real wallets instead. The detector (Find wash groups defaults: net_ratio 0.05,
+max_block_gap 7200, max_group_size 24) was run on six live tokens. Then a sample of its groups
+was checked by hand from raw on-chain evidence: receipts, Transfer logs, getCode/nonce, and the
+Etherscan name tag and "Funded By". The rubric is in [handcheck/rubric.md](handcheck/rubric.md),
+every case with evidence and Etherscan links is in [handcheck/cases.csv](handcheck/cases.csv),
+and the scripts are in `handcheck/tools/`.
+
+> **Caveat.** All labels were made by one AI annotator (Grok Bot) from on-chain evidence. There
+> is no second annotator and no ground truth. Treat the numbers as a careful first pass, and see
+> the 20 re-check cases at the end of this section.
+
+### Data
+
+| Token | Window (UTC) | Swaps | Groups | Groups by rule |
+|---|---|---:|---:|---|
+| PEPE | 2026-10-26 | 1,240 | 66 | R1 39, R6 15, R4 11, R2 1 |
+| RLUSD | 2026-10-25 to 10-27 | 2,507 | 126 | R1 78, R4 20, R6 15, R2 11, R3 2 |
+| SPX | 2026-10-26 to 10-27 | 3,223 | 181 | R1 143, R6 23, R4 9, R5 5, R2 1 |
+| MOG | 2026-10-26 to 10-27 | 610 | 35 | R1 28, R6 4, R2 2, R4 1 |
+| Neiro | 2026-10-25 to 10-27 | 394 | 14 | R1 11, R4 2, R2 1 |
+| TURBO | 2026-10-25 to 10-27 | 188 | 5 | R4 3, R6 2 |
+| **Total** | | 8,162 | **427** | R1 299, R6 59, R4 46, R2 16, R5 5, R3 2 |
+
+The sample (seed 82) has 80 groups, stratified by rule and by confidence band (high ≥ 0.95,
+mid ≥ 0.8, low otherwise). Rare rules are over-sampled. It also has 20 controls: unflagged
+wallets that both bought and sold in the window, 4 from each of PEPE, RLUSD, SPX, MOG and Neiro.
+
+### Labels
+
+| | Clear wash | Likely wash | Unclear | Not wash | n |
+|---|---:|---:|---:|---:|---:|
+| Flagged groups | 0 | 3 | 4 | 73 | 80 |
+| Controls | 0 | 0 | 1 | 19 | 20 |
+
+### Precision
+
+| Rule | n | Clear+likely | Clear only | If Unclear were wash |
+|---|---:|---:|---:|---:|
+| R1 same wallet round trip | 26 | 3 (11.5%) | 0 | 5 (19%) |
+| R2 linked wallets, matched amounts | 14 | 0 | 0 | 1 (7%) |
+| R3 common funder | 2 | 0 | 0 | 0 |
+| R4 transfer circle | 16 | 0 | 0 | 1 (6%) |
+| R5 repeated flat trading | 5 | 0 | 0 | 0 |
+| R6 buy and sell in one tx | 17 | 0 | 0 | 0 |
+| **Sample, unweighted** | 80 | 3 (3.8%) | 0 | 7 (8.8%) |
+| **Weighted to all 427 groups** | | **≈ 8%** | **0%** | ≈ 14% |
+
+By confidence band (clear+likely): high 1/25, mid 1/14, low 1/41. Confidence does not separate
+wash from non-wash. The weighted figure is mostly R1 (3/26 × 299 groups). The 95% Wilson
+interval for R1 is about 4–29%. All three positives are one actor (`0x37cc6a…` and its contract
+`0x278d85…` on MOG), so precision counted per entity is lower still.
+
+### Recall (rough)
+
+None of the 20 controls was wash (one Unclear). By the rule of three, the miss rate among the
+~340 unflagged two-sided wallets is under about 15% with 95% confidence, which means up to about
+50 missed wallets. Against roughly 18 true-wash wallets implied by the precision above, recall
+could be anywhere from about 25% to 100%. Twenty controls cannot pin it down. Two structural
+gaps did show up:
+
+- **C08** bought 404.9 RLUSD and sold it back as 30 + 374.9 within about 2 hours. None of R1 (one
+  buy and one sell of matching size) or R5 (at least 2 buys and 2 sells) covers one buy followed
+  by two sells.
+- Many bots trade from several gas-paying EOAs into one token-holding contract (for example,
+  eight `0x5d4760…`-funded EOAs drive `0x51c728…`). The detector keys trades on `tx.from`, so a
+  contract that round-trips the token is split into many small one-sided wallets.
+
+### Top false-positive causes (73 Not wash)
+
+| Cause | Cases | What happens |
+|---|---:|---|
+| Router or DeFi contract used as a link | 21 | Wallets are joined through, or the group contains, Binance DEX Router `0xb30000…`, Universal Router v2.1.2 `0x23617e…`, MetaMask Swaps Spender, Velora Augustus, KyberSwap, LI.FI, Morpho bundlers, Aave, CoW or solver `0x0cef32…`. None of these is on `ROUTERS`/`AGGREGATORS`/`CEX_HOT`. This is most R2 and all multi-wallet R4 groups. |
+| Token only a route hop | 14 | The trader's token delta is 0. For example, every R5 SPX case is ETH → SPX → another token quoted in SPX, so the SPX leg counts as both a buy and a sell. |
+| Atomic arbitrage | 12 | One tx across 2–56 pools, often at tx index 0–2 by a 1.2M-nonce bot, including v4 flash-accounting arbitrage. |
+| One-sided split route | 10 | A single buy or sell split across 2–6 pools, which R6 reads as buy+sell in one tx. All 17 R6 cases are Not wash. |
+| Market-maker / CEX-DEX bot | 5 | Shared bot contracts whose inventory moves to and from Binance/ByBit deposits. |
+| R4 circle with no swaps | 5 | Transfer loops with $0 swap volume (tests, bridge/intents round trips, bot inventory). |
+| Sandwich | 3 | Same-block sell/buy by mevrevolutionx.eth around another sender. |
+| R3 "funder" is a protocol | 2 | The shared "funder" sent RLUSD from Morpho or another DeFi contract, not ETH. |
+| ERC-4337 bundler | 1 | `tx.from` is a bundler serving many accounts. |
+
+### Suggested detector fixes (not applied)
+
+1. **Score the token holder, not just the gas payer.** Take the holder from the receipt's token
+   delta (the `tx.to` contract when it holds the token). Drop swaps where that delta is 0, because
+   those are route hops. This fixes R5, most R1, and the multi-EOA bot split.
+2. **R6:** require the trader to receive the token from a pool and send it back to a pool in the
+   same tx, with net ≈ 0. Ignore txs that touch more than 2 pools, or that end with a WETH/ETH
+   profit (arbitrage).
+3. **Sandwich filter:** drop a same-block sell/buy pair when another sender's swap on the same
+   pool sits between them.
+4. **Blocklist from labels and degree.** Add the routers, aggregators and protocols above, plus
+   Binance 15/16 and EntryPoint/bundlers. Also treat any contract that touches many unrelated
+   wallets in the window as a hop.
+5. **R2/R4:** require a direct member-to-member token transfer that does not pass through a
+   blocklisted or high-degree contract. Drop R4 groups whose members made no swaps ($0 volume).
+6. **R3:** use the first ETH funder, and ignore funders that are CEX hot wallets or protocols.
+7. **Recall:** add a rule for one buy matched by several sells (or the reverse) by the same holder
+   within the window.
+8. **Confidence:** lower confidence for very high nonce, tx index 0–2, multi-pool txs, and holders
+   with CEX deposit flows (market makers).
+
+### Clearest examples
+
+- **Likely wash, G03 (MOG):** EOA `0x37cc6a…` trades only through its own contract `0x278d85…` in a
+  single pool. It sells, then buys back within about 70 minutes, ending 0.3% from flat. Over the
+  window, the contract's MOG in from the pool equals its MOG out exactly, and it loses fees on each
+  round trip.
+  [tx 1](https://etherscan.io/tx/0x215b9795753c16e1e2a5a74b4e7cc287c7361fda6f7fda496f5bc7c7fedb12f3),
+  [tx 2](https://etherscan.io/tx/0x3352d993d892d56d89c024762fb20b89a326156d9fa0a45cee3e4c186f207a12)
+- **Not wash, sandwich, G02 (RLUSD):** mevrevolutionx.eth sells, then buys back in the same block
+  with another sender's tx in between.
+  [tx 1](https://etherscan.io/tx/0x3c033c11bbd7af66be647b70ceb52d73e93c7029b52d09e9dcfc9d50a85b479b),
+  [tx 2](https://etherscan.io/tx/0xe33388b0ac1d3605610ec3a866de75cdf93ee1c1abeb80de194035ad5b56dd32)
+- **Not wash, route hop, G59 (SPX, R5):** each tx is ETH → WETH → SPX (v2) → token `0xcacb91…`
+  (v4 pool quoted in SPX). The wallet never holds SPX.
+  [tx](https://etherscan.io/tx/0x0b58615ee0cc14b05752bb2c16f744e25ced900c61b9c582f9c071b265689fa5)
+- **Not wash, router link, G29 (PEPE, R2, conf 1.0):** one wallet buys 1.5M PEPE through Binance
+  DEX Router. Another sells 1.5M it withdrew from Binance. There is no transfer between them, and
+  they have different funders.
+  [tx](https://etherscan.io/tx/0x424b425ddfced49bed160cfc6037b252d8e84fe0f7bbaaa0f1b75febe864e7a7)
+
+### Cases for a human to re-check
+
+These are all the positives and Unclear cases, plus the Not wash calls that rest most on judgement:
+
+| Case | Token | Rule | My label | Why re-check |
+|---|---|---|---|---|
+| G03 | MOG | R1 | Likely wash | Volume bot or mean-reversion trader? |
+| G15 | MOG | R1 | Likely wash | Same actor as G03 |
+| G22 | MOG | R1 | Likely wash | Same actor, 10 trades |
+| G05 | Neiro | R1 | Unclear | Flat round trip, tiny value |
+| G20 | MOG | R1 | Unclear | Large holder churning via 1inch/0x |
+| G36 | RLUSD | R2 | Unclear | Same-wallet $50 stablecoin round trip |
+| G47 | Neiro | R4 | Unclear | Same-funder 3-wallet circle, no swaps |
+| C08 | RLUSD | control | Unclear | Missed 1-buy/2-sell round trip |
+| G01 | SPX | R1 | Not wash | Bot contract `0xeff6cb…`: market maker or wash? |
+| G10 | Neiro | R1 | Not wash | Multi-EOA bot farm `0x51c728…` |
+| G14 | PEPE | R1 | Not wash | Arbitrage bot assumption |
+| G16 | RLUSD | R1 | Not wash | Stablecoin multi-pool bot, net 2% |
+| G29 | PEPE | R2 | Not wash | conf 1.0, amounts match to 0.7% |
+| G30 | RLUSD | R2 | Not wash | $2.1M, net 1.3%, no direct transfer found |
+| G33 | MOG | R2 | Not wash | Two bot-like wallets, no transfer |
+| G41 | RLUSD | R3 | Not wash | DeFi "funder" judgement |
+| G43 | TURBO | R4 | Not wash | Out-and-back transfer, no swaps |
+| G58 | RLUSD | R4 | Not wash | Wallet ↔ own contract seller |
+| G59 | SPX | R5 | Not wash | Route-hop reading of R5 |
+| G66 | RLUSD | R6 | Not wash | Split-route reading of R6 |
+
 ## Limitations
 
 - These precision, recall, and F1 figures are optimistic. The positive class is synthetic wash planted by the same rules the detector implements, on tokens the model did not train on. A high score means the model recognised that generator, not that the same score would hold for wash that was never planted.
