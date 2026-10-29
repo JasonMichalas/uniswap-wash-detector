@@ -57,7 +57,9 @@ def _amounts_close(amounts: list[float], tol: float) -> bool:
     return (hi - lo) / hi <= tol + 1e-12
 
 
-def find_round_trips(swaps: list[SwapEvent], config: HeuristicConfig) -> list[_Cluster]:
+def find_round_trips(
+    swaps: list[SwapEvent], config: HeuristicConfig, limit: int | None = None
+) -> list[_Cluster]:
     """Smallest window that nets out. The caller has already limited this to one trader."""
     clusters: list[_Cluster] = []
     ordered = sorted(swaps, key=lambda s: (s.block, s.log_index, s.tx_hash))
@@ -71,7 +73,7 @@ def find_round_trips(swaps: list[SwapEvent], config: HeuristicConfig) -> list[_C
         for j in range(i, n):
             if ordered[j].block - ordered[i].block > config.max_block_gap:
                 break
-            if j - i + 1 > config.max_swaps:
+            if j - i + 1 > (limit or config.max_swaps):
                 break
             if ordered[j].side == "buy":
                 buy += ordered[j].amount

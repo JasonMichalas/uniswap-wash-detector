@@ -166,6 +166,7 @@ class HeuristicConfig:
     max_block_gap: int = 200
     min_swaps: int = 2
     max_swaps: int = 10
+    max_self_swaps: int = 40  # one wallet: one buy against many sells, or the reverse
     net_ratio: float = 0.05
     max_cycle_len: int = 5
     hub_degree: int = 25

@@ -36,6 +36,13 @@ def test_r1_does_not_match_outside_the_window():
     assert found.flagged == {}
 
 
+def test_r1_one_buy_against_twelve_sells():
+    sells = [swap("0xa", 101 + i, "sell", 10, 10, f"0xs{i}") for i in range(12)]
+    found = detect([swap("0xa", 100, "buy", 120, 120, "0xbuy"), *sells], [])
+    assert "R1" in rules_of(found, "0xbuy")
+    assert all((f"0xs{i}", 0) in found.flagged for i in range(12))
+
+
 def test_r2_partial_lot_washes_only_the_amount_that_was_sold():
     found = detect(
         [swap("0xa", 100, "buy", 10, 10, "0xbuy"), swap("0xb", 140, "sell", 1, 1, "0xsell")],

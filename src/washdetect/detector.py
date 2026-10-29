@@ -109,7 +109,7 @@ def _find_groups(
     clusters: list[_Cluster] = []
     if "R1" in enabled:
         for wallet_swaps in books.values():
-            clusters.extend(find_round_trips(wallet_swaps, config))
+            clusters.extend(find_round_trips(wallet_swaps, config, config.max_self_swaps))
 
     links = _build_links(norm_transfers, active, excluded, config) if "R2" in enabled else []
     seen_windows: set[tuple[tuple[str, ...], int, int]] = set()
