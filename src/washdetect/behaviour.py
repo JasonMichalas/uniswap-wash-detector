@@ -37,7 +37,7 @@ WALLET_BEHAVIOUR = [
     "log_peers",
 ]
 
-TRADE_BEHAVIOUR = [
+TRADE_OWN = [
     "t_log_usd",
     "t_round_amount",
     "t_round_usd",
@@ -46,8 +46,8 @@ TRADE_BEHAVIOUR = [
     "t_top_of_block",
     "t_hour_sin",
     "t_hour_cos",
-    *WALLET_BEHAVIOUR,
 ]
+TRADE_BEHAVIOUR = [*TRADE_OWN, *WALLET_BEHAVIOUR]
 
 META = ("tx_to", "nonce", "tx_index", "gas_price", "priority_fee", "gas_limit")
 BENFORD = np.log10(1 + 1 / np.arange(1, 10))
