@@ -220,7 +220,11 @@ def test_cycles_query_on_a_three_ring():
         ],
         columns=["from_address", "to_address", "block_number", "amount", "tx_hash", "log_index", "block_timestamp"],
     )
-    result = _run("cycles where size >= 3", swaps=pd.DataFrame(), transfers=transfers)
+    swaps = pd.DataFrame(
+        [("0xb", 15, "buy", 100, 40, "0xs1", 0, "0xpool", START), ("0xc", 25, "sell", 100, 40, "0xs2", 0, "0xpool", START)],
+        columns=["trader", "block_number", "side", "amount_token", "usd_value", "tx_hash", "log_index", "pool_address", "block_timestamp"],
+    )
+    result = _run("cycles where size >= 3", swaps=swaps, transfers=transfers)
     assert result.outputs[0].rows
     assert all(row["size"] >= 3 for row in result.outputs[0].rows)
     assert all(row["pattern_type"] == "ring" for row in result.outputs[0].rows)

@@ -2,14 +2,7 @@ from __future__ import annotations
 
 from collections import defaultdict
 
-from washdetect.config import (
-    AGGREGATORS,
-    CEX_HOT,
-    MEV_ACTORS,
-    POOL_MANAGER,
-    ROUTERS,
-    HeuristicConfig,
-)
+from washdetect.config import HeuristicConfig, hop_addresses
 from washdetect.detector_match import (
     _build_links,
     _Cluster,
@@ -21,6 +14,7 @@ from washdetect.detector_match import (
     find_transfer_cycles,
     score_confidence,
 )
+from washdetect.trades import TradeResolver
 from washdetect.events import Cycle, Detection, SwapEvent, TransferEvent, WalletWash
 
 ZERO = "0x" + "00" * 20
@@ -79,11 +73,7 @@ def _find_groups(
     enabled = set(config.enabled_rules)
     excluded = {addr.lower() for addr in (excluded or set())}
     excluded.add(ZERO)
-    excluded.update(addr.lower() for addr in ROUTERS)
-    excluded.update(addr.lower() for addr in AGGREGATORS)
-    excluded.update(addr.lower() for addr in CEX_HOT)
-    excluded.update(addr.lower() for addr in MEV_ACTORS)
-    excluded.add(POOL_MANAGER.lower())
+    excluded.update(hop_addresses())
 
     norm_swaps = [
         SwapEvent(
@@ -112,6 +102,8 @@ def _find_groups(
         if t.src and t.dst and t.amount > 0
     ]
 
+    excluded.update(s.pool for s in norm_swaps if s.pool)
+    norm_swaps = TradeResolver(norm_transfers, excluded, config.net_ratio).resolve(norm_swaps)
     books = _swaps_by_wallet(norm_swaps)
     active = set(books)
     clusters: list[_Cluster] = []
@@ -267,10 +259,10 @@ def _find_groups(
                 continue
             if abs(swap.amount - amount) / max(swap.amount, amount) <= config.net_ratio + 1e-12:
                 matched.append(swap)
+        if not matched:
+            continue
         volume = sum(s.usd for s in matched)
         pattern, n_buyers, n_sellers, n_wallets = _shape(matched, wallets, has_cycle=True)
-        if not matched:
-            pattern, n_buyers, n_sellers, n_wallets = "ring", 0, 0, len(wallets)
         why = (
             f"Tokens moved in a circle through {len(wallets)} wallets "
             f"between blocks {start} and {end}."
