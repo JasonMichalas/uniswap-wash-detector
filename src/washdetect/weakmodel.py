@@ -10,12 +10,19 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from washdetect.behaviour import TRADE_BEHAVIOUR, WALLET_BEHAVIOUR, BehaviourFeatures, with_tx_meta
+from washdetect.behaviour import TRADE_OWN, WALLET_BEHAVIOUR, BehaviourFeatures, with_tx_meta
+from washdetect.context import CONTEXT_FEATURES, context_features
 from washdetect.dataset import events_from_frames
+from washdetect.funding import FUNDING_FEATURES, funding_features
 from washdetect.models import ARTIFACT_DIR, ModelNotTrained, PlattCalibrator, fit_platt
 from washdetect.weak import VOTERS, LabelModel, Votes
 
 WEAK_DIR = ARTIFACT_DIR / "weak"
+WALLET_SETS = {
+    "base": list(WALLET_BEHAVIOUR),
+    "batch1": [*WALLET_BEHAVIOUR, *CONTEXT_FEATURES],
+    "batch2": [*WALLET_BEHAVIOUR, *CONTEXT_FEATURES, *FUNDING_FEATURES],
+}
 PARAMS = dict(
     n_estimators=200,
     max_depth=4,
@@ -31,6 +38,31 @@ PARAMS = dict(
 )
 
 
+def wallet_table(
+    features: BehaviourFeatures,
+    liquidity: pd.DataFrame | None = None,
+    pool_fees: dict[str, float] | None = None,
+    funding: tuple[dict, dict] | None = None,
+) -> pd.DataFrame:
+    """Behaviour, context and (when looked up) funding columns, one row per trader."""
+    wallets = features.wallets()
+    context = context_features(features.swaps, features.transfers, features.pools, liquidity, pool_fees, features.eth_usd())
+    wallets = wallets.merge(context, on="wallet", how="left")
+    providers = set()
+    if liquidity is not None and "provider" in liquidity.columns:
+        providers = set(liquidity["provider"].dropna().astype(str).str.lower())
+    if funding is not None:
+        wallets = wallets.merge(funding_features(features.swaps, providers, *funding), on="wallet", how="left")
+    return wallets.reindex(columns=["wallet", *WALLET_SETS["batch2"]])
+
+
+def pool_fees(pools: pd.DataFrame | list[dict] | None) -> dict[str, float]:
+    frame = pd.DataFrame(pools if pools is not None else [])
+    if frame.empty or "fee" not in frame.columns:
+        return {}
+    return dict(zip(frame["pool_address"].astype(str).str.lower(), pd.to_numeric(frame["fee"], errors="coerce"), strict=False))
+
+
 @dataclass
 class TokenFrames:
     name: str
@@ -38,11 +70,21 @@ class TokenFrames:
     trades: pd.DataFrame
 
     @classmethod
-    def build(cls, name: str, swaps: pd.DataFrame, transfers: pd.DataFrame, meta: pd.DataFrame, pools: set[str]) -> TokenFrames:
+    def build(
+        cls,
+        name: str,
+        swaps: pd.DataFrame,
+        transfers: pd.DataFrame,
+        meta: pd.DataFrame,
+        pools: set[str],
+        liquidity: pd.DataFrame | None = None,
+        fees: dict[str, float] | None = None,
+        funding: tuple[dict, dict] | None = None,
+    ) -> TokenFrames:
         swaps = with_tx_meta(swaps, meta)
         swaps = swaps.assign(trader=swaps["trader"].str.lower(), tx_hash=swaps["tx_hash"].str.lower())
         features = BehaviourFeatures(swaps, transfers, pools)
-        wallets = features.wallets()
+        wallets = wallet_table(features, liquidity, fees, funding)
         trades = features.trades(wallets)
         events, transfer_events = events_from_frames(swaps, transfers)
         for e in events:
@@ -97,9 +139,9 @@ class Booster:
 class WeakWashModel:
     """Wallet and swap models. Rules only make the training targets; the models never see rule outputs."""
 
-    def __init__(self) -> None:
-        self.wallet = Booster(list(WALLET_BEHAVIOUR))
-        self.trade = Booster(list(TRADE_BEHAVIOUR))
+    def __init__(self, features: str = "batch2") -> None:
+        self.wallet = Booster(list(WALLET_SETS[features]))
+        self.trade = Booster([*TRADE_OWN, *WALLET_SETS[features]])
         self.wallet_labels = LabelModel()
         self.trade_labels = LabelModel()
         self.manifest: dict = {}
@@ -175,7 +217,9 @@ def split_tokens(names: list[str], n_calib: int = 2, seed: int = 0) -> tuple[lis
     return sorted(ordered[n_calib:]), sorted(ordered[:n_calib])
 
 
-def frames_from_db(name: str, db_path: str, token: str) -> TokenFrames:
+def frames_from_db(name: str, db_path: str, token: str, budget: float | None = None) -> TokenFrames:
+    """Funding lookups wait up to `budget` seconds (forever when None); what is not back yet stays missing."""
+    from washdetect.funding import lookup
     from washdetect.store import Store
 
     store = Store(db_path)
@@ -183,7 +227,18 @@ def frames_from_db(name: str, db_path: str, token: str) -> TokenFrames:
     lo, hi = store.con.execute(
         "SELECT min(block_number), max(block_number) FROM swaps WHERE token = ?", [token]
     ).fetchone()
-    pools = {str(p["pool_address"]).lower() for p in store.pools_for(token)}
+    listed = store.pools_for(token)
+    pools = {str(p["pool_address"]).lower() for p in listed}
+    swaps = store.read_swaps(token, lo, hi)
+    traders = sorted(swaps["trader"].dropna().str.lower().unique())
+    used = sorted(swaps["pool_address"].str.lower().unique())
     return TokenFrames.build(
-        name, store.read_swaps(token, lo, hi), store.read_transfers(token, lo, hi), store.read_tx_meta(token, lo, hi), pools
+        name,
+        swaps,
+        store.read_transfers(token, lo, hi),
+        store.read_tx_meta(token, lo, hi),
+        pools,
+        store.read_liquidity(token, lo, hi),
+        pool_fees(listed),
+        lookup(traders, used, budget),
     )

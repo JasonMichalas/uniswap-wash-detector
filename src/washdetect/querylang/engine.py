@@ -170,7 +170,7 @@ def execute_frames(
     detection: Detection | None = None
     counter = 0
     kept: list[pd.DataFrame] = []
-    cache = ScoreCache()
+    cache = ScoreCache(liquidity, pools_df)
 
     def fresh(name: str) -> str:
         nonlocal counter

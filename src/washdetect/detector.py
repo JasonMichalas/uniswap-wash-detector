@@ -14,8 +14,8 @@ from washdetect.detector_match import (
     find_transfer_cycles,
     score_confidence,
 )
-from washdetect.trades import TradeResolver
 from washdetect.events import Cycle, Detection, SwapEvent, TransferEvent, WalletWash
+from washdetect.trades import TradeResolver
 
 ZERO = "0x" + "00" * 20
 

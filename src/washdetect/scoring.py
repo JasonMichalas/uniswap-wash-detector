@@ -8,14 +8,17 @@ from washdetect.behaviour import BehaviourFeatures
 from washdetect.dataset import events_from_frames
 from washdetect.detector import Detection
 from washdetect.features import build_feature_frame, build_trade_frame
+from washdetect.funding import BUDGET, FUNDING_FEATURES, lookup
 from washdetect.models import ModelBundle, ModelNotTrained, ShapExplainer, WashModel
-from washdetect.weakmodel import WEAK_DIR, WeakWashModel
+from washdetect.weakmodel import WEAK_DIR, WeakWashModel, pool_fees, wallet_table
 
 
 class ScoreCache:
     """Scores use the full loaded window, then join onto the rows the graph kept."""
 
-    def __init__(self) -> None:
+    def __init__(self, liquidity: pd.DataFrame | None = None, pools: pd.DataFrame | None = None) -> None:
+        self.liquidity = liquidity
+        self.pools = pools
         self.bundle: ModelBundle | None = None
         self.trades: pd.DataFrame | None = None
         self.wallets: pd.DataFrame | None = None
@@ -57,7 +60,11 @@ class ScoreCache:
             return
         swaps = swaps.assign(trader=swaps["trader"].astype(str).str.lower(), tx_hash=swaps["tx_hash"].astype(str).str.lower())
         features = BehaviourFeatures(swaps, transfers, excluded)
-        self.weak_wallets = features.wallets()
+        funding = None
+        if BUDGET > 0 and any(c in self.weak.wallet.columns for c in FUNDING_FEATURES):
+            traders = sorted(features.swaps["trader"].unique())
+            funding = lookup(traders, sorted(features.swaps["pool_address"].str.lower().unique()), BUDGET)
+        self.weak_wallets = wallet_table(features, self.liquidity, pool_fees(self.pools), funding)
         self.weak_wallets["ml_score"] = self.weak.wallet.proba(self.weak_wallets)
         trades = features.trades(self.weak_wallets)
         trades["ml_score"] = self.weak.trade.proba(trades)

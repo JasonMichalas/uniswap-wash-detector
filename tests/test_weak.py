@@ -90,3 +90,4 @@ def test_behaviour_features_and_weak_model(tmp_path):
     loaded = WeakWashModel.load(tmp_path)
     assert np.allclose(loaded.trade.proba(frames.trades), model.trade.proba(frames.trades))
     assert loaded.manifest["train"] == ["t", "t"]
+
