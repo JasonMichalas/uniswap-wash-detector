@@ -22,8 +22,8 @@ from washdetect.events import Detection
 from washdetect.features import build_feature_frame, build_trade_frame
 from washdetect.models import WashModel
 from washdetect.store import Store
-from washdetect.weak import VOTERS
-from washdetect.weakmodel import TokenFrames, WeakWashModel
+from washdetect.weak import RULES, VOTERS
+from washdetect.weakmodel import TokenFrames, WeakWashModel, frames_from_db
 
 HERE = Path(__file__).resolve().parent
 NEXF = "0x16ca471ae755f8a2cd4ec315a4a7439dcfebe54c"
@@ -40,6 +40,7 @@ METHODS = ["rules", "label_model", "b25", "vw", "old_xgb", "weak_xgb"]
 POS_USER = {"volume_bot", "mm_bot", "retail_roundtrip", "active_trader"}
 B = 1000
 CUTS: dict[str, float] = {}  # weak-model cut-offs picked on the calibration tokens
+FRAMES: dict[str, TokenFrames] = {}  # built once, reused when several models are compared
 
 
 class Token:
@@ -51,7 +52,10 @@ class Token:
         self.pools = {str(p["pool_address"]).lower() for p in store.pools_for(token)}
         self.swaps = store.read_swaps(token, lo, hi)
         self.transfers = store.read_transfers(token, lo, hi)
-        frames = TokenFrames.build(name, self.swaps, self.transfers, store.read_tx_meta(token, lo, hi), self.pools)
+        if name not in FRAMES:
+            FRAMES[name] = frames_from_db(name, db, token)
+        frames = FRAMES[name]
+        frames.trades = frames.trades.copy()
         events, transfer_events = events_from_frames(self.swaps, self.transfers)
         for e in events:
             e.wallet, e.tx_hash, e.pool = e.wallet.lower(), e.tx_hash.lower(), e.pool.lower()
@@ -61,7 +65,7 @@ class Token:
         trades = frames.trades
         keys = list(zip(trades.tx_hash, trades.log_index, strict=False))
         vw = zero_net_sets(events, transfer_events, self.pools)
-        trades["rules"] = (trades[["R1", "R2", "R3", "R4", "R5", "R6"]] == 1).any(axis=1).astype(float)
+        trades["rules"] = (trades[RULES] == 1).any(axis=1).astype(float)
         trades["label_model"] = weak.trade_labels.predict_proba(trades[VOTERS])
         trades["b25"] = (trades["B25"] == 1).astype(float)
         trades["vw"] = [float(k in vw) for k in keys]
@@ -198,23 +202,25 @@ def token_tests(tokens: dict[str, Token], held_out: list[str]) -> dict:
 
 
 def main(hc: str, nexf_db: str, train_list: str, train_dir: str, weak_dir: str, old_dir: str, out: str = "real_eval.json") -> None:
-    weak = WeakWashModel.load(weak_dir)
+    result = evaluate(WeakWashModel.load(weak_dir), WashModel.load(old_dir), hc, nexf_db, train_list, train_dir)
+    Path(out).write_text(json.dumps(result, indent=1, default=float), encoding="utf-8")
+    print(json.dumps(result, indent=1, default=float))
+
+
+def evaluate(weak: WeakWashModel, old: WashModel | None, hc: str, nexf_db: str, train_list: str, train_dir: str) -> dict:
     CUTS.update(wallet=weak.wallet.threshold, trade=weak.trade.threshold)
-    old = WashModel.load(old_dir)
     tokens = {n: Token(n, f"{hc}/{n}.duckdb", a, weak, old) for n, a in HANDCHECK.items()}
     tokens["nexf"] = Token("nexf", nexf_db, NEXF, weak, old)
     for line in open(train_list):
         n, a = line.split()
         tokens[n] = Token(n, f"{train_dir}/{n}.duckdb", a.lower(), weak, None)
     cls = {r["address"].lower() for r in csv.DictReader(open(HERE / "nexf_cls_wallets.csv"))}
-    result = {
+    return {
         "model": weak.manifest,
         "nexf": nexf_eval(tokens["nexf"], cls),
         "handcheck": handcheck_eval(tokens, Path(hc)),
         "token_tests": token_tests(tokens, [*HANDCHECK, "nexf"]),
     }
-    Path(out).write_text(json.dumps(result, indent=1, default=float), encoding="utf-8")
-    print(json.dumps(result, indent=1, default=float))
 
 
 if __name__ == "__main__":
