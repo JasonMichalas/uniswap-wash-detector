@@ -1,11 +1,15 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 import pandas as pd
 
+from washdetect.behaviour import BehaviourFeatures
 from washdetect.dataset import events_from_frames
 from washdetect.detector import Detection
 from washdetect.features import build_feature_frame, build_trade_frame
-from washdetect.models import ModelBundle, ModelNotTrained, WashModel
+from washdetect.models import ModelBundle, ModelNotTrained, ShapExplainer, WashModel
+from washdetect.weakmodel import WEAK_DIR, WeakWashModel
 
 
 class ScoreCache:
@@ -15,6 +19,8 @@ class ScoreCache:
         self.bundle: ModelBundle | None = None
         self.trades: pd.DataFrame | None = None
         self.wallets: pd.DataFrame | None = None
+        self.weak: WeakWashModel | None = None
+        self.weak_wallets: pd.DataFrame | None = None
 
     def ensure(
         self,
@@ -38,7 +44,29 @@ class ScoreCache:
             self.wallets = model.score(self.wallets, kind="wallet")
         if not self.trades.empty:
             self.trades = model.score(self.trades, kind="trade")
+        self._use_weak(swaps, transfers, excluded, model_dir)
         return self.bundle
+
+    def _use_weak(self, swaps: pd.DataFrame | None, transfers: pd.DataFrame | None, excluded: set[str], model_dir: str | None) -> None:
+        """The weak-label model replaces the synthetic one for ml_score when it is shipped."""
+        try:
+            self.weak = WeakWashModel.load(WEAK_DIR if model_dir is None else Path(model_dir) / "weak")
+        except ModelNotTrained:
+            return
+        if swaps is None or swaps.empty or self.wallets.empty:
+            return
+        swaps = swaps.assign(trader=swaps["trader"].astype(str).str.lower(), tx_hash=swaps["tx_hash"].astype(str).str.lower())
+        features = BehaviourFeatures(swaps, transfers, excluded)
+        self.weak_wallets = features.wallets()
+        self.weak_wallets["ml_score"] = self.weak.wallet.proba(self.weak_wallets)
+        trades = features.trades(self.weak_wallets)
+        trades["ml_score"] = self.weak.trade.proba(trades)
+        wallet_score = dict(zip(self.weak_wallets["wallet"], self.weak_wallets["ml_score"], strict=False))
+        trade_score = {(str(a).lower(), int(b)): v for a, b, v in zip(trades["tx_hash"], trades["log_index"], trades["ml_score"], strict=False)}
+        self.wallets["ml_score"] = [wallet_score.get(str(w).lower(), 0.0) for w in self.wallets["wallet"]]
+        if not self.trades.empty:
+            keys = zip(self.trades["tx_hash"].astype(str).str.lower(), self.trades["log_index"].astype(int), strict=False)
+            self.trades["ml_score"] = [trade_score.get(k, 0.0) for k in keys]
 
 
 def _trade_lookup(trades: pd.DataFrame) -> dict[tuple[str, int], tuple[float, float]]:
@@ -112,13 +140,17 @@ def explain_wallets(wallets: list[str], cache: ScoreCache, *, limit: int = 25, k
             chosen.append(key)
     truncated = len(chosen) > limit
     chosen = chosen[:limit]
-    features = cache.wallets[cache.wallets["wallet"].isin(chosen)]
-    if features.empty:
+    if cache.weak is not None and cache.weak_wallets is not None:
+        features = cache.weak_wallets[cache.weak_wallets["wallet"].isin(chosen)]
+        reasons = ShapExplainer().top_reasons(cache.weak.wallet, features, k=k) if not features.empty else None
+    else:
+        features = cache.wallets[cache.wallets["wallet"].isin(chosen)]
+        reasons = WashModel(cache.bundle).explain(features, kind="wallet", k=k) if not features.empty else None
+    if reasons is None:
         return (
             pd.DataFrame(columns=["wallet", "rank", "feature", "feature_value", "shap_value", "direction"]),
             truncated,
         )
-    reasons = WashModel(cache.bundle).explain(features, kind="wallet", k=k)
     order = {wallet: index for index, wallet in enumerate(chosen)}
     reasons["_order"] = reasons["wallet"].map(lambda wallet: order.get(str(wallet), 10**6))
     reasons = reasons.sort_values(["_order", "rank"]).drop(columns=["_order"])

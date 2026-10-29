@@ -5,6 +5,7 @@ from datetime import datetime
 
 import pandas as pd
 
+from washdetect.behaviour import with_tx_meta
 from washdetect.features import build_wallet_table
 from washdetect.store import Store
 
@@ -38,7 +39,7 @@ class TokenData:
         end_time: datetime,
     ) -> TokenData:
         token = address.lower()
-        swaps = store.read_swaps(token, start_block, end_block)
+        swaps = with_tx_meta(store.read_swaps(token, start_block, end_block), store.read_tx_meta(token, start_block, end_block))
         transfers = store.read_transfers(token, start_block, end_block)
         balances = store.latest_balances(token, end_block)
         pools = pd.DataFrame(store.pools_for(token))
