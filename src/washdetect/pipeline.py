@@ -999,17 +999,14 @@ def _resolve_traders(
     store: Store, client: RpcClient, token: str, start: int, end: int, say: Progress
 ) -> None:
     missing = store.swaps_missing_trader(token, start, end)
-    if not missing:
-        return
     known = store.known_senders(missing)
-    need = [tx for tx in missing if tx not in known]
+    need = sorted({tx for tx in missing if tx not in known} | set(store.txs_missing_meta(token, start, end)))
     # Saved in parts so a lookup that is stopped halfway picks up where it was.
     for done in range(0, len(need), _SENDER_PART):
         say(f"Looking up transaction senders: {done:,} of {len(need):,} ({len(known):,} cached)")
         part = need[done : done + _SENDER_PART]
-        fetched = [
-            # tx.from is the trader. Swap.sender is often the router.
-            (tx, normalize_address(str(result["from"])))
+        found = [
+            (tx, result)
             for tx, result in zip(
                 part,
                 client.batch([("eth_getTransactionByHash", [tx]) for tx in part]),
@@ -1017,9 +1014,33 @@ def _resolve_traders(
             )
             if isinstance(result, dict) and result.get("from")
         ]
+        # tx.from is the trader. Swap.sender is often the router.
+        fetched = [(tx, normalize_address(str(result["from"]))) for tx, result in found]
         store.remember_senders(fetched)
+        store.remember_tx_meta([tx_meta_row(tx, result) for tx, result in found])
         store.apply_traders(token, fetched)
     store.apply_traders(token, list(known.items()))
+
+
+def tx_meta_row(tx: str, result: dict) -> tuple:
+    def number(key: str) -> int | None:
+        value = result.get(key)
+        return int(str(value), 16) if value not in (None, "") else None
+
+    def gwei(key: str) -> float | None:
+        value = number(key)
+        return value / 1e9 if value is not None else None
+
+    to = result.get("to")
+    return (
+        tx,
+        normalize_address(str(to)) if to else None,
+        number("nonce"),
+        number("transactionIndex"),
+        gwei("gasPrice"),
+        gwei("maxPriorityFeePerGas"),
+        number("gas"),
+    )
 
 
 def _price_swaps(

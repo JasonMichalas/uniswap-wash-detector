@@ -146,6 +146,16 @@ CREATE TABLE IF NOT EXISTS tx_senders (
     sender VARCHAR
 );
 
+CREATE TABLE IF NOT EXISTS tx_meta (
+    tx_hash VARCHAR PRIMARY KEY,
+    tx_to VARCHAR,
+    nonce BIGINT,
+    tx_index INTEGER,
+    gas_price DOUBLE,
+    priority_fee DOUBLE,
+    gas_limit BIGINT
+);
+
 CREATE TABLE IF NOT EXISTS wallet_balance_daily (
     token VARCHAR,
     wallet VARCHAR,
@@ -224,6 +234,9 @@ CREATE TABLE IF NOT EXISTS wallet_features (
     PRIMARY KEY (token, start_block, end_block, wallet)
 );
 """
+
+
+TX_META_COLUMNS = ("tx_hash", "tx_to", "nonce", "tx_index", "gas_price", "priority_fee", "gas_limit")
 
 
 class Store:
@@ -422,6 +435,32 @@ class Store:
             [(h,) for h in set(tx_hashes)],
         )
         return {h: sender for h, sender in rows}
+
+    def remember_tx_meta(self, rows: list[tuple]) -> None:
+        self._put("tx_meta", TX_META_COLUMNS, rows, ("tx_hash",))
+
+    def txs_missing_meta(self, token: str, start: int, end: int) -> list[str]:
+        with self.lock:
+            rows = self.con.execute(
+                """
+                SELECT DISTINCT s.tx_hash FROM swaps s
+                LEFT JOIN tx_meta m ON m.tx_hash = s.tx_hash
+                WHERE s.token = ? AND s.block_number BETWEEN ? AND ? AND m.tx_hash IS NULL
+                """,
+                [token, start, end],
+            ).fetchall()
+        return [r[0] for r in rows]
+
+    def read_tx_meta(self, token: str, start: int, end: int) -> pd.DataFrame:
+        with self.lock:
+            return self._df(
+                """
+                SELECT DISTINCT m.* FROM tx_meta m
+                JOIN swaps s ON s.tx_hash = m.tx_hash
+                WHERE s.token = ? AND s.block_number BETWEEN ? AND ?
+                """,
+                [token, start, end],
+            )
 
     def apply_traders(self, token: str, rows: list[tuple[str, str]]) -> None:
         self._framed(
