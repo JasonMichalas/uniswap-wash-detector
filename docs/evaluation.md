@@ -973,6 +973,125 @@ databases (for example labelled swaps and wallet features) stay stale until they
   funder.
 - Labels are from one annotator, and the wide definition counts market makers as wash.
 
+## Weak supervision
+
+### Method
+
+Every rule is treated as a noisy vote on every swap: R1–R6, the N-buy/M-sell matcher (an R1 group
+with three or more swaps), and the Chainalysis 2025 quick-flip rule (a buy and a sell by the same
+address within 25 blocks, USD within 1%, at least three such pairs). Four votes say "not wash": the
+wallet only trades one side, it has a single swap, the resolver dropped the swap, or its buys and
+sells are always more than 7,200 blocks apart. Voters abstain otherwise.
+
+A Dawid–Skene label model (`washdetect.weak.LabelModel`) learns, by EM, how often each voter fires
+under each class, and turns the votes into a probability per swap and per wallet. R1 and the
+N-buy/M-sell matcher get most of the weight; the 25-block rule almost never fires on these tokens
+and gets almost none.
+
+XGBoost (`washdetect.weakmodel`) is trained on those soft labels, using only behaviour the rules do
+not look at (`washdetect.behaviour`): timing regularity and gap spread, 24-hour activity entropy,
+round token and USD sizes, repeated sizes, first-digit fit, gas price against nearby blocks,
+priority tip, gas-limit variety, top-of-block position, nonce (a proxy for wallet age) and nonce
+rate, fees against volume, profit against volume, pools and contracts used, and the number of
+counterparties. Gas, nonce and the `to` address come from the transaction lookup the loader already
+makes for traders (`tx_meta` table). Fees use gas limit × gas price, an upper bound, because receipts
+are not fetched.
+
+Hyper-parameters were fixed before any test run (`PARAMS` in `weakmodel.py`). Platt scaling and the
+cut-off (best F1 against the label model's hard labels) are chosen on two calibration tokens.
+
+### Split
+
+| Role | Tokens | Window |
+|---|---|---|
+| Train | AMP, APE, BITCOIN, ELON, FLOKI, GATO, HEX, LDO, WOJAK, WOO | 18–21 Oct 2026 |
+| Calibration | ANDY, NPC | 18–21 Oct 2026 |
+| Test (hand-checked) | MOG, NEIRO, PEPE, RLUSD, SPX, TURBO | 25–27 Oct 2026 |
+| Test (case files) | NEXF | Aug–Sep 2024 |
+
+No token appears in two roles. Training data: 4,899 wallets and 28,867 swaps. The test sets were
+used only for the numbers below. `docs/realtest/train_weak.py` trains the model and
+`docs/realtest/real_eval.py` produces `docs/realtest/real_eval.json`.
+
+### Results
+
+95% bootstrap intervals in brackets (1,000 resamples; swaps are resampled by wallet). P and R
+are taken at 0.5, except the weak model, which uses its calibration cut-off (wallet 0.18, swap 0.23).
+AP is average precision.
+
+**NexFundAI.** 59 traders, 30 CLS; 827 swaps, 740 CLS. Positives are the majority, so AP has a high
+floor (0.51 for wallets, 0.89 for swaps).
+
+| Method | Wallet P | Wallet R | Wallet AP | Swap P | Swap R | Swap AP |
+|---|---|---|---|---|---|---|
+| Rules | 0.94 [0.84, 1.00] | 1.00 [1.00, 1.00] | 0.94 [0.84, 1.00] | 0.98 [0.95, 1.00] | 0.90 [0.86, 0.94] | 0.98 [0.94, 1.00] |
+| Label model | 0.94 [0.84, 1.00] | 1.00 [1.00, 1.00] | 1.00 [0.98, 1.00] | 0.96 [0.86, 1.00] | 0.33 [0.21, 0.41] | 0.99 [0.96, 1.00] |
+| 25-block rule | – | 0.00 | 0.51 [0.37, 0.63] | – | 0.00 | 0.90 [0.76, 0.97] |
+| Victor & Weintraud | 1.00 [1.00, 1.00] | 1.00 [1.00, 1.00] | 1.00 [1.00, 1.00] | 1.00 [1.00, 1.00] | 0.43 [0.40, 0.46] | 0.94 [0.86, 0.98] |
+| Old XGBoost (synthetic) | – | 0.00 | 1.00 [1.00, 1.00] | – | 0.00 | 1.00 [1.00, 1.00] |
+| Weak XGBoost | 0.94 [0.84, 1.00] | 1.00 [1.00, 1.00] | 0.98 [0.92, 1.00] | 0.93 [0.80, 1.00] | 1.00 [1.00, 1.00] | 1.00 [1.00, 1.00] |
+| Weak XGBoost at 0.5 | 0.97 [0.89, 1.00] | 1.00 [1.00, 1.00] | 0.98 [0.92, 1.00] | 1.00 [1.00, 1.00] | 0.06 [0.03, 0.11] | 1.00 [1.00, 1.00] |
+
+**Hand-checked cases.** The 80 groups plus 20 controls with their original labels (wide: 12
+positives, strict: 3). A group scores the maximum over its swaps (or its wallets for the wallet
+models); a control scores the maximum over its wallet's swaps.
+
+| Method | Wide P | Wide R | Wide AP | Strict P | Strict R | Strict AP |
+|---|---|---|---|---|---|---|
+| Rules | 0.31 [0.16, 0.50] | 0.92 [0.71, 1.00] | 0.30 [0.14, 0.48] | 0.09 [0.00, 0.19] | 1.00 | 0.09 [0.03, 0.19] |
+| Label model | 0.31 [0.16, 0.50] | 0.92 [0.71, 1.00] | 0.29 [0.14, 0.49] | 0.09 [0.00, 0.19] | 1.00 | 0.08 [0.03, 0.20] |
+| 25-block rule | 0.00 | 0.00 | 0.12 [0.06, 0.19] | 0.00 | 0.00 | 0.03 [0.01, 0.07] |
+| Victor & Weintraud | 0.21 [0.06, 0.38] | 0.42 [0.12, 0.70] | 0.16 [0.07, 0.29] | 0.12 [0.00, 0.27] | 1.00 | 0.12 [0.04, 0.27] |
+| Old XGBoost, swaps | 0.04 [0.00, 0.14] | 0.08 [0.00, 0.27] | 0.14 [0.08, 0.24] | 0.00 | 0.00 | 0.07 [0.02, 0.16] |
+| Old XGBoost, wallets | 0.17 [0.06, 0.30] | 0.58 [0.30, 0.88] | 0.14 [0.08, 0.25] | 0.07 [0.00, 0.16] | 1.00 | 0.09 [0.03, 0.20] |
+| Weak XGBoost, swaps | 0.16 [0.08, 0.26] | 0.83 [0.60, 1.00] | 0.34 [0.15, 0.65] | 0.05 [0.00, 0.11] | 1.00 | 0.44 [0.12, 1.00] |
+| Weak XGBoost, wallets | 0.16 [0.08, 0.27] | 0.83 [0.60, 1.00] | 0.39 [0.17, 0.70] | 0.05 [0.00, 0.11] | 1.00 | 0.60 [0.24, 1.00] |
+| Weak XGBoost, wallets at 0.5 | 0.25 [0.06, 0.47] | 0.42 [0.13, 0.70] | 0.39 [0.17, 0.70] | 0.15 [0.00, 0.33] | 1.00 | 0.60 [0.24, 1.00] |
+
+**Token-level trade-size tests** (Cong et al. style, on token amounts): first-digit MAD against
+Benford, the share of sizes within 0.1% of a two-significant-figure number divided by its chance
+rate, and the Hill exponent of the top 10%. Spearman correlation with each token's wash share by
+USD:
+
+| Wash share from | Tokens | Benford MAD | Round-size ratio | Tail exponent |
+|---|---:|---|---|---|
+| Rules | 19 | 0.10 [−0.44, 0.57] | −0.32 [−0.70, 0.18] | 0.43 [−0.13, 0.81] |
+| Weak XGBoost (test tokens only) | 7 | 0.71 [−0.18, 0.96] | 0.32 [−0.87, 0.89] | 0.93 [0.41, 1.00] |
+
+### Reading the results
+
+- On NexF every method that fires finds all 30 CLS wallets. At swap level the rules recall 90%
+  of CLS swaps; the weak model ranks them as well (AP 1.00) and recalls all of them at its
+  cut-off, with precision 0.93.
+- On the hand-checked cases the weak model ranks better than the rules and the old model (wallet
+  AP 0.39 against 0.30 and 0.14 on the wide labels; 0.60 against 0.09 on the strict ones), but the
+  intervals overlap and there are only 12 wide and 3 strict positives. At its cut-off it flags
+  more than the rules, so its precision is lower. The rules stay the primary detector; the weak
+  model replaces the synthetic model as the ML score in the app.
+- The 25-block rule finds nothing on either test set. CLS and the hand-checked bots wait longer
+  than five minutes between legs or vary sizes by more than 1%.
+- The old synthetic model has perfect AP on NexF but never scores above 0.5 there, so its
+  probabilities are not usable as they stand.
+- The size tests do not agree with the rules' wash share across 19 tokens. The weak model's
+  share correlates with the tail exponent on the 7 test tokens, but 7 tokens is too few to rely
+  on. The weak model's share is high on most tokens (RLUSD 92%), so read it as a ranking within
+  a token, not as a wash percentage.
+
+### Caveats
+
+- The labels come from the rules, and the rules were tuned on the same 80 hand-checked cases.
+  The label model and the rules therefore look alike on them, and the weak model inherits the rules'
+  idea of wash.
+- The 80 groups were sampled from what the old detector flagged, so recall on them is recall
+  within that sample, not on all wash.
+- The 0.5 swap result on NexF (6% recall) led to adding the calibration-token cut-off. The cut-off
+  itself comes from the calibration tokens only, but the decision to use one was made after seeing
+  a test number.
+- Calibration is to the label model, not to ground truth.
+- Training is 12 tokens over four days. NexF is from 2024, when gas prices were different, and it
+  is one actor on one pool.
+- Fees are an upper bound (gas limit, not gas used), and nonce is only a proxy for wallet age.
+
 ## Limitations
 
 - These precision, recall, and F1 figures are optimistic. The positive class is synthetic wash planted by the same rules the detector implements, on tokens the model did not train on. A high score means the model recognised that generator, not that the same score would hold for wash that was never planted.
