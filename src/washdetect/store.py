@@ -519,12 +519,26 @@ class Store:
         with self.lock:
             return self._df(
                 """
-                SELECT * FROM liquidity_events
-                WHERE token = ? AND block_number BETWEEN ? AND ?
-                ORDER BY block_number, log_index
+                SELECT l.*, s.sender AS provider FROM liquidity_events l
+                LEFT JOIN tx_senders s ON s.tx_hash = l.tx_hash
+                WHERE l.token = ? AND l.block_number BETWEEN ? AND ?
+                ORDER BY l.block_number, l.log_index
                 """,
                 [token, start, end],
             )
+
+    def liquidity_missing_sender(self, token: str, start: int, end: int) -> list[str]:
+        """Liquidity events log the router as sender; the provider is tx.from."""
+        with self.lock:
+            rows = self.con.execute(
+                """
+                SELECT DISTINCT l.tx_hash FROM liquidity_events l
+                LEFT JOIN tx_senders s ON s.tx_hash = l.tx_hash
+                WHERE l.token = ? AND l.block_number BETWEEN ? AND ? AND s.sender IS NULL
+                """,
+                [token, start, end],
+            ).fetchall()
+        return [row[0] for row in rows]
 
     def creator_from_window(self, token: str, start: int, end: int) -> tuple[str, str]:
         """tx.from of the earliest mint in the window. The mint recipient is not the creator."""

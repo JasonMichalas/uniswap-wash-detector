@@ -1000,7 +1000,11 @@ def _resolve_traders(
 ) -> None:
     missing = store.swaps_missing_trader(token, start, end)
     known = store.known_senders(missing)
-    need = sorted({tx for tx in missing if tx not in known} | set(store.txs_missing_meta(token, start, end)))
+    need = sorted(
+        {tx for tx in missing if tx not in known}
+        | set(store.txs_missing_meta(token, start, end))
+        | set(store.liquidity_missing_sender(token, start, end))
+    )
     # Saved in parts so a lookup that is stopped halfway picks up where it was.
     for done in range(0, len(need), _SENDER_PART):
         say(f"Looking up transaction senders: {done:,} of {len(need):,} ({len(known):,} cached)")
