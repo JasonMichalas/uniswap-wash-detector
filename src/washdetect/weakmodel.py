@@ -217,9 +217,9 @@ def split_tokens(names: list[str], n_calib: int = 2, seed: int = 0) -> tuple[lis
     return sorted(ordered[n_calib:]), sorted(ordered[:n_calib])
 
 
-def frames_from_db(name: str, db_path: str, token: str, budget: float | None = None) -> TokenFrames:
+def frames_from_db(name: str, db_path: str, token: str, budget: float | None = None, cached_only: bool = False) -> TokenFrames:
     """Funding lookups wait up to `budget` seconds (forever when None); what is not back yet stays missing."""
-    from washdetect.funding import lookup, repeat_traders
+    from washdetect.funding import Blockscout, lookup, repeat_traders
     from washdetect.store import Store
 
     store = Store(db_path)
@@ -240,5 +240,5 @@ def frames_from_db(name: str, db_path: str, token: str, budget: float | None = N
         pools,
         store.read_liquidity(token, lo, hi),
         pool_fees(listed),
-        lookup(traders, used, budget),
+        lookup(traders, used, budget, Blockscout(cached_only=cached_only)),
     )

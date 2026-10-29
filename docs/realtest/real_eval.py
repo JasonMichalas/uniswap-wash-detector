@@ -41,6 +41,7 @@ POS_USER = {"volume_bot", "mm_bot", "retail_roundtrip", "active_trader"}
 B = 1000
 CUTS: dict[str, float] = {}  # weak-model cut-offs picked on the calibration tokens
 FRAMES: dict[str, TokenFrames] = {}  # built once, reused when several models are compared
+CACHED_ONLY = False  # funding from the Blockscout cache only; unlooked-up wallets stay missing
 
 
 class Token:
@@ -53,7 +54,7 @@ class Token:
         self.swaps = store.read_swaps(token, lo, hi)
         self.transfers = store.read_transfers(token, lo, hi)
         if name not in FRAMES:
-            FRAMES[name] = frames_from_db(name, db, token)
+            FRAMES[name] = frames_from_db(name, db, token, cached_only=CACHED_ONLY)
         frames = FRAMES[name]
         frames.trades = frames.trades.copy()
         events, transfer_events = events_from_frames(self.swaps, self.transfers)

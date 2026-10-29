@@ -36,7 +36,8 @@ FUNDING_FEATURES = [
 
 
 class Blockscout:
-    def __init__(self, cache: Path = CACHE, per_second: float = 2.8, timeout: float = 10.0) -> None:
+    def __init__(self, cache: Path = CACHE, per_second: float = 2.8, timeout: float = 10.0, cached_only: bool = False) -> None:
+        self.cached_only = cached_only
         cache.parent.mkdir(parents=True, exist_ok=True)
         self.db = sqlite3.connect(cache, check_same_thread=False)
         self.db.execute("CREATE TABLE IF NOT EXISTS hits (key TEXT PRIMARY KEY, body TEXT)")
@@ -53,7 +54,7 @@ class Blockscout:
     def get(self, path: str, params: dict | None = None) -> object | None:
         key = path + "?" + "&".join(f"{k}={v}" for k, v in sorted((params or {}).items()))
         hit = self.cached(key)
-        if hit is not None:
+        if hit is not None or self.cached_only:
             return hit
         for attempt in range(4):
             with self.lock:

@@ -27,9 +27,10 @@ def mean_shap(booster, frame: pd.DataFrame) -> pd.Series:
 
 def main(hc: str, nexf_db: str, train_list: str, train_dir: str, old_dir: str, out_dir: str) -> None:
     out = Path(out_dir)
+    real_eval.CACHED_ONLY = True
     lines = [line.split() for line in open(train_list) if line.strip()]
     for name, token in lines:
-        real_eval.FRAMES[name] = frames_from_db(name, f"{train_dir}/{name}.duckdb", token.lower())
+        real_eval.FRAMES[name] = frames_from_db(name, f"{train_dir}/{name}.duckdb", token.lower(), cached_only=True)
     train, calib = split_tokens([n for n, _ in lines])
     old = WashModel.load(old_dir)
     results, shap = {}, {}
