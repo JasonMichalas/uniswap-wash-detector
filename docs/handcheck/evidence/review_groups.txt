@@ -1,0 +1,1020 @@
+=== G01 spx rule=R1 conf=1.0 wallets=1 usd=470
+  claim: 0x2543386b50671652c983c46b6061fbbcd5f5f7c4 bought and sold about the same amount between blocks 26274292 and 26279262.
+  M 0x2543386b50671652c983c46b6061fbbcd5f5f7c4 c=False n=12532 lab='' fund=0xd152f5 | net=0 nT=0
+  B 0xeff6cb8b614999d130e537751ee99724d01aa167 c=True n=1 lab='' fund=- | out_pool=4.412e+04 in_other=2380 in_pool=1.89e+04 net=-2.283e+04 nT=94
+   b26274292 i98 from=0x254338 to=0xeff6cb() actorΔ=-103.231 gross=103.2 swaps=1/1p wethΔ=+0 eth=0
+   b26274887 i5 from=0x254338 to=0xeff6cb() actorΔ=+94.3056 gross=94.31 swaps=1/1p wethΔ=+0 eth=0
+   b26275721 i215 from=0x254338 to=0xeff6cb() actorΔ=+96.3904 gross=96.39 swaps=1/1p wethΔ=+0 eth=0
+   b26275755 i170 from=0x254338 to=0xeff6cb() actorΔ=+179.054 gross=179.1 swaps=1/1p wethΔ=-0.0287 eth=0
+   b26275776 i176 from=0x254338 to=0xeff6cb() actorΔ=+119.427 gross=119.4 swaps=1/1p wethΔ=+0 eth=0
+   b26276331 i219 from=0x254338 to=0xeff6cb() actorΔ=-236.991 gross=237 swaps=1/1p wethΔ=+0.03827 eth=0
+   b26278949 i273 from=0x254338 to=0xeff6cb() actorΔ=-193.468 gross=193.5 swaps=1/1p wethΔ=+0.03128 eth=0
+   b26279262 i122 from=0x254338 to=0xeff6cb() actorΔ=+231.639 gross=231.6 swaps=1/1p wethΔ=-0.03725 eth=0
+  actor buy=720.817 sell=533.691 net_ratio=0.260 senders={'0x254338': 8} internal_transfers=0 sandwich=[]
+  top other counterparties: [('0x35a86a', '2380', '')]
+=== G02 rlusd rule=R1 conf=1.0 wallets=1 usd=105059
+  claim: 0x3ee92cd00993a4488ae153ab41ac7947cbcbc1de bought and sold about the same amount between blocks 26268291 and 26268291.
+  M 0x3ee92cd00993a4488ae153ab41ac7947cbcbc1de c=False n=100499 lab='mevrevolutionx.eth' fund=0x4c9af4 | net=0 nT=0
+  B 0x410144dec85bb1929057829d54fb3b8d3f0ea4a3 c=True n=1 lab='' fund=- | in_member=2.712e+06 out_pool=2.712e+06 in_pool=2.712e+06 out_member=2.712e+06 net=1.863e-09 nT=245
+  B 0xd001ae433f254283fece51d4acce8c53263aa186 c=True n=1 lab='' fund=- | in_other=3.139e+04 out_other=3.05e+06 out_pool=1.76e+05 in_member=33.1 net=-3.195e+06 nT=172
+  B 0xfa82580c16a31d0c1bc632a36f82e83efef3eec0 c=True n=1 lab='' fund=- | out_other=1.139e+07 in_other=1.148e+07 out_member=2.712e+06 in_member=2.712e+06 net=9.023e+04 nT=339
+   b26268291 i64 from=0x3ee92c to=0x410144() actorΔ=-0.446411 gross=5.251e+04 swaps=1/1p wethΔ=-27.9 eth=6.88e-16
+   b26268291 i66 from=0x3ee92c to=0x410144() actorΔ=+0.446411 gross=5.251e+04 swaps=2/2p wethΔ=+27.9 eth=4.13e-16
+  actor buy=0.446411 sell=0.446411 net_ratio=0.000 senders={'0x3ee92c': 2} internal_transfers=0 sandwich=[(26268291, 2, 1)]
+  top other counterparties: [('0x4397a6', '1.136e+07', ''), ('0x5b3a59', '6.227e+06', ''), ('0x7662e9', '1.432e+06', ''), ('0x8f8d0a', '1.201e+06', '')]
+=== G03 mog rule=R1 conf=1.0 wallets=1 usd=1345
+  claim: 0x37cc6aa9759f359efec25d3496bd8a17f486efd0 bought and sold about the same amount between blocks 26276349 and 26276709.
+  M 0x37cc6aa9759f359efec25d3496bd8a17f486efd0 c=False n=4806 lab='' fund=0x2a4e13 | net=0 nT=0
+  B 0x278d858f05b94576c1e6f73285886876ff6ef8d2 c=True n=1 lab='' fund=- | in_pool=5.753e+10 out_other=0 out_pool=5.753e+10 net=0 nT=78
+   b26276349 i91 from=0x37cc6a to=0x278d85() actorΔ=-1.26405e+09 gross=1.264e+09 swaps=1/1p wethΔ=+0.05374 eth=0
+   b26276350 i43 from=0x37cc6a to=0x278d85() actorΔ=-2.17711e+09 gross=2.177e+09 swaps=1/1p wethΔ=+0.09255 eth=0
+   b26276375 i27 from=0x37cc6a to=0x278d85() actorΔ=-1.26388e+09 gross=1.264e+09 swaps=1/1p wethΔ=+0.0537 eth=0
+   b26276381 i47 from=0x37cc6a to=0x278d85() actorΔ=-1.99782e+09 gross=1.998e+09 swaps=1/1p wethΔ=+0.08479 eth=0
+   b26276703 i103 from=0x37cc6a to=0x278d85() actorΔ=+3.01114e+09 gross=3.011e+09 swaps=1/1p wethΔ=-0.129 eth=0
+   b26276709 i162 from=0x37cc6a to=0x278d85() actorΔ=+3.70973e+09 gross=3.71e+09 swaps=1/1p wethΔ=-0.1589 eth=0
+  actor buy=6.72086e+09 sell=6.70286e+09 net_ratio=0.003 senders={'0x37cc6a': 6} internal_transfers=0 sandwich=[]
+  top other counterparties: [('0xaaee1a', '0', 'Mog Coin: Mog Token')]
+=== G04 pepe rule=R1 conf=1.0 wallets=1 usd=5
+  claim: 0x49fbfaddd53f28b6bfa40cd7547a30ca9b5bb96c bought and sold about the same amount between blocks 26273723 and 26273723.
+  M 0x49fbfaddd53f28b6bfa40cd7547a30ca9b5bb96c c=False n=1386 lab='' fund=0x0c8c58 | net=0 nT=0
+   b26273723 i19 from=0x49fbfa to=0x0c8c58() actorΔ=+0 gross=0 swaps=9/9p wethΔ=+0 eth=0
+  actor buy=0 sell=0 net_ratio=0.000 senders={'0x49fbfa': 1} internal_transfers=0 sandwich=[]
+=== G05 neiro rule=R1 conf=1.0 wallets=1 usd=10
+  claim: 0x681aa348865b1ee3b106e4b807684ac4e5dd6457 bought and sold about the same amount between blocks 26278349 and 26283051.
+  M 0x681aa348865b1ee3b106e4b807684ac4e5dd6457 c=True n=134 lab='' fund=0xc4463c | in_pool=2.915e+05 out_other=2.915e+05 net=0 nT=12
+   b26278349 i52 from=0x681aa3 to=0x8d4cb2() actorΔ=-36476.8 gross=3.648e+04 swaps=12/11p wethΔ=+0 eth=0
+   b26283021 i173 from=0x681aa3 to=0x7a250d(Uniswap V2: Router 2) actorΔ=+72857.7 gross=7.286e+04 swaps=1/1p wethΔ=+0 eth=0.0021
+   b26283051 i68 from=0x681aa3 to=0x8d4cb2() actorΔ=-36428.9 gross=3.643e+04 swaps=11/10p wethΔ=+0 eth=0
+  actor buy=72857.7 sell=72905.6 net_ratio=0.001 senders={'0x681aa3': 3} internal_transfers=0 sandwich=[]
+  top other counterparties: [('0x8d4cb2', '2.915e+05', '')]
+=== G06 spx rule=R1 conf=1.0 wallets=1 usd=216
+  claim: 0x0000006c61584bcb681b43bc6d11aef192757c3d bought and sold about the same amount between blocks 26281611 and 26281611.
+  M 0x0000006c61584bcb681b43bc6d11aef192757c3d c=True n=550 lab='' fund=0x7f06b5 | in_pool=283.1 out_pool=283.1 net=1e-08 nT=2
+   b26281611 i41 from=0x000000 to=0x000000() actorΔ=+1e-08 gross=1e-08 swaps=2/2p wethΔ=+4.425e-05 eth=0
+  actor buy=1e-08 sell=0 net_ratio=1.000 senders={'0x000000': 1} internal_transfers=0 sandwich=[]
+=== G07 rlusd rule=R1 conf=1.0 wallets=1 usd=70036
+  claim: 0x3ee92cd00993a4488ae153ab41ac7947cbcbc1de bought and sold about the same amount between blocks 26282881 and 26282881.
+  M 0x3ee92cd00993a4488ae153ab41ac7947cbcbc1de c=False n=100499 lab='mevrevolutionx.eth' fund=0x4c9af4 | net=0 nT=0
+  B 0x410144dec85bb1929057829d54fb3b8d3f0ea4a3 c=True n=1 lab='' fund=- | in_member=2.712e+06 out_pool=2.712e+06 in_pool=2.712e+06 out_member=2.712e+06 net=1.863e-09 nT=245
+  B 0xd001ae433f254283fece51d4acce8c53263aa186 c=True n=1 lab='' fund=- | in_other=3.139e+04 out_other=3.05e+06 out_pool=1.76e+05 in_member=33.1 net=-3.195e+06 nT=172
+  B 0xfa82580c16a31d0c1bc632a36f82e83efef3eec0 c=True n=1 lab='' fund=- | out_other=1.139e+07 in_other=1.148e+07 out_member=2.712e+06 in_member=2.712e+06 net=9.023e+04 nT=339
+   b26282881 i55 from=0x3ee92c to=0x410144() actorΔ=-0.446411 gross=3.5e+04 swaps=1/1p wethΔ=-18.78 eth=1.04e-16
+   b26282881 i57 from=0x3ee92c to=0x410144() actorΔ=+0.446411 gross=3.5e+04 swaps=2/2p wethΔ=+18.78 eth=7.26e-16
+  actor buy=0.446411 sell=0.446411 net_ratio=0.000 senders={'0x3ee92c': 2} internal_transfers=0 sandwich=[(26282881, 2, 1)]
+  top other counterparties: [('0x4397a6', '1.136e+07', ''), ('0x5b3a59', '6.227e+06', ''), ('0x7662e9', '1.432e+06', ''), ('0x8f8d0a', '1.201e+06', '')]
+=== G08 mog rule=R1 conf=1.0 wallets=1 usd=1
+  claim: 0x00000000fd3a7b3fa5bcfa843c648714b11e089b bought and sold about the same amount between blocks 26281919 and 26281919.
+  M 0x00000000fd3a7b3fa5bcfa843c648714b11e089b c=True n=105967 lab='' fund=0x7e295f | in_pool=5.066e+06 out_other=0 out_pool=5.066e+06 net=0 nT=3
+   b26281919 i25 from=0x000000 to=0x000000() actorΔ=+0 gross=0 swaps=20/17p wethΔ=+0.006524 eth=0
+  actor buy=0 sell=0 net_ratio=0.000 senders={'0x000000': 1} internal_transfers=0 sandwich=[]
+  top other counterparties: [('0xaaee1a', '0', 'Mog Coin: Mog Token')]
+=== G09 pepe rule=R1 conf=1.0 wallets=1 usd=181
+  claim: 0x4be88c9e357ca6e0355042dc9168e059a5c722cc bought and sold about the same amount between blocks 26279069 and 26279145.
+  M 0x4be88c9e357ca6e0355042dc9168e059a5c722cc c=False n=690 lab='海屿你都美.eth' fund=0x551c3f | in_pool=5.706e+05 net=5.706e+05 nT=4
+  B 0xe1c13966ca1b6b443826a0a42cc9d3c5bfbf9a79 c=False n=24 lab='' fund=0x90c7fa | in_pool=2.758e+05 net=2.758e+05 nT=5
+   b26279069 i211 from=0x4be88c to=0x4313c3() actorΔ=+74148.5 gross=1.059e+05 swaps=2/2p wethΔ=+0 eth=0.02
+   b26279145 i134 from=0x4be88c to=0x90c496() actorΔ=+73407 gross=1.049e+05 swaps=2/2p wethΔ=+0 eth=0
+  actor buy=147556 sell=0 net_ratio=1.000 senders={'0x4be88c': 2} internal_transfers=0 sandwich=[]
+=== G10 neiro rule=R1 conf=1.0 wallets=1 usd=683
+  claim: 0x0e3e59824b920e63911eadbb49d714ce90376a6f bought and sold about the same amount between blocks 26273179 and 26275103.
+  M 0x0e3e59824b920e63911eadbb49d714ce90376a6f c=False n=43101 lab='' fund=0x5d4760 | net=0 nT=0
+  B 0x51c72848c68a965f66fa7a88855f9f7784502a7f c=True n=1 lab='' fund=- | in_pool=6.239e+08 out_pool=5.271e+08 net=9.681e+07 nT=276
+   b26273179 i32 from=0x0e3e59 to=0x51c728() actorΔ=+5.11212e+06 gross=5.112e+06 swaps=1/1p wethΔ=-0.1458 eth=0
+   b26274197 i271 from=0x0e3e59 to=0x51c728() actorΔ=-4.17062e+06 gross=4.171e+06 swaps=1/1p wethΔ=+0.118 eth=0
+   b26275103 i66 from=0x0e3e59 to=0x51c728() actorΔ=-947565 gross=9.476e+05 swaps=1/1p wethΔ=+0.02686 eth=0
+  actor buy=5.11212e+06 sell=5.11819e+06 net_ratio=0.001 senders={'0x0e3e59': 3} internal_transfers=0 sandwich=[]
+=== G11 spx rule=R1 conf=1.0 wallets=1 usd=1020
+  claim: 0x545fd91c9c2aa4aeba38c7e6792497e8d5f2003a bought and sold about the same amount between blocks 26282123 and 26282300.
+  M 0x545fd91c9c2aa4aeba38c7e6792497e8d5f2003a c=False n=30 lab='' fund=0xf70da9 | net=0 nT=0
+   b26282123 i22 from=0x545fd9 to=0xba412d() actorΔ=+0 gross=0 swaps=2/2p wethΔ=+0 eth=0.045
+   b26282156 i22 from=0x545fd9 to=0xba412d() actorΔ=+0 gross=0 swaps=2/2p wethΔ=+0 eth=0.04
+   b26282293 i197 from=0x545fd9 to=0xba412d() actorΔ=+0 gross=0 swaps=2/2p wethΔ=+0 eth=0
+   b26282300 i41 from=0x545fd9 to=0xba412d() actorΔ=+0 gross=0 swaps=2/2p wethΔ=+0 eth=0.05
+  actor buy=0 sell=0 net_ratio=0.000 senders={'0x545fd9': 4} internal_transfers=0 sandwich=[]
+=== G12 rlusd rule=R1 conf=1.0 wallets=1 usd=70038
+  claim: 0x3ee92cd00993a4488ae153ab41ac7947cbcbc1de bought and sold about the same amount between blocks 26269407 and 26269407.
+  M 0x3ee92cd00993a4488ae153ab41ac7947cbcbc1de c=False n=100499 lab='mevrevolutionx.eth' fund=0x4c9af4 | net=0 nT=0
+  B 0x410144dec85bb1929057829d54fb3b8d3f0ea4a3 c=True n=1 lab='' fund=- | in_member=2.712e+06 out_pool=2.712e+06 in_pool=2.712e+06 out_member=2.712e+06 net=1.863e-09 nT=245
+  B 0xd001ae433f254283fece51d4acce8c53263aa186 c=True n=1 lab='' fund=- | in_other=3.139e+04 out_other=3.05e+06 out_pool=1.76e+05 in_member=33.1 net=-3.195e+06 nT=172
+  B 0xfa82580c16a31d0c1bc632a36f82e83efef3eec0 c=True n=1 lab='' fund=- | out_other=1.139e+07 in_other=1.148e+07 out_member=2.712e+06 in_member=2.712e+06 net=9.023e+04 nT=339
+   b26269407 i15 from=0x3ee92c to=0x410144() actorΔ=-0.446411 gross=3.501e+04 swaps=1/1p wethΔ=-18.68 eth=1.58e-16
+   b26269407 i17 from=0x3ee92c to=0x410144() actorΔ=+0.446411 gross=3.501e+04 swaps=2/2p wethΔ=+18.68 eth=5.97e-16
+  actor buy=0.446411 sell=0.446411 net_ratio=0.000 senders={'0x3ee92c': 2} internal_transfers=0 sandwich=[(26269407, 2, 1)]
+  top other counterparties: [('0x4397a6', '1.136e+07', ''), ('0x5b3a59', '6.227e+06', ''), ('0x7662e9', '1.432e+06', ''), ('0x8f8d0a', '1.201e+06', '')]
+=== G13 spx rule=R1 conf=0.8395 wallets=1 usd=94
+  claim: 0xb0c2d03392097eb1e7ef24ba2f897f9f0fcc1519 bought and sold about the same amount between blocks 26282108 and 26282405.
+  M 0xb0c2d03392097eb1e7ef24ba2f897f9f0fcc1519 c=False n=41 lab='' fund=0xa9ac43 | net=0 nT=0
+   b26282108 i13 from=0xb0c2d0 to=0x5228ed() actorΔ=+0 gross=0 swaps=2/2p wethΔ=+0 eth=0
+   b26282127 i175 from=0xb0c2d0 to=0x5228ed() actorΔ=+0 gross=0 swaps=2/2p wethΔ=+0 eth=0.005
+   b26282375 i69 from=0xb0c2d0 to=0x5228ed() actorΔ=+0 gross=0 swaps=2/2p wethΔ=+0 eth=0
+   b26282405 i13 from=0xb0c2d0 to=0x5228ed() actorΔ=+0 gross=0 swaps=2/2p wethΔ=+0 eth=0.005
+  actor buy=0 sell=0 net_ratio=0.000 senders={'0xb0c2d0': 4} internal_transfers=0 sandwich=[]
+=== G14 pepe rule=R1 conf=0.8101 wallets=1 usd=24863
+  claim: 0x5b43453fce04b92e190f391a83136bfbecedefd1 bought and sold about the same amount between blocks 26277096 and 26277472.
+  M 0x5b43453fce04b92e190f391a83136bfbecedefd1 c=False n=1199331 lab='' fund=0x68d3a9 | net=0 nT=0
+  B 0xba4cb46d32ad724b5b6ce32c6ca80d8fcab3296f c=True n=1 lab='' fund=- | in_other=1.356e+08 out_other=4.002e+07 out_member=3.912e+08 in_member=2.423e+08 net=-5.33e+07 nT=58
+  B 0xbdb3ba9ffe392549e1f8658dd2630c141fdf47b6 c=True n=1 lab='' fund=- | out_pool=4.393e+10 in_pool=5.096e+10 in_member=3.912e+08 in_other=4.026e+08 out_member=2.423e+08 out_other=6.968e+08 net=6.885e+09 nT=276
+   b26277096 i1 from=0x5b4345 to=0xbdb3ba() actorΔ=+9.09317e+08 gross=9.284e+08 swaps=9/9p wethΔ=-2.037 eth=2.63e-11
+   b26277124 i1 from=0x5b4345 to=0xbdb3ba() actorΔ=+3.24933e+08 gross=3.249e+08 swaps=22/22p wethΔ=-6.233 eth=2.63e-11
+   b26277127 i2 from=0x5b4345 to=0xbdb3ba() actorΔ=+1.38353e+09 gross=1.404e+09 swaps=15/15p wethΔ=-2.957 eth=2.63e-11
+   b26277347 i1 from=0x5b4345 to=0xbdb3ba() actorΔ=+1.18611e+09 gross=1.186e+09 swaps=5/5p wethΔ=-3.137 eth=2.63e-11
+   b26277378 i1 from=0x5b4345 to=0xbdb3ba() actorΔ=+6.70054e+06 gross=6.701e+06 swaps=18/18p wethΔ=+1.005 eth=2.63e-11
+   b26277466 i1 from=0x5b4345 to=0xbdb3ba() actorΔ=-4.51206e+08 gross=4.512e+08 swaps=12/12p wethΔ=-12.41 eth=2.63e-11
+   b26277469 i1 from=0x5b4345 to=0xbdb3ba() actorΔ=-1.4833e+09 gross=1.483e+09 swaps=14/14p wethΔ=+8.519 eth=2.63e-11
+   b26277472 i2 from=0x5b4345 to=0xbdb3ba() actorΔ=-8.72805e+08 gross=8.728e+08 swaps=6/6p wethΔ=+1.641 eth=2.63e-11
+  actor buy=3.8106e+09 sell=2.80731e+09 net_ratio=0.263 senders={'0x5b4345': 8} internal_transfers=0 sandwich=[]
+  top other counterparties: [('0xce2622', '1.058e+09', ''), ('0x0cef32', '6.715e+07', ''), ('0x0a8084', '5.797e+07', ''), ('0x8f10b4', '3.924e+07', '')]
+=== G15 mog rule=R1 conf=0.8768 wallets=1 usd=424
+  claim: 0x37cc6aa9759f359efec25d3496bd8a17f486efd0 bought and sold about the same amount between blocks 26284074 and 26285034.
+  M 0x37cc6aa9759f359efec25d3496bd8a17f486efd0 c=False n=4806 lab='' fund=0x2a4e13 | net=0 nT=0
+  B 0x278d858f05b94576c1e6f73285886876ff6ef8d2 c=True n=1 lab='' fund=- | in_pool=5.753e+10 out_other=0 out_pool=5.753e+10 net=0 nT=78
+   b26284074 i83 from=0x37cc6a to=0x278d85() actorΔ=+2.0779e+09 gross=2.078e+09 swaps=1/1p wethΔ=-0.08928 eth=0
+   b26285034 i145 from=0x37cc6a to=0x278d85() actorΔ=-2.14706e+09 gross=2.147e+09 swaps=1/1p wethΔ=+0.09123 eth=0
+  actor buy=2.0779e+09 sell=2.14706e+09 net_ratio=0.032 senders={'0x37cc6a': 2} internal_transfers=0 sandwich=[]
+  top other counterparties: [('0xaaee1a', '0', 'Mog Coin: Mog Token')]
+=== G16 rlusd rule=R1 conf=0.8852 wallets=1 usd=27436
+  claim: 0xf2ff84d45783bd64913903516fa44b419f266998 bought and sold about the same amount between blocks 26282415 and 26283981.
+  M 0xf2ff84d45783bd64913903516fa44b419f266998 c=True n=9875 lab='' fund=0x28c6c0 | in_other=1.386e+04 out_other=1.357e+04 net=290.8 nT=6
+   b26282415 i33 from=0xf2ff84 to=0x704aed() actorΔ=+11298 gross=1.13e+04 swaps=3/3p wethΔ=+0 eth=0
+   b26283334 i39 from=0xf2ff84 to=0x704aed() actorΔ=-5436.05 gross=5436 swaps=3/3p wethΔ=+0 eth=0
+   b26283431 i92 from=0xf2ff84 to=0x704aed() actorΔ=-2868.01 gross=2868 swaps=4/4p wethΔ=+0 eth=0
+   b26283555 i264 from=0xf2ff84 to=0x704aed() actorΔ=+2560.4 gross=2560 swaps=11/11p wethΔ=+0 eth=0
+   b26283931 i81 from=0xf2ff84 to=0x704aed() actorΔ=-2207.23 gross=2207 swaps=4/4p wethΔ=+0 eth=0
+   b26283981 i124 from=0xf2ff84 to=0x704aed() actorΔ=-3056.32 gross=3056 swaps=4/4p wethΔ=+0 eth=0
+  actor buy=13858.4 sell=13567.6 net_ratio=0.021 senders={'0xf2ff84': 6} internal_transfers=0 sandwich=[]
+  top other counterparties: [('0x704aed', '2.743e+04', '')]
+=== G17 neiro rule=R1 conf=0.824 wallets=1 usd=722
+  claim: 0x4b2e310b10c9e7cd048c7378c24be1f806659d4f bought and sold about the same amount between blocks 26270626 and 26273630.
+  M 0x4b2e310b10c9e7cd048c7378c24be1f806659d4f c=False n=75636 lab='' fund=0x5d4760 | net=0 nT=0
+  B 0x51c72848c68a965f66fa7a88855f9f7784502a7f c=True n=1 lab='' fund=- | in_pool=6.239e+08 out_pool=5.271e+08 net=9.681e+07 nT=276
+   b26270626 i18 from=0x4b2e31 to=0x51c728() actorΔ=+5.48643e+06 gross=5.486e+06 swaps=1/1p wethΔ=-0.1563 eth=0
+   b26273630 i138 from=0x4b2e31 to=0x51c728() actorΔ=-5.32078e+06 gross=5.321e+06 swaps=1/1p wethΔ=+0.151 eth=0
+  actor buy=5.48643e+06 sell=5.32078e+06 net_ratio=0.030 senders={'0x4b2e31': 2} internal_transfers=0 sandwich=[]
+=== G18 spx rule=R1 conf=0.8489 wallets=1 usd=8
+  claim: 0x7202932b3be70edf0657d5bada261d610e0d7db9 bought and sold about the same amount between blocks 26278070 and 26282516.
+  M 0x7202932b3be70edf0657d5bada261d610e0d7db9 c=False n=144504 lab='Bundler: 0x720...db9' fund=0xf7c2d0 | net=0 nT=0
+  B 0x1a7b51cfebfb188176021a7b6c18d6b53f5819a7 c=True n=15 lab='' fund=0x0729e2 | in_other=41.21 out_other=10.36 net=30.86 nT=6
+  B 0x7d8eb200c45c273e3bef1bc55c09f76805158e96 c=False n=0 lab='' fund=0x666fed | in_other=9.571 in_member=1.578 net=11.15 nT=22
+  B 0xad01c20d5886137e056775af56915de824c8fce5 c=False n=8291 lab='' fund=0x897ce7 | in_other=1.922 net=1.922 nT=8
+  B 0xb3460558bfe053cb8e97a53b73070f0c9c21f847 c=True n=50 lab='' fund=0x2066df | out_other=10.6 out_member=1.578 net=-12.18 nT=2
+   b26278070 i310 from=0x720293 to=0x000000(Entry Point 0.7.0) actorΔ=+0 gross=13.77 swaps=2/2p wethΔ=+0 eth=0
+   b26282516 i149 from=0x720293 to=0x433708(Entry Point 0.8.0) actorΔ=+0 gross=10.36 swaps=1/1p wethΔ=+0 eth=0
+  actor buy=0 sell=0 net_ratio=0.000 senders={'0x720293': 2} internal_transfers=0 sandwich=[]
+  top other counterparties: [('0x0cef32', '53.35', ''), ('0x0729e2', '10.6', ''), ('0x347853', '3.318', ''), ('0xac895c', '0.9413', '')]
+=== G19 pepe rule=R1 conf=0.9186 wallets=1 usd=21
+  claim: 0x4a03ea3a4cd602e3f18733b95eebbb01de68379d bought and sold about the same amount between blocks 26275551 and 26275989.
+  M 0x4a03ea3a4cd602e3f18733b95eebbb01de68379d c=False n=13265 lab='' fund=0xd152f5 | net=0 nT=0
+  B 0xeff6cb8b614999d130e537751ee99724d01aa167 c=True n=1 lab='' fund=- | out_other=8.886e+07 out_pool=3.265e+09 in_pool=2.45e+08 in_other=3.108e+09 net=-1.412e+06 nT=91
+   b26275551 i196 from=0x4a03ea to=0xeff6cb() actorΔ=-2.44993e+06 gross=2.45e+06 swaps=1/1p wethΔ=+0 eth=0
+   b26275989 i288 from=0x4a03ea to=0xeff6cb() actorΔ=-2.37746e+06 gross=2.377e+06 swaps=1/1p wethΔ=+0 eth=0
+  actor buy=0 sell=4.82739e+06 net_ratio=1.000 senders={'0x4a03ea': 2} internal_transfers=0 sandwich=[]
+  top other counterparties: [('0xdfd529', '3.025e+09', 'Binance 16'), ('0x3202ac', '9.183e+07', ''), ('0x248823', '7.912e+07', 'Uniswap V3: PEPE-SHIB')]
+=== G20 mog rule=R1 conf=0.8642 wallets=1 usd=3688
+  claim: 0xd2ce3ac6c4a9a479e241cb7c7efd44dae97ae652 bought and sold about the same amount between blocks 26278982 and 26281836.
+  M 0xd2ce3ac6c4a9a479e241cb7c7efd44dae97ae652 c=True n=3921 lab='' fund=0x8b71a9 | in_other=1.076e+11 out_other=4.434e+10 out_pool=5.829e+10 net=4.922e+09 nT=53
+  B 0xcd6b980029e6e6e0733ac8ec3e02be9410d09799 c=False n=21572 lab='' fund=0x5141b8 | in_other=1.662e+08 net=1.662e+08 nT=10
+   b26278982 i168 from=0xd2ce3a to=0x111111(1inch: Aggregation Router V6) actorΔ=-4.68044e+09 gross=4.692e+09 swaps=2/2p wethΔ=+0 eth=0
+   b26279149 i20 from=0xd2ce3a to=0x000000(0x: Allowance Holder) actorΔ=-9.26727e+09 gross=9.267e+09 swaps=2/2p wethΔ=+0 eth=0
+   b26279153 i77 from=0xd2ce3a to=0x000000(0x: Allowance Holder) actorΔ=-4.54096e+09 gross=4.541e+09 swaps=2/2p wethΔ=+0 eth=0
+   b26281828 i75 from=0xd2ce3a to=0x2f6841() actorΔ=-500 gross=500 swaps=1/1p wethΔ=+0 eth=0
+   b26281831 i40 from=0xd2ce3a to=0x111111(1inch: Aggregation Router V6) actorΔ=+4.99536e+09 gross=4.995e+09 swaps=3/3p wethΔ=+0 eth=0
+   b26281834 i31 from=0xd2ce3a to=0x02e5be() actorΔ=+5.99247e+09 gross=6.007e+09 swaps=2/2p wethΔ=+0 eth=0
+   b26281836 i106 from=0xd2ce3a to=0x111111(1inch: Aggregation Router V6) actorΔ=+6.98817e+09 gross=6.988e+09 swaps=2/2p wethΔ=+0 eth=0
+  actor buy=1.7976e+10 sell=1.84887e+10 net_ratio=0.028 senders={'0xd2ce3a': 7} internal_transfers=0 sandwich=[]
+  top other counterparties: [('0x111111', '7.191e+10', '1inch: Aggregation Router'), ('0x23617e', '5.256e+10', 'Uniswap: Universal Router'), ('0x111116', '1.92e+10', ''), ('0x0cef32', '5.277e+09', '')]
+=== G21 neiro rule=R1 conf=0.9322 wallets=1 usd=1020
+  claim: 0x5b43453fce04b92e190f391a83136bfbecedefd1 bought and sold about the same amount between blocks 26279474 and 26284170.
+  M 0x5b43453fce04b92e190f391a83136bfbecedefd1 c=False n=1199332 lab='' fund=0x68d3a9 | net=0 nT=0
+  B 0xbdb3ba9ffe392549e1f8658dd2630c141fdf47b6 c=True n=1 lab='' fund=- | out_pool=4.945e+07 in_pool=6.694e+07 net=1.749e+07 nT=26
+   b26279474 i4 from=0x5b4345 to=0xbdb3ba() actorΔ=-5.35744e+06 gross=5.357e+06 swaps=9/9p wethΔ=+1.962 eth=2.63e-11
+   b26281297 i1 from=0x5b4345 to=0xbdb3ba() actorΔ=-2.27929e+06 gross=2.279e+06 swaps=56/56p wethΔ=+9.502 eth=2.63e-11
+   b26284055 i1 from=0x5b4345 to=0xbdb3ba() actorΔ=+4.37711e+06 gross=4.377e+06 swaps=56/56p wethΔ=-12.65 eth=2.63e-11
+   b26284170 i20 from=0x5b4345 to=0xbdb3ba() actorΔ=+3.17071e+06 gross=3.171e+06 swaps=11/11p wethΔ=-0.3834 eth=2.63e-11
+  actor buy=7.54782e+06 sell=7.63673e+06 net_ratio=0.012 senders={'0x5b4345': 4} internal_transfers=0 sandwich=[]
+=== G22 mog rule=R1 conf=0.7187 wallets=1 usd=4563
+  claim: 0x37cc6aa9759f359efec25d3496bd8a17f486efd0 bought and sold about the same amount between blocks 26276912 and 26280335.
+  M 0x37cc6aa9759f359efec25d3496bd8a17f486efd0 c=False n=4806 lab='' fund=0x2a4e13 | net=0 nT=0
+  B 0x278d858f05b94576c1e6f73285886876ff6ef8d2 c=True n=1 lab='' fund=- | in_pool=5.753e+10 out_other=0 out_pool=5.753e+10 net=0 nT=78
+   b26276912 i252 from=0x37cc6a to=0x278d85() actorΔ=+1.53957e+10 gross=1.54e+10 swaps=1/1p wethΔ=-0.664 eth=0
+   b26277119 i121 from=0x37cc6a to=0x278d85() actorΔ=-1.25838e+09 gross=1.258e+09 swaps=1/1p wethΔ=+0.05476 eth=0
+   b26277413 i329 from=0x37cc6a to=0x278d85() actorΔ=-1.35384e+09 gross=1.354e+09 swaps=1/1p wethΔ=+0.0586 eth=0
+   b26277421 i306 from=0x37cc6a to=0x278d85() actorΔ=-2.2583e+09 gross=2.258e+09 swaps=1/1p wethΔ=+0.09767 eth=0
+   b26277458 i103 from=0x37cc6a to=0x278d85() actorΔ=-1.96813e+09 gross=1.968e+09 swaps=1/1p wethΔ=+0.08498 eth=0
+   b26277459 i152 from=0x37cc6a to=0x278d85() actorΔ=-1.96794e+09 gross=1.968e+09 swaps=1/1p wethΔ=+0.08496 eth=0
+   b26277500 i293 from=0x37cc6a to=0x278d85() actorΔ=-1.03882e+10 gross=1.039e+10 swaps=1/1p wethΔ=+0.4479 eth=0
+   b26277796 i144 from=0x37cc6a to=0x278d85() actorΔ=-2.72357e+09 gross=2.724e+09 swaps=1/1p wethΔ=+0.1178 eth=0
+   b26278119 i136 from=0x37cc6a to=0x278d85() actorΔ=-1.02025e+09 gross=1.02e+09 swaps=1/1p wethΔ=+0.04397 eth=0
+   b26280335 i100 from=0x37cc6a to=0x278d85() actorΔ=+6.61901e+09 gross=6.619e+09 swaps=1/1p wethΔ=-0.2879 eth=0
+  actor buy=2.20147e+10 sell=2.29385e+10 net_ratio=0.040 senders={'0x37cc6a': 10} internal_transfers=0 sandwich=[]
+  top other counterparties: [('0xaaee1a', '0', 'Mog Coin: Mog Token')]
+=== G23 spx rule=R1 conf=0.6889 wallets=1 usd=4074
+  claim: 0x383cb33cc75e3bd9aa82688444ee894a320f76c1 bought and sold about the same amount between blocks 26282405 and 26286099.
+  M 0x383cb33cc75e3bd9aa82688444ee894a320f76c1 c=False n=128 lab='' fund=0xf30ba1 | net=0 nT=0
+   b26282405 i4 from=0x383cb3 to=0xba412d() actorΔ=+0 gross=0 swaps=2/2p wethΔ=+0 eth=0
+   b26282409 i7 from=0x383cb3 to=0xba412d() actorΔ=+0 gross=0 swaps=2/2p wethΔ=+0 eth=0.25
+   b26282417 i80 from=0x383cb3 to=0xba412d() actorΔ=+0 gross=0 swaps=2/2p wethΔ=+0 eth=0
+   b26282418 i134 from=0x383cb3 to=0xba412d() actorΔ=+0 gross=0 swaps=2/2p wethΔ=+0 eth=0.15
+   b26282419 i25 from=0x383cb3 to=0xba412d() actorΔ=+0 gross=0 swaps=2/2p wethΔ=+0 eth=0
+   b26286099 i5 from=0x383cb3 to=0xba412d() actorΔ=+0 gross=0 swaps=2/2p wethΔ=+0 eth=0.1
+  actor buy=0 sell=0 net_ratio=0.000 senders={'0x383cb3': 6} internal_transfers=0 sandwich=[]
+=== G24 neiro rule=R1 conf=0.5838 wallets=1 usd=1241
+  claim: 0xbf7a18c881e971041fcb0d57a679e8944c742edf bought and sold about the same amount between blocks 26268497 and 26273657.
+  M 0xbf7a18c881e971041fcb0d57a679e8944c742edf c=False n=42743 lab='' fund=0x5d4760 | net=0 nT=0
+  B 0x51c72848c68a965f66fa7a88855f9f7784502a7f c=True n=1 lab='' fund=- | in_pool=6.239e+08 out_pool=5.271e+08 net=9.681e+07 nT=276
+   b26268497 i39 from=0xbf7a18 to=0x51c728() actorΔ=-936003 gross=9.36e+05 swaps=1/1p wethΔ=+0.0266 eth=0
+   b26271158 i11 from=0xbf7a18 to=0x51c728() actorΔ=+9.06421e+06 gross=9.064e+06 swaps=1/1p wethΔ=-0.2585 eth=0
+   b26273657 i82 from=0xbf7a18 to=0x51c728() actorΔ=-8.59084e+06 gross=8.591e+06 swaps=1/1p wethΔ=+0.2432 eth=0
+  actor buy=9.06421e+06 sell=9.52684e+06 net_ratio=0.049 senders={'0xbf7a18': 3} internal_transfers=0 sandwich=[]
+=== G25 rlusd rule=R1 conf=0.6065 wallets=1 usd=3
+  claim: 0x0b17b8413658507a0621cff7d80e221580964c13 bought and sold about the same amount between blocks 26266599 and 26273471.
+  M 0x0b17b8413658507a0621cff7d80e221580964c13 c=False n=698 lab='' fund=0xe91c9d | net=0 nT=0
+  B 0x419cdbafa120ad8ce5c9daf662bd56a36ce31533 c=True n=1 lab='' fund=- | in_member=3.615 out_other=3.615 in_other=6.718 out_member=6.718 net=4.871e-06 nT=16
+  B 0x6dc58a0fdfc8d694e571dc59b9a52eeea780e6bf c=True n=1 lab='' fund=- | in_other=4.389e+07 out_member=3.615 in_member=6.718 out_other=5.592e+07 net=-1.203e+07 nT=271
+   b26266599 i8 from=0x0b17b8 to=0x6d5d8a() actorΔ=+0 gross=1.275 swaps=1/1p wethΔ=+0 eth=0
+   b26266904 i77 from=0x0b17b8 to=0x6d5d8a() actorΔ=+0 gross=0.4791 swaps=1/1p wethΔ=+0 eth=0
+   b26273471 i24 from=0x0b17b8 to=0x6d5d8a() actorΔ=+0 gross=1.685 swaps=1/1p wethΔ=+0 eth=0
+  actor buy=0 sell=0 net_ratio=0.000 senders={'0x0b17b8': 3} internal_transfers=0 sandwich=[]
+  top other counterparties: [('0x029125', '4.85e+07', 'Morpho: Vault Bundles V1'), ('0x3c6eab', '4.403e+07', ''), ('0xb03d62', '5.056e+06', ''), ('0x595362', '1.065e+06', '')]
+=== G26 pepe rule=R1 conf=0.7471 wallets=1 usd=10655
+  claim: 0x0e3e59824b920e63911eadbb49d714ce90376a6f bought and sold about the same amount between blocks 26273756 and 26279447.
+  M 0x0e3e59824b920e63911eadbb49d714ce90376a6f c=False n=43101 lab='' fund=0x5d4760 | net=0 nT=0
+  B 0x51c72848c68a965f66fa7a88855f9f7784502a7f c=True n=1 lab='' fund=- | out_pool=7.544e+10 out_other=8.101e+10 in_pool=9.681e+10 in_other=5.14e+10 net=-8.236e+09 nT=203
+   b26273756 i11 from=0x0e3e59 to=0x51c728() actorΔ=+4.0334e+08 gross=4.033e+08 swaps=1/1p wethΔ=-0.7426 eth=0
+   b26273930 i0 from=0x0e3e59 to=0x51c728() actorΔ=+8.50351e+08 gross=8.504e+08 swaps=1/1p wethΔ=-1.572 eth=0
+   b26276654 i2 from=0x0e3e59 to=0x51c728() actorΔ=-8.43506e+08 gross=8.435e+08 swaps=1/1p wethΔ=+1.583 eth=0
+   b26279447 i9 from=0x0e3e59 to=0x51c728() actorΔ=-3.74628e+08 gross=3.746e+08 swaps=1/1p wethΔ=+0.6936 eth=0
+  actor buy=1.25369e+09 sell=1.21813e+09 net_ratio=0.028 senders={'0x0e3e59': 4} internal_transfers=0 sandwich=[]
+  top other counterparties: [('0xeae738', '6.886e+10', 'Binance Deposit: 0xEae738'), ('0x28c6c0', '1.976e+10', 'Binance 14'), ('0x225a38', '1.414e+10', ''), ('0xf8191d', '1.349e+10', 'Wintermute 4')]
+=== G27 mog rule=R2 conf=1.0 wallets=2 usd=5006
+  claim: Linked wallets 0xd2ce3ac6c4a9a479e241cb7c7efd44dae97ae652, 0xe12b8af9dd07de0a89530298720efdb01238a538 bought and sold about the same amount between blocks 26276
+  M 0xd2ce3ac6c4a9a479e241cb7c7efd44dae97ae652 c=True n=3921 lab='' fund=0x8b71a9 | in_other=1.076e+11 out_other=4.434e+10 out_pool=5.829e+10 net=4.922e+09 nT=53
+  M 0xe12b8af9dd07de0a89530298720efdb01238a538 c=False n=40 lab='' fund=0x9696f5 | in_other=9.929e+07 net=9.929e+07 nT=1
+  B 0xcd6b980029e6e6e0733ac8ec3e02be9410d09799 c=False n=21572 lab='' fund=0x5141b8 | in_other=1.662e+08 net=1.662e+08 nT=10
+   b26276916 i91 from=0xd2ce3a to=0xac4c6e(SushiSwap: RedSnwapper) actorΔ=-1.99013e+10 gross=1.995e+10 swaps=2/2p wethΔ=+0 eth=0
+   b26276925 i109 from=0xd2ce3a to=0x000000(0x: Allowance Holder) actorΔ=-4.77632e+09 gross=4.776e+09 swaps=2/2p wethΔ=+0 eth=0
+   b26277169 i175 from=0xe12b8a to=0x23617e(Uniswap: Universal Router v2) actorΔ=+9.92934e+07 gross=9.929e+07 swaps=1/1p wethΔ=+0 eth=0.00438
+   b26277717 i203 from=0xd2ce3a to=0x111111(1inch: Aggregation Router V6) actorΔ=+8.6747e+09 gross=8.675e+09 swaps=1/1p wethΔ=+0 eth=0.379
+   b26277729 i192 from=0xd2ce3a to=0x111111(1inch: Aggregation Router V6) actorΔ=+1.59129e+10 gross=1.591e+10 swaps=1/1p wethΔ=+0 eth=0.695
+  actor buy=2.46868e+10 sell=2.46776e+10 net_ratio=0.000 senders={'0xd2ce3a': 4, '0xe12b8a': 1} internal_transfers=0 sandwich=[]
+  top other counterparties: [('0x111111', '7.191e+10', '1inch: Aggregation Router'), ('0x23617e', '5.266e+10', 'Uniswap: Universal Router'), ('0x111116', '1.92e+10', ''), ('0x0cef32', '5.277e+09', '')]
+=== G28 rlusd rule=R2 conf=1.0 wallets=2 usd=80
+  claim: Linked wallets 0x425f26078234d0c3036621a937896d5da9eecbdb, 0xda03d12d465c720d65254c3d4dbe969a29fb877c bought and sold about the same amount between blocks 26277
+  M 0x425f26078234d0c3036621a937896d5da9eecbdb c=False n=52 lab='' fund=0xa564b8 | out_other=1.469 in_other=5.258 net=3.789 nT=5
+  M 0xda03d12d465c720d65254c3d4dbe969a29fb877c c=False n=366 lab='' fund=0x56eddb | in_other=83.36 out_other=40 net=43.36 nT=10
+   b26277546 i89 from=0x425f26 to=0x6a000f(Velora: Augustus V6.2) actorΔ=+1.99919 gross=1.999 swaps=1/1p wethΔ=+0 eth=0
+   b26277556 i259 from=0x425f26 to=0x6a000f(Velora: Augustus V6.2) actorΔ=+3.25881 gross=3.259 swaps=1/1p wethΔ=+0 eth=0
+   b26281014 i66 from=0xda03d1 to=0x6131b5(KyberSwap: Meta Aggregation ) actorΔ=-10 gross=10 swaps=1/1p wethΔ=+0 eth=0
+   b26281031 i141 from=0xda03d1 to=0x6131b5(KyberSwap: Meta Aggregation ) actorΔ=-10 gross=10 swaps=1/1p wethΔ=+0 eth=0
+   b26281079 i116 from=0xda03d1 to=0x6131b5(KyberSwap: Meta Aggregation ) actorΔ=-10 gross=10 swaps=1/1p wethΔ=+0 eth=0
+   b26281235 i54 from=0xda03d1 to=0x6131b5(KyberSwap: Meta Aggregation ) actorΔ=-10 gross=10 swaps=1/1p wethΔ=+0 eth=0
+   b26281460 i135 from=0xda03d1 to=0x6a000f(Velora: Augustus V6.2) actorΔ=+34.9353 gross=34.94 swaps=1/1p wethΔ=+0 eth=0
+  actor buy=40.1933 sell=40 net_ratio=0.005 senders={'0x425f26': 2, '0xda03d1': 5} internal_transfers=0 sandwich=[]
+  top other counterparties: [('0x6a000f', '40.19', 'Velora: Augustus V6.2'), ('0xfa8258', '40', ''), ('0x8f10b4', '40', ''), ('0x21a31e', '8.42', 'Binance 15')]
+=== G29 pepe rule=R2 conf=1.0 wallets=2 usd=13
+  claim: Linked wallets 0x46817251c5c071a83380287c05a79c6083ed05a7, 0xc2016c93f8272b3ae316c2d80f20fdeff3228b0e bought and sold about the same amount between blocks 26275
+  M 0x46817251c5c071a83380287c05a79c6083ed05a7 c=False n=10 lab='' fund=0x28c6c0 | in_other=1.515e+06 out_other=1.515e+06 net=0 nT=2
+  M 0xc2016c93f8272b3ae316c2d80f20fdeff3228b0e c=False n=113 lab='' fund=0x9696f5 | in_pool=8.207e+05 in_other=7.05e+05 net=1.526e+06 nT=2
+   b26275123 i121 from=0xc2016c to=0xb30000(Binance: DEX Router) actorΔ=+820700 gross=8.207e+05 swaps=1/1p wethΔ=+0 eth=0.00158
+   b26277580 i73 from=0x468172 to=0xb30000(Binance: DEX Router) actorΔ=-1.51497e+06 gross=1.515e+06 swaps=2/2p wethΔ=+0 eth=0
+   b26278544 i116 from=0xc2016c to=0xb30000(Binance: DEX Router) actorΔ=+704976 gross=7.05e+05 swaps=1/1p wethΔ=+0 eth=0.00133
+  actor buy=1.52568e+06 sell=1.51497e+06 net_ratio=0.007 senders={'0xc2016c': 2, '0x468172': 1} internal_transfers=0 sandwich=[]
+  top other counterparties: [('0xb30000', '2.22e+06', 'Binance: DEX Router'), ('0x21a31e', '1.515e+06', 'Binance 15')]
+=== G30 rlusd rule=R2 conf=1.0 wallets=2 usd=2079825
+  claim: Linked wallets 0x5b3a59d923cff08e3d53f80d5ea2b9e94a0b3b86, 0xe0f3fdcb681fb8a97ad962b49c8c22411fd36dc3 bought and sold about the same amount between blocks 26281
+  M 0x5b3a59d923cff08e3d53f80d5ea2b9e94a0b3b86 c=False n=396 lab='' fund=0x4976a4 | in_other=7.294e+06 out_other=7.294e+06 net=45.62 nT=107
+  M 0xe0f3fdcb681fb8a97ad962b49c8c22411fd36dc3 c=False n=61 lab='' fund=0x43dc48 | in_other=1.566e+06 out_other=1.566e+06 net=0 nT=4
+   b26281392 i76 from=0xe0f3fd to=0x0cef32() actorΔ=+766427 gross=7.664e+05 swaps=2/2p wethΔ=+0 eth=0
+   b26281908 i61 from=0x5b3a59 to=0x6131b5(KyberSwap: Meta Aggregation ) actorΔ=-189006 gross=1.89e+05 swaps=1/1p wethΔ=+0 eth=0
+   b26282103 i59 from=0x5b3a59 to=0x6131b5(KyberSwap: Meta Aggregation ) actorΔ=-189019 gross=1.89e+05 swaps=1/1p wethΔ=+0 eth=0
+   b26282529 i32 from=0x5b3a59 to=0x6a000f(Velora: Augustus V6.2) actorΔ=+266424 gross=2.664e+05 swaps=1/1p wethΔ=+0 eth=0
+   b26282748 i80 from=0x5b3a59 to=0x6131b5(KyberSwap: Meta Aggregation ) actorΔ=-189020 gross=1.89e+05 swaps=1/1p wethΔ=+0 eth=0
+   b26282768 i52 from=0x5b3a59 to=0x6131b5(KyberSwap: Meta Aggregation ) actorΔ=-154000 gross=1.54e+05 swaps=1/1p wethΔ=+0 eth=0
+   b26282880 i135 from=0x5b3a59 to=0x6131b5(KyberSwap: Meta Aggregation ) actorΔ=-188991 gross=1.89e+05 swaps=2/2p wethΔ=+0 eth=0
+   b26283002 i57 from=0x5b3a59 to=0x6131b5(KyberSwap: Meta Aggregation ) actorΔ=-68000 gross=6.8e+04 swaps=1/1p wethΔ=+0 eth=0
+   b26283231 i92 from=0x5b3a59 to=0x6131b5(KyberSwap: Meta Aggregation ) actorΔ=-68000 gross=6.8e+04 swaps=1/1p wethΔ=+0 eth=0
+  actor buy=1.03285e+06 sell=1.04604e+06 net_ratio=0.013 senders={'0xe0f3fd': 1, '0x5b3a59': 8} internal_transfers=0 sandwich=[]
+  top other counterparties: [('0xfa8258', '6.227e+06', ''), ('0x8f10b4', '3.127e+06', ''), ('0x21a31e', '1.825e+06', 'Binance 15'), ('0x029125', '1.566e+06', 'Morpho: Vault Bundles V1')]
+=== G31 rlusd rule=R2 conf=1.0 wallets=2 usd=1599540
+  claim: Linked wallets 0x5b3a59d923cff08e3d53f80d5ea2b9e94a0b3b86, 0xe0f3fdcb681fb8a97ad962b49c8c22411fd36dc3 bought and sold about the same amount between blocks 26279
+  M 0x5b3a59d923cff08e3d53f80d5ea2b9e94a0b3b86 c=False n=396 lab='' fund=0x4976a4 | in_other=7.027e+06 out_other=7.294e+06 in_member=2.664e+05 net=45.62 nT=107
+  M 0xe0f3fdcb681fb8a97ad962b49c8c22411fd36dc3 c=False n=61 lab='' fund=0x43dc48 | in_member=7.998e+05 in_other=7.664e+05 out_other=1.566e+06 net=0 nT=4
+  B 0x00700052c0608f670705380a4900e0a8080010cc c=True n=1 lab='Velora: Augustus Fee Vault' fund=- | in_member=7.378 out_other=25.68 net=-18.3 nT=3
+  B 0x6a000f20005980200259b80c5102003040001068 c=True n=1 lab='Velora: Augustus V6.2' fund=- | in_other=5.086e+04 in_pool=3.23e+06 out_other=2.215e+06 out_member=1.066e+06 net=0 nT=48
+   b26279935 i91 from=0x5b3a59 to=0x6a000f(Velora: Augustus V6.2) actorΔ=-250000 gross=2.5e+05 swaps=1/1p wethΔ=+0 eth=0
+   b26279996 i23 from=0x5b3a59 to=0x6a000f(Velora: Augustus V6.2) actorΔ=-190000 gross=1.9e+05 swaps=1/1p wethΔ=+0 eth=0
+   b26280348 i98 from=0x5b3a59 to=0x6131b5(KyberSwap: Meta Aggregation ) actorΔ=-60064.5 gross=6.006e+04 swaps=2/2p wethΔ=+0 eth=0
+   b26280353 i96 from=0x5b3a59 to=0x6131b5(KyberSwap: Meta Aggregation ) actorΔ=-65935.5 gross=6.594e+04 swaps=1/1p wethΔ=+0 eth=0
+   b26280646 i16 from=0x5b3a59 to=0x6131b5(KyberSwap: Meta Aggregation ) actorΔ=-233000 gross=2.33e+05 swaps=4/4p wethΔ=+0 eth=0
+   b26281283 i133 from=0xe0f3fd to=0x6a000f(Velora: Augustus V6.2) actorΔ=+399895 gross=3.999e+05 swaps=2/2p wethΔ=+0 eth=0
+   b26281326 i80 from=0xe0f3fd to=0x6a000f(Velora: Augustus V6.2) actorΔ=+399887 gross=3.999e+05 swaps=2/2p wethΔ=+0 eth=0
+  actor buy=799782 sell=799000 net_ratio=0.001 senders={'0x5b3a59': 5, '0xe0f3fd': 2} internal_transfers=0 sandwich=[]
+  top other counterparties: [('0xfa8258', '6.227e+06', ''), ('0x8f10b4', '3.127e+06', ''), ('0x21a31e', '1.825e+06', 'Binance 15'), ('0xd6161e', '1.707e+06', '')]
+=== G32 rlusd rule=R2 conf=0.9116 wallets=3 usd=203066
+  claim: Linked wallets 0x425f26078234d0c3036621a937896d5da9eecbdb, 0x5b3a59d923cff08e3d53f80d5ea2b9e94a0b3b86, 0x84abd5f03d86fcf8d13ba1da0ae01f88bf1759da bought and sol
+  M 0x425f26078234d0c3036621a937896d5da9eecbdb c=False n=52 lab='' fund=0xa564b8 | out_other=1.469 in_other=5.258 net=3.789 nT=5
+  M 0x5b3a59d923cff08e3d53f80d5ea2b9e94a0b3b86 c=False n=396 lab='' fund=0x4976a4 | in_other=7.294e+06 out_other=7.294e+06 net=45.62 nT=107
+  M 0x84abd5f03d86fcf8d13ba1da0ae01f88bf1759da c=False n=229 lab='' fund=0x227067 | in_other=1.899e+05 out_other=1.899e+05 net=0 nT=15
+   b26277546 i89 from=0x425f26 to=0x6a000f(Velora: Augustus V6.2) actorΔ=+1.99919 gross=1.999 swaps=1/1p wethΔ=+0 eth=0
+   b26277556 i259 from=0x425f26 to=0x6a000f(Velora: Augustus V6.2) actorΔ=+3.25881 gross=3.259 swaps=1/1p wethΔ=+0 eth=0
+   b26278134 i137 from=0x84abd5 to=0x6a000f(Velora: Augustus V6.2) actorΔ=+59979.5 gross=5.998e+04 swaps=1/1p wethΔ=+0 eth=0
+   b26278318 i287 from=0x84abd5 to=0x6a000f(Velora: Augustus V6.2) actorΔ=+39987.6 gross=3.999e+04 swaps=1/1p wethΔ=+0 eth=0
+   b26279647 i29 from=0x5b3a59 to=0x6131b5(KyberSwap: Meta Aggregation ) actorΔ=-103000 gross=1.03e+05 swaps=4/4p wethΔ=+0 eth=0
+  actor buy=99972.3 sell=103000 net_ratio=0.029 senders={'0x425f26': 2, '0x84abd5': 2, '0x5b3a59': 1} internal_transfers=0 sandwich=[]
+  top other counterparties: [('0xfa8258', '6.227e+06', ''), ('0x8f10b4', '3.127e+06', ''), ('0x21a31e', '1.825e+06', 'Binance 15'), ('0xdfd529', '1.346e+06', 'Binance 16')]
+=== G33 mog rule=R2 conf=0.9299 wallets=2 usd=4196
+  claim: Linked wallets 0xb678190bd6f266bfae4a74c3bec94f13e7f31e51, 0xd2ce3ac6c4a9a479e241cb7c7efd44dae97ae652 bought and sold about the same amount between blocks 26279
+  M 0xb678190bd6f266bfae4a74c3bec94f13e7f31e51 c=True n=7464 lab='' fund=0x9696f5 | in_other=1.549e+10 out_other=2.049e+09 out_pool=1.343e+10 net=6.146e+06 nT=16
+  M 0xd2ce3ac6c4a9a479e241cb7c7efd44dae97ae652 c=True n=3921 lab='' fund=0x8b71a9 | in_other=1.076e+11 out_other=4.434e+10 out_pool=5.829e+10 net=4.922e+09 nT=53
+  B 0xcd6b980029e6e6e0733ac8ec3e02be9410d09799 c=False n=21572 lab='' fund=0x5141b8 | in_other=1.662e+08 net=1.662e+08 nT=10
+   b26279149 i20 from=0xd2ce3a to=0x000000(0x: Allowance Holder) actorΔ=-9.26727e+09 gross=9.267e+09 swaps=2/2p wethΔ=+0 eth=0
+   b26279153 i77 from=0xd2ce3a to=0x000000(0x: Allowance Holder) actorΔ=-4.54096e+09 gross=4.541e+09 swaps=2/2p wethΔ=+0 eth=0
+   b26279950 i2 from=0xb67819 to=0x111111(1inch: Aggregation Router V6) actorΔ=-2.0424e+09 gross=2.042e+09 swaps=1/1p wethΔ=+0.08839 eth=0
+   b26280509 i2 from=0xb67819 to=0x000000(0x: Allowance Holder) actorΔ=-4.60732e+09 gross=4.607e+09 swaps=1/1p wethΔ=+0.1995 eth=0
+   b26281828 i75 from=0xd2ce3a to=0x2f6841() actorΔ=-500 gross=500 swaps=1/1p wethΔ=+0 eth=0
+   b26281831 i40 from=0xd2ce3a to=0x111111(1inch: Aggregation Router V6) actorΔ=+4.99536e+09 gross=4.995e+09 swaps=3/3p wethΔ=+0 eth=0
+   b26281834 i31 from=0xd2ce3a to=0x02e5be() actorΔ=+5.99247e+09 gross=6.007e+09 swaps=2/2p wethΔ=+0 eth=0
+   b26281836 i106 from=0xd2ce3a to=0x111111(1inch: Aggregation Router V6) actorΔ=+6.98817e+09 gross=6.988e+09 swaps=2/2p wethΔ=+0 eth=0
+   b26281839 i43 from=0xd2ce3a to=0x111111(1inch: Aggregation Router V6) actorΔ=+2.99552e+09 gross=2.996e+09 swaps=2/2p wethΔ=+0 eth=0
+  actor buy=2.09715e+10 sell=2.0458e+10 net_ratio=0.024 senders={'0xd2ce3a': 7, '0xb67819': 2} internal_transfers=0 sandwich=[]
+  top other counterparties: [('0x111111', '7.191e+10', '1inch: Aggregation Router'), ('0x23617e', '5.256e+10', 'Uniswap: Universal Router'), ('0x111116', '2.126e+10', ''), ('0x377900', '1.548e+10', '')]
+=== G34 neiro rule=R2 conf=0.8816 wallets=2 usd=28
+  claim: Linked wallets 0xa44abe652cabef48cfdcc8fbe6a76f4c288a4908, 0xefd155e113625e305428ebabaf70756edab8a261 bought and sold about the same amount between blocks 26268
+  M 0xa44abe652cabef48cfdcc8fbe6a76f4c288a4908 c=False n=729 lab='' fund=0x4976a4 | in_other=2.665e+05 out_other=2.665e+05 net=0 nT=4
+  M 0xefd155e113625e305428ebabaf70756edab8a261 c=False n=71 lab='' fund=0xa03400 | out_other=2.109e+05 net=-2.109e+05 nT=1
+   b26268521 i187 from=0xefd155 to=0xb30000(Binance: DEX Router) actorΔ=-210910 gross=2.109e+05 swaps=1/1p wethΔ=+0 eth=0
+   b26275597 i154 from=0xa44abe to=0xb30000(Binance: DEX Router) actorΔ=+213824 gross=2.138e+05 swaps=1/1p wethΔ=+0 eth=0.0061
+  actor buy=213824 sell=210910 net_ratio=0.014 senders={'0xefd155': 1, '0xa44abe': 1} internal_transfers=0 sandwich=[]
+  top other counterparties: [('0xb30000', '4.774e+05', 'Binance: DEX Router'), ('0xd6bdcf', '2.665e+05', 'Binance Deposit: 0xd6bdcf')]
+=== G35 rlusd rule=R2 conf=0.9325 wallets=2 usd=203061
+  claim: Linked wallets 0x5b3a59d923cff08e3d53f80d5ea2b9e94a0b3b86, 0x84abd5f03d86fcf8d13ba1da0ae01f88bf1759da bought and sold about the same amount between blocks 26278
+  M 0x5b3a59d923cff08e3d53f80d5ea2b9e94a0b3b86 c=False n=396 lab='' fund=0x4976a4 | in_other=7.294e+06 out_other=7.294e+06 net=45.62 nT=107
+  M 0x84abd5f03d86fcf8d13ba1da0ae01f88bf1759da c=False n=229 lab='' fund=0x227067 | in_other=1.899e+05 out_other=1.899e+05 net=0 nT=15
+   b26278134 i137 from=0x84abd5 to=0x6a000f(Velora: Augustus V6.2) actorΔ=+59979.5 gross=5.998e+04 swaps=1/1p wethΔ=+0 eth=0
+   b26278318 i287 from=0x84abd5 to=0x6a000f(Velora: Augustus V6.2) actorΔ=+39987.6 gross=3.999e+04 swaps=1/1p wethΔ=+0 eth=0
+   b26279647 i29 from=0x5b3a59 to=0x6131b5(KyberSwap: Meta Aggregation ) actorΔ=-103000 gross=1.03e+05 swaps=4/4p wethΔ=+0 eth=0
+  actor buy=99967.1 sell=103000 net_ratio=0.029 senders={'0x84abd5': 2, '0x5b3a59': 1} internal_transfers=0 sandwich=[]
+  top other counterparties: [('0xfa8258', '6.227e+06', ''), ('0x8f10b4', '3.127e+06', ''), ('0x21a31e', '1.825e+06', 'Binance 15'), ('0xdfd529', '1.346e+06', 'Binance 16')]
+=== G36 rlusd rule=R2 conf=0.9334 wallets=2 usd=102
+  claim: Linked wallets 0xb861a9f53a05845b588b13a08755dfbe9fb60c4e, 0xd245bb4cf2bce8ef8a8a9cb18d3e41f5c4c58a4f bought and sold about the same amount between blocks 26269
+  M 0xb861a9f53a05845b588b13a08755dfbe9fb60c4e c=True n=10 lab='' fund=0xb42f81 | in_other=50.79 out_other=50.79 net=0 nT=2
+  M 0xd245bb4cf2bce8ef8a8a9cb18d3e41f5c4c58a4f c=False n=6 lab='' fund=0x56eddb | in_other=0.8589 net=0.8589 nT=1
+   b26269312 i71 from=0xd245bb to=0x881d40(Metamask: Swap Router) actorΔ=+0.85888 gross=0.8589 swaps=2/2p wethΔ=+0 eth=0
+   b26274001 i72 from=0xb861a9 to=0x881d40(Metamask: Swap Router) actorΔ=+50.792 gross=50.79 swaps=2/2p wethΔ=+0 eth=0
+   b26274121 i95 from=0xb861a9 to=0xb861a9() actorΔ=-50.792 gross=50.79 swaps=2/2p wethΔ=+0 eth=0
+  actor buy=51.6509 sell=50.792 net_ratio=0.017 senders={'0xd245bb': 1, '0xb861a9': 2} internal_transfers=0 sandwich=[]
+  top other counterparties: [('0x74de5d', '102.4', 'MetaMask: Swaps Spender')]
+=== G37 rlusd rule=R2 conf=0.72 wallets=3 usd=57246
+  claim: 50.792 tokens bought and later sold after being passed along (3 wallets, blocks 26269524–26274121).
+  M 0x74de5d4fcbf63e00296fd95d33236b9794016631 c=True n=1 lab='MetaMask: Swaps Spender' fund=- | in_pool=24.08 out_other=1.216e+05 in_other=9.777e+04 out_pool=3.336e+04 in_member=5.723e+04 out_member=50.79 net=-2.91e-11 nT=26
+  M 0xb3ec453d3ecb906a8fa01f0e563c8feca042e96d c=True n=9 lab='' fund=0xc066ac | out_member=5.718e+04 net=-5.718e+04 nT=1
+  M 0xb861a9f53a05845b588b13a08755dfbe9fb60c4e c=True n=10 lab='' fund=0xb42f81 | in_member=50.79 out_member=50.79 net=0 nT=2
+   b26269524 i47 from=0xb3ec45 to=0xb3ec45() actorΔ=-57175.8 gross=5.718e+04 swaps=2/2p wethΔ=+0 eth=0
+   b26274121 i95 from=0xb861a9 to=0xb861a9() actorΔ=-50.792 gross=50.79 swaps=2/2p wethΔ=+0 eth=0
+  actor buy=0 sell=57226.6 net_ratio=1.000 senders={'0xb3ec45': 1, '0xb861a9': 1} internal_transfers=3 sandwich=[]
+   xfer b26269524 0xb3ec45->0x74de5d 5.718e+22raw tx 0xb5bbaf0741
+   xfer b26274001 0x74de5d->0xb861a9 5.079e+19raw tx 0xcd9bb9c13c
+   xfer b26274121 0xb861a9->0x74de5d 5.079e+19raw tx 0x006e9467d7
+  top other counterparties: [('0x111116', '1.113e+05', ''), ('0xb493fa', '2.551e+04', ''), ('0x749b26', '1.906e+04', ''), ('0xab1838', '1.43e+04', '')]
+=== G38 spx rule=R2 conf=0.6704 wallets=5 usd=489
+  claim: 2 buyer(s) and 3 seller(s) passed tokens and the amounts cancel (633.079 bought, 663.241 sold).
+  M 0x109f0a6119e5758e23d88f9b19d32151727911f1 c=False n=925 lab='' fund=0x0578b7 | out_member=8.88 net=-8.88 nT=1
+  M 0x128fc2aa6a8c19876e47c69b89eefa80cdc7cde6 c=False n=1058 lab='' fund=0xb5d85c | in_member=749 out_pool=250 net=499 nT=4
+  M 0x23617e59a5925b2a4bf75d73ff6711cd0b29de85 c=True n=1 lab='Uniswap: Universal Router v2.1.2' fund=- | in_pool=3936 out_other=2420 out_member=749 in_member=572.3 out_pool=1465 in_other=125.4 net=-9.095e-13 nT=44
+  M 0x2e33c390cce2ee685a8e28d3496463420dba7e1b c=True n=1 lab='' fund=- | out_pool=231.2 out_other=215.1 in_pool=69.92 in_other=90.59 out_member=26.97 net=-312.8 nT=17
+  M 0x8e92d28216ac924bbf01f2e7fe4fffd575ec3f17 c=False n=5274 lab='' fund=0x9c6bfa | in_other=665.9 out_member=536.4 in_pool=134.1 net=263.6 nT=10
+   b26276720 i111 from=0x128fc2 to=0x23617e(Uniswap: Universal Router v2) actorΔ=+249 gross=249 swaps=1/1p wethΔ=-0.03993 eth=0.0401
+   b26276752 i62 from=0x128fc2 to=0x23617e(Uniswap: Universal Router v2) actorΔ=+250 gross=250 swaps=1/1p wethΔ=-0.04013 eth=0.0403
+   b26277433 i116 from=0x109f0a to=0x02e5be() actorΔ=-8.88009 gross=8.88 swaps=1/1p wethΔ=+0.001424 eth=0
+   b26278098 i74 from=0x8e92d2 to=0x02e5be() actorΔ=-133.201 gross=133.2 swaps=1/1p wethΔ=+0 eth=0
+   b26279857 i216 from=0x8e92d2 to=0x02e5be() actorΔ=-136.087 gross=136.1 swaps=3/3p wethΔ=+0 eth=0
+   b26281225 i123 from=0x8e92d2 to=0x02e5be() actorΔ=-135.073 gross=135.1 swaps=1/1p wethΔ=+0 eth=0
+   b26281496 i98 from=0x8e92d2 to=0x02e5be() actorΔ=+134.079 gross=134.1 swaps=2/2p wethΔ=+0 eth=0
+   b26281624 i83 from=0x128fc2 to=0x23617e(Uniswap: Universal Router v2) actorΔ=-250 gross=250 swaps=1/1p wethΔ=+0.04051 eth=0
+  actor buy=633.079 sell=663.241 net_ratio=0.045 senders={'0x128fc2': 3, '0x109f0a': 1, '0x8e92d2': 4} internal_transfers=9 sandwich=[]
+   xfer b26276720 0x23617e->0x128fc2 2.49e+10raw tx 0x33d77773f9
+   xfer b26276752 0x23617e->0x128fc2 2.5e+10raw tx 0x2f206ad2f4
+   xfer b26277163 0x2e33c3->0x23617e 2.697e+09raw tx 0x56603802af
+   xfer b26277433 0x109f0a->0x23617e 8.88e+08raw tx 0x8a01ef9fc5
+   xfer b26278098 0x8e92d2->0x23617e 1.332e+10raw tx 0xff59c0214b
+  top other counterparties: [('0x7c1c4a', '1109', ''), ('0x42a354', '806.6', ''), ('0x066018', '798', ''), ('0x43592d', '500', '')]
+=== G39 rlusd rule=R2 conf=0.7266 wallets=3 usd=205066
+  claim: Linked wallets 0x5b3a59d923cff08e3d53f80d5ea2b9e94a0b3b86, 0x84abd5f03d86fcf8d13ba1da0ae01f88bf1759da, 0xf4ecd1dc2c437affbb36fdcd6b5b44ca6f601e4c bought and sol
+  M 0x5b3a59d923cff08e3d53f80d5ea2b9e94a0b3b86 c=False n=396 lab='' fund=0x4976a4 | in_other=7.294e+06 out_other=7.294e+06 net=45.62 nT=107
+  M 0x84abd5f03d86fcf8d13ba1da0ae01f88bf1759da c=False n=229 lab='' fund=0x227067 | in_other=1.899e+05 out_other=1.899e+05 net=0 nT=15
+  M 0xf4ecd1dc2c437affbb36fdcd6b5b44ca6f601e4c c=False n=514 lab='' fund=0x5c7bcd | in_other=3004 out_other=3004 net=0 nT=4
+   b26277008 i92 from=0xf4ecd1 to=0x6131b5(KyberSwap: Meta Aggregation ) actorΔ=-2004.35 gross=2004 swaps=2/2p wethΔ=+0 eth=0
+   b26278134 i137 from=0x84abd5 to=0x6a000f(Velora: Augustus V6.2) actorΔ=+59979.5 gross=5.998e+04 swaps=1/1p wethΔ=+0 eth=0
+   b26278318 i287 from=0x84abd5 to=0x6a000f(Velora: Augustus V6.2) actorΔ=+39987.6 gross=3.999e+04 swaps=1/1p wethΔ=+0 eth=0
+   b26279647 i29 from=0x5b3a59 to=0x6131b5(KyberSwap: Meta Aggregation ) actorΔ=-103000 gross=1.03e+05 swaps=4/4p wethΔ=+0 eth=0
+  actor buy=99967.1 sell=105004 net_ratio=0.048 senders={'0xf4ecd1': 1, '0x84abd5': 2, '0x5b3a59': 1} internal_transfers=0 sandwich=[]
+  top other counterparties: [('0xfa8258', '6.227e+06', ''), ('0x8f10b4', '3.129e+06', ''), ('0x21a31e', '1.825e+06', 'Binance 15'), ('0xdfd529', '1.346e+06', 'Binance 16')]
+=== G40 rlusd rule=R2 conf=0.72 wallets=3 usd=338020
+  claim: 48277.1 tokens bought and later sold after being passed along (3 wallets, blocks 26272573–26277819).
+  M 0x0cef320d0c5793ade37964e2661a033771e53cd5 c=True n=1 lab='' fund=- | in_pool=2.24e+06 out_other=2.479e+06 in_other=2.877e+05 out_member=4.828e+04 in_member=2.896e+05 out_pool=2.896e+05 net=0 nT=71
+  M 0x7f324545c481f8c150802103a8ee94014251b888 c=False n=2826 lab='' fund=0x62425c | out_other=8.687e+05 in_other=8.373e+06 out_pool=7.215e+06 out_member=2.896e+05 net=0.01 nT=81
+  M 0xc0358e760dc0eb195a01db44f28ed68a3d1e5f2d c=True n=258 lab='' fund=0xc61899 | in_member=4.828e+04 out_other=4.828e+04 net=0 nT=2
+  B 0xf5c4f3dc02c3fb9279495a8fef7b0741da956157 c=False n=5471 lab='' fund=0x70bf66 | in_member=3.494 net=3.494 nT=2
+   b26272573 i326 from=0x7f3245 to=0x66a989(Uniswap: Universal Router v2) actorΔ=-289592 gross=2.896e+05 swaps=2/2p wethΔ=+0 eth=0
+   b26277819 i170 from=0xc0358e to=0x0cef32() actorΔ=+48277.1 gross=4.828e+04 swaps=1/1p wethΔ=+0 eth=0
+  actor buy=48277.1 sell=289592 net_ratio=0.833 senders={'0x7f3245': 1, '0xc0358e': 1} internal_transfers=2 sandwich=[]
+   xfer b26275581 0x7f3245->0x0cef32 2.896e+23raw tx 0x777b71d5f7
+   xfer b26277819 0x0cef32->0xc0358e 4.828e+22raw tx 0x8b3dde0930
+  top other counterparties: [('0x62425c', '6.346e+06', 'Bybit: Wallet 55'), ('0xa7bffa', '1.573e+06', ''), ('0x6f22ad', '1.158e+06', ''), ('0xe0f3fd', '7.664e+05', '')]
+=== G41 rlusd rule=R3 conf=0.72 wallets=5 usd=443909
+  claim: 5 wallets that traded were funded by 0x3ef3d8ba38ebe18db133cec108f4d14ce00dd9ae, and their buys (219888) and sells (223843) cancel.
+  M 0x2cb2d97db0703a998aa5fb9bc6e4c5aea14e97cf c=False n=124 lab='' fund=0xf30ba1 | in_other=3.438e+05 out_other=3.435e+05 net=371.2 nT=10
+  M 0xa8c8a5b9ba42e2b5e757e1db584c793a4120a525 c=False n=529 lab='' fund=0xac6604 | in_other=1.005e+05 out_pool=1.007e+05 net=-232.4 nT=3
+  M 0xb620e9ec25444e8a0c594044033e1cf6bae5af4c c=True n=464 lab='' fund=0xd78d19 | in_other=1.004e+05 out_pool=1.004e+05 net=0 nT=4
+  M 0xb96e263de7e8049d4c96f141f8c494d92b441380 c=False n=772 lab='' fund=0x76dd65 | in_other=166.9 out_pool=279.6 net=-112.7 nT=4
+  M 0xbb7ec7244d3c6e60d16aff6c4ce782e115df5480 c=False n=1247 lab='' fund=0x676eb0 | in_other=1.049e+04 out_other=20 net=1.047e+04 nT=4
+  B 0xb324de4add083b74856082ed2ea0b8b6f3864827 c=False n=89 lab='' fund=0xbaeb92 | in_other=0.025 net=0.025 nT=1
+  B 0xd001ae433f254283fece51d4acce8c53263aa186 c=True n=1 lab='' fund=- | in_other=3.142e+04 out_other=3.05e+06 out_pool=1.76e+05 net=-3.195e+06 nT=172
+   b26266933 i84 from=0x2cb2d9 to=0x6a000f(Velora: Augustus V6.2) actorΔ=+231206 gross=2.821e+05 swaps=2/2p wethΔ=+0 eth=0
+   b26267105 i16 from=0x2cb2d9 to=0x6a000f(Velora: Augustus V6.2) actorΔ=+61979 gross=6.198e+04 swaps=1/1p wethΔ=+0 eth=0
+   b26268569 i67 from=0xb96e26 to=0x000000(0x: Allowance Holder) actorΔ=-279.571 gross=279.6 swaps=1/1p wethΔ=+0 eth=0
+   b26268951 i79 from=0xa8c8a5 to=0x23617e(Uniswap: Universal Router v2) actorΔ=-100747 gross=1.007e+05 swaps=2/2p wethΔ=+0 eth=0
+   b26271377 i186 from=0xbb7ec7 to=0xacddac() actorΔ=-10 gross=10.03 swaps=1/1p wethΔ=+0 eth=0
+   b26271409 i171 from=0xbb7ec7 to=0x337685(Mayan: Forwarder) actorΔ=-10 gross=10 swaps=1/1p wethΔ=+0 eth=0
+   b26272868 i122 from=0xb620e9 to=0x23617e(Uniswap: Universal Router v2) actorΔ=-114.882 gross=114.9 swaps=2/2p wethΔ=+0 eth=0
+   b26272997 i208 from=0xb620e9 to=0x23617e(Uniswap: Universal Router v2) actorΔ=-100248 gross=1.002e+05 swaps=2/2p wethΔ=+0 eth=0
+  actor buy=293185 sell=201409 net_ratio=0.313 senders={'0x2cb2d9': 2, '0xb96e26': 1, '0xa8c8a5': 1, '0xbb7ec7': 2, '0xb620e9': 2} internal_transfers=0 sandwich=[]
+  top other counterparties: [('0x8f10b4', '1.185e+06', ''), ('0xf68607', '5.257e+05', ''), ('0x1c7922', '5.022e+05', ''), ('0x38b0c1', '3.435e+05', 'Morpho: Blue Bundles V1')]
+=== G42 rlusd rule=R3 conf=0.72 wallets=5 usd=448631
+  claim: 5 wallets that traded were funded by 0x02912516d49de997db75b9d7858faae59209650b, and their buys (224608) and sells (223843) cancel.
+  M 0x2cb2d97db0703a998aa5fb9bc6e4c5aea14e97cf c=False n=124 lab='' fund=0xf30ba1 | in_other=3.438e+05 out_other=3.435e+05 net=371.2 nT=10
+  M 0xa8c8a5b9ba42e2b5e757e1db584c793a4120a525 c=False n=529 lab='' fund=0xac6604 | in_other=1.005e+05 out_pool=1.007e+05 net=-232.4 nT=3
+  M 0xb620e9ec25444e8a0c594044033e1cf6bae5af4c c=True n=464 lab='' fund=0xd78d19 | in_other=1.004e+05 out_pool=1.004e+05 net=0 nT=4
+  M 0xbb7ec7244d3c6e60d16aff6c4ce782e115df5480 c=False n=1247 lab='' fund=0x676eb0 | in_other=1.049e+04 out_other=20 net=1.047e+04 nT=4
+  M 0xc896444302b8c75fc2c447879b3ed3f19350501d c=False n=337 lab='' fund=0xb8901a | in_other=5000 out_other=5000 net=0 nT=2
+  B 0xb324de4add083b74856082ed2ea0b8b6f3864827 c=False n=89 lab='' fund=0xbaeb92 | in_other=0.025 net=0.025 nT=1
+  B 0xd001ae433f254283fece51d4acce8c53263aa186 c=True n=1 lab='' fund=- | in_other=3.142e+04 out_other=3.05e+06 out_pool=1.76e+05 net=-3.195e+06 nT=172
+   b26266933 i84 from=0x2cb2d9 to=0x6a000f(Velora: Augustus V6.2) actorΔ=+231206 gross=2.821e+05 swaps=2/2p wethΔ=+0 eth=0
+   b26267105 i16 from=0x2cb2d9 to=0x6a000f(Velora: Augustus V6.2) actorΔ=+61979 gross=6.198e+04 swaps=1/1p wethΔ=+0 eth=0
+   b26268951 i79 from=0xa8c8a5 to=0x23617e(Uniswap: Universal Router v2) actorΔ=-100747 gross=1.007e+05 swaps=2/2p wethΔ=+0 eth=0
+   b26271337 i339 from=0xc89644 to=0x89c634(LI.FI: Permit2 Proxy 2) actorΔ=-5000 gross=5000 swaps=2/2p wethΔ=+0 eth=0
+   b26271377 i186 from=0xbb7ec7 to=0xacddac() actorΔ=-10 gross=10.03 swaps=1/1p wethΔ=+0 eth=0
+   b26271409 i171 from=0xbb7ec7 to=0x337685(Mayan: Forwarder) actorΔ=-10 gross=10 swaps=1/1p wethΔ=+0 eth=0
+   b26272868 i122 from=0xb620e9 to=0x23617e(Uniswap: Universal Router v2) actorΔ=-114.882 gross=114.9 swaps=2/2p wethΔ=+0 eth=0
+   b26272997 i208 from=0xb620e9 to=0x23617e(Uniswap: Universal Router v2) actorΔ=-100248 gross=1.002e+05 swaps=2/2p wethΔ=+0 eth=0
+  actor buy=293185 sell=206129 net_ratio=0.297 senders={'0x2cb2d9': 2, '0xa8c8a5': 1, '0xc89644': 1, '0xbb7ec7': 2, '0xb620e9': 2} internal_transfers=0 sandwich=[]
+  top other counterparties: [('0x8f10b4', '1.185e+06', ''), ('0xf68607', '5.257e+05', ''), ('0x1c7922', '5.022e+05', ''), ('0x38b0c1', '3.435e+05', 'Morpho: Blue Bundles V1')]
+=== G43 turbo rule=R4 conf=1.0 wallets=2 usd=0
+  claim: Tokens moved in a circle through 2 wallets between blocks 26271396 and 26271411.
+  M 0x7f479ea45224210365b1fdc57c93a2ce5028161e c=False n=138 lab='' fund=0x663d98 | in_member=1.23e+04 out_member=1.23e+04 net=0 nT=2
+  M 0x9be5b8a7314552fa47feb1355cd5b4adc7bb7516 c=False n=33442 lab='' fund=0xa03400 | out_member=1.23e+04 in_member=1.23e+04 out_other=1.281e+05 net=-1.281e+05 nT=5
+   b26271396 i76 from=0x9be5b8 to=0xa35923(Turbo: TURBO Token) actorΔ=-12295.1 gross=2.459e+04 swaps=0/0p wethΔ=+0 eth=0
+   b26271411 i83 from=0x7f479e to=0xa35923(Turbo: TURBO Token) actorΔ=-12295.1 gross=2.459e+04 swaps=0/0p wethΔ=+0 eth=0
+  actor buy=0 sell=24590.2 net_ratio=1.000 senders={'0x9be5b8': 1, '0x7f479e': 1} internal_transfers=2 sandwich=[]
+   xfer b26271396 0x9be5b8->0x7f479e 1.23e+22raw tx 0xe674e00896
+   xfer b26271411 0x7f479e->0x9be5b8 1.23e+22raw tx 0x7937d9dec6
+  top other counterparties: [('0xe9806b', '9.304e+04', ''), ('0x6dbd90', '2.28e+04', ''), ('0x95604a', '1.23e+04', '')]
+=== G44 rlusd rule=R4 conf=1.0 wallets=2 usd=0
+  claim: Tokens moved in a circle through 2 wallets between blocks 26281177 and 26281648.
+  M 0xd138fcb0e8c52fdbb2ac4573fa4d8925cf11e9c2 c=True n=2 lab='' fund=- | out_other=9.106 out_member=23.69 in_member=23.69 net=-9.106 nT=20
+  M 0xdc30c4552105fc5e5e6a688f313252bd0a4a1036 c=False n=309 lab='' fund=0x1e2729 | in_member=23.69 out_member=23.69 in_pool=6.996 out_other=3.998 net=2.999 nT=24
+   b26281177 i23 from=0xdc30c4 to=0x9ebf0c() actorΔ=+5 gross=10 swaps=0/0p wethΔ=+0 eth=0
+   b26281406 i44 from=0xdc30c4 to=0x9ebf0c() actorΔ=+1 gross=2 swaps=0/0p wethΔ=+0 eth=0
+   b26281417 i19 from=0xdc30c4 to=0x9ebf0c() actorΔ=-1 gross=2 swaps=0/0p wethΔ=+0 eth=0
+   b26281633 i50 from=0xdc30c4 to=0x9ebf0c() actorΔ=-1e-18 gross=2e-18 swaps=0/0p wethΔ=+0 eth=0
+   b26281644 i140 from=0xdc30c4 to=0x9ebf0c() actorΔ=-1e-18 gross=2e-18 swaps=0/0p wethΔ=+0 eth=0
+   b26281648 i10 from=0xdc30c4 to=0x9ebf0c() actorΔ=-5.00001 gross=10 swaps=0/0p wethΔ=+0 eth=0
+  actor buy=6 sell=6.00001 net_ratio=0.000 senders={'0xdc30c4': 6} internal_transfers=19 sandwich=[]
+   xfer b26281177 0xd138fc->0xdc30c4 5e+18raw tx 0xaa59d77780
+   xfer b26281406 0xd138fc->0xdc30c4 1e+18raw tx 0x586fbb3f9f
+   xfer b26281417 0xdc30c4->0xd138fc 1e+18raw tx 0x1edd61b3f7
+   xfer b26281633 0xdc30c4->0xd138fc 1raw tx 0x93b649a299
+   xfer b26281644 0xdc30c4->0xd138fc 1raw tx 0x65b5ee5aa1
+  top other counterparties: [('0xd3c41d', '9.106', ''), ('0x8f10b4', '3.998', '')]
+=== G45 spx rule=R4 conf=1.0 wallets=2 usd=0
+  claim: Tokens moved in a circle through 2 wallets between blocks 26276738 and 26276746.
+  M 0x836b336fca26913176efc45a5a6e5e72cd7bd13b c=True n=2 lab='' fund=- | in_other=473.7 out_pool=47.93 out_other=425.8 out_member=45.45 in_member=45.45 net=0 nT=24
+  M 0xe0d96e2cd90958901a597c5903cfd95ccdae8266 c=True n=1 lab='' fund=- | in_member=45.45 out_member=45.45 net=0 nT=2
+  B 0xe0523b85fad2015c0b6ae78e8c71ece5edbe5a67 c=False n=178 lab='' fund=0x13b3a3 | in_other=2.916e+04 out_other=3.109e+04 net=-1929 nT=104
+  B 0xf5c4f3dc02c3fb9279495a8fef7b0741da956157 c=False n=5471 lab='' fund=0x70bf66 | out_other=5.187 in_other=0.008295 net=-5.178 nT=3
+   b26276738 i210 from=0x329ca2 to=0x836b33() actorΔ=+0 gross=45.45 swaps=2/2p wethΔ=+0 eth=0
+   b26276746 i306 from=0x329ca2 to=0xe0d96e() actorΔ=-45.4486 gross=90.9 swaps=0/0p wethΔ=+0 eth=0
+  actor buy=0 sell=45.4486 net_ratio=1.000 senders={'0x329ca2': 2} internal_transfers=2 sandwich=[]
+   xfer b26276738 0x836b33->0xe0d96e 4.545e+09raw tx 0x752022728b
+   xfer b26276746 0xe0d96e->0x836b33 4.545e+09raw tx 0xaba591e973
+  top other counterparties: [('0x0cef32', '3.187e+04', ''), ('0x111116', '1.487e+04', ''), ('0x9008d1', '3900', 'CoW Protocol: GPv2Settlem'), ('0x05b726', '2515', '')]
+=== G46 pepe rule=R4 conf=1.0 wallets=2 usd=0
+  claim: Tokens moved in a circle through 2 wallets between blocks 26274902 and 26276825.
+  M 0x3202acfd55232f3706aa81a4f18a98686b5e1d1b c=True n=1 lab='' fund=- | in_other=6.308e+06 out_other=3.563e+07 out_member=4.072e+07 in_member=5.11e+07 net=-1.894e+07 nT=16
+  M 0xeff6cb8b614999d130e537751ee99724d01aa167 c=True n=1 lab='' fund=- | out_other=3.775e+07 out_pool=3.265e+09 in_pool=2.45e+08 in_member=4.072e+07 in_other=3.067e+09 out_member=5.11e+07 net=-1.412e+06 nT=91
+   b26274902 i62 from=0xefeade to=0xeff6cb() actorΔ=+9.05051e+06 gross=1.81e+07 swaps=0/0p wethΔ=+0 eth=0
+   b26274937 i30 from=0x3b1af8 to=0xeff6cb() actorΔ=+5.84285e+06 gross=1.169e+07 swaps=0/0p wethΔ=+0 eth=0
+   b26276105 i105 from=0x5b3b26 to=0xeff6cb() actorΔ=-5.63935e+06 gross=1.128e+07 swaps=0/0p wethΔ=+0 eth=0
+   b26276660 i267 from=0xf43df6 to=0xeff6cb() actorΔ=-6.74864e+06 gross=1.35e+07 swaps=0/0p wethΔ=+0 eth=0
+   b26276781 i112 from=0x254338 to=0xeff6cb() actorΔ=-5.32236e+06 gross=1.064e+07 swaps=0/0p wethΔ=+0 eth=0
+   b26276825 i32 from=0x254338 to=0xeff6cb() actorΔ=-8.64257e+06 gross=1.729e+07 swaps=0/0p wethΔ=+0 eth=0
+  actor buy=1.48934e+07 sell=2.63529e+07 net_ratio=0.435 senders={'0xefeade': 1, '0x3b1af8': 1, '0x5b3b26': 1, '0xf43df6': 1, '0x254338': 2} internal_transfers=10 sandwich=[]
+   xfer b26274489 0x3202ac->0xeff6cb 1.085e+25raw tx 0xd534453332
+   xfer b26274493 0x3202ac->0xeff6cb 7.987e+24raw tx 0x701fa0175e
+   xfer b26274509 0x3202ac->0xeff6cb 6.995e+24raw tx 0xd5c7c287b5
+   xfer b26274902 0x3202ac->0xeff6cb 9.051e+24raw tx 0xd62785d6ee
+   xfer b26274937 0x3202ac->0xeff6cb 5.843e+24raw tx 0x8e66f65ca7
+  top other counterparties: [('0xdfd529', '3.025e+09', 'Binance 16'), ('0x248823', '7.912e+07', 'Uniswap V3: PEPE-SHIB'), ('0x3e8282', '1.305e+07', ''), ('0x0cef32', '1.289e+07', '')]
+=== G47 neiro rule=R4 conf=1.0 wallets=3 usd=0
+  claim: Tokens moved in a circle through 3 wallets between blocks 26273193 and 26273240.
+  M 0x15da7556d5ed888306839bed06f868aeaedcb0d7 c=False n=19063 lab='' fund=0x9b0c45 | out_member=4.024e+09 in_member=4.495e+09 net=4.706e+08 nT=13
+  M 0xeb9ca8fdfac0652a97c0e1a48c1178d32d3a6b8f c=False n=246 lab='' fund=0x9b0c45 | in_member=4.024e+09 out_member=4.024e+09 net=0 nT=12
+  M 0x4b41a1fc8e6cefc84b757d34fdbac2d5b2bfd667 c=False n=3195 lab='' fund=0x7a2e4a | in_member=4.024e+09 out_member=4.495e+09 out_other=9.135e+07 in_other=2e+05 net=-5.617e+08 nT=21
+   b26273193 i177 from=0x15da75 to=0x812ba4(Neiro: Neiro Token) actorΔ=-1.01704e+09 gross=2.034e+09 swaps=0/0p wethΔ=+0 eth=0
+   b26273207 i10 from=0x4b41a1 to=0x812ba4(Neiro: Neiro Token) actorΔ=+1.01704e+09 gross=2.034e+09 swaps=0/0p wethΔ=+0 eth=0
+   b26273240 i22 from=0x4b41a1 to=0x812ba4(Neiro: Neiro Token) actorΔ=-9.87538e+08 gross=1.975e+09 swaps=0/0p wethΔ=+0 eth=0
+  actor buy=1.01704e+09 sell=2.00458e+09 net_ratio=0.493 senders={'0x15da75': 1, '0x4b41a1': 2} internal_transfers=19 sandwich=[]
+  shared funder: [('0x9b0c45d46d386cedd98873168c36efd0dcba8d46', 2), ('0x7a2e4aa4f2f6ab66594fff84dcabac67fb9773c8', 1)]
+   xfer b26266052 0x15da75->0xeb9ca8 9.926e+17raw tx 0x8f9c3d8851
+   xfer b26266066 0xeb9ca8->0x4b41a1 9.926e+17raw tx 0xf206b3084b
+   xfer b26266145 0x4b41a1->0x15da75 9.737e+17raw tx 0x19c9ed2e7c
+   xfer b26273193 0x15da75->0xeb9ca8 1.017e+18raw tx 0x9a9e14277d
+   xfer b26273207 0xeb9ca8->0x4b41a1 1.017e+18raw tx 0x90509b036b
+  top other counterparties: [('0xd2dd7b', '5.025e+07', 'Kraken 246'), ('0x06fd4b', '3.843e+07', 'Binance Deposit: 0x06FD4b'), ('0xbf123a', '2.212e+06', ''), ('0xcc282e', '4.545e+05', 'Kraken: Hot Wallet 3')]
+=== G48 mog rule=R4 conf=1.0 wallets=2 usd=2979
+  claim: Tokens moved in a circle through 2 wallets between blocks 26275066 and 26276003.
+  M 0x23617e59a5925b2a4bf75d73ff6711cd0b29de85 c=True n=1 lab='Uniswap: Universal Router v2.1.2' fund=- | in_member=2.514e+10 out_other=1.01e+10 out_pool=2.514e+10 in_pool=3.753e+10 out_member=2.742e+10 net=0 nT=48
+  M 0xd2ce3ac6c4a9a479e241cb7c7efd44dae97ae652 c=True n=3921 lab='' fund=0x8b71a9 | in_other=8.02e+10 out_other=1.921e+10 out_member=2.514e+10 in_member=2.735e+10 out_pool=5.829e+10 net=4.922e+09 nT=53
+  B 0xcd6b980029e6e6e0733ac8ec3e02be9410d09799 c=False n=21572 lab='' fund=0x5141b8 | in_member=6.856e+07 in_other=9.767e+07 net=1.662e+08 nT=10
+   b26275066 i20 from=0xd2ce3a to=0x02e5be() actorΔ=-1.00567e+10 gross=1.006e+10 swaps=2/2p wethΔ=+0 eth=0
+   b26275443 i115 from=0xd2ce3a to=0x02e5be() actorΔ=+2.04034e+09 gross=2.045e+09 swaps=2/2p wethΔ=+0 eth=0
+   b26275603 i85 from=0xd2ce3a to=0x02e5be() actorΔ=+2.56082e+09 gross=2.567e+09 swaps=2/2p wethΔ=+0 eth=0
+   b26275791 i55 from=0xd2ce3a to=0x02e5be() actorΔ=-1.00557e+10 gross=1.006e+10 swaps=2/2p wethΔ=+0 eth=0
+   b26275967 i70 from=0xd2ce3a to=0x02e5be() actorΔ=+5.01866e+09 gross=5.031e+09 swaps=2/2p wethΔ=+0 eth=0
+   b26276003 i94 from=0xd2ce3a to=0x02e5be() actorΔ=+9.73625e+09 gross=9.761e+09 swaps=3/3p wethΔ=+0 eth=0
+  actor buy=1.93561e+10 sell=2.01125e+10 net_ratio=0.038 senders={'0xd2ce3a': 6} internal_transfers=9 sandwich=[]
+   xfer b26275066 0xd2ce3a->0x23617e 1.006e+28raw tx 0x9ec2fe304d
+   xfer b26275443 0x23617e->0xd2ce3a 2.04e+27raw tx 0xcdf9d9aae5
+   xfer b26275603 0x23617e->0xd2ce3a 2.561e+27raw tx 0x01a4bd827c
+   xfer b26275791 0xd2ce3a->0x23617e 1.006e+28raw tx 0xb5f2095535
+   xfer b26275967 0x23617e->0xd2ce3a 5.019e+27raw tx 0x7cbd2b5e76
+  top other counterparties: [('0x111111', '7.191e+10', '1inch: Aggregation Router'), ('0x111116', '1.92e+10', ''), ('0x8f34c4', '1e+10', 'puglopicasso.eth'), ('0x0cef32', '5.277e+09', '')]
+=== G49 turbo rule=R4 conf=1.0 wallets=3 usd=0
+  claim: Tokens moved in a circle through 3 wallets between blocks 26271058 and 26272025.
+  M 0x193070aea3df0e8e0436f6ed810fd8bbe687af59 c=False n=710 lab='' fund=0x74dec0 | out_member=7.191e+05 out_other=1.538e+06 in_member=7.19e+05 net=-1.538e+06 nT=5
+  M 0x22bca22ddf4018218cc28f5bd3497f7cc8ef99ae c=False n=1 lab='' fund=0xbb2f33 | in_member=7.191e+05 out_member=7.191e+05 net=0 nT=2
+  M 0x2cff890f0378a11913b6129b2e97417a2c302680 c=False n=1292011 lab='NEAR Intents' fund=0x9696f5 | out_other=4.897e+05 in_other=2.929e+05 in_member=7.191e+05 out_member=7.19e+05 net=-1.968e+05 nT=14
+   b26271058 i232 from=0x193070 to=0xa35923(Turbo: TURBO Token) actorΔ=-719075 gross=1.438e+06 swaps=0/0p wethΔ=+0 eth=0
+   b26271062 i89 from=0x22bca2 to=0xa35923(Turbo: TURBO Token) actorΔ=-719075 gross=1.438e+06 swaps=0/0p wethΔ=+0 eth=0
+   b26272025 i276 from=0x2cff89 to=0xa35923(Turbo: TURBO Token) actorΔ=-719043 gross=1.438e+06 swaps=0/0p wethΔ=+0 eth=0
+  actor buy=0 sell=2.15719e+06 net_ratio=1.000 senders={'0x193070': 1, '0x22bca2': 1, '0x2cff89': 1} internal_transfers=3 sandwich=[]
+   xfer b26271058 0x193070->0x22bca2 7.191e+23raw tx 0x76c39a2046
+   xfer b26271062 0x22bca2->0x2cff89 7.191e+23raw tx 0x2a70357246
+   xfer b26272025 0x2cff89->0x193070 7.19e+23raw tx 0xca7f1eda61
+  top other counterparties: [('0x1231de', '1.488e+06', 'LI.FI: LiFi Diamond'), ('0xe90489', '3.636e+05', ''), ('0xdae5a2', '1.4e+05', ''), ('0xbbf6f5', '1.004e+05', '')]
+=== G50 rlusd rule=R4 conf=1.0 wallets=2 usd=0
+  claim: Tokens moved in a circle through 2 wallets between blocks 26266559 and 26266559.
+  M 0x5ac9bc14376bf2727c6211960cf3cec1e2f295bd c=True n=1 lab='' fund=- | in_member=36.67 out_member=73.33 in_pool=38.38 out_pool=1.556 net=0.1567 nT=7
+  M 0xba1333333333a1ba1108e8412f11850a5c319ba9 c=True n=1 lab='Balancer V3: Vault' fund=- | out_member=36.67 in_member=36.67 net=0 nT=2
+  B 0x163c7607d9838793af8db2c6940cf275d503b379 c=True n=7 lab='' fund=- | in_member=36.67 out_other=2369 net=-2332 nT=4
+   b26266559 i17 from=0xd9fffd to=0x5ac9bc() actorΔ=+0.156696 gross=36.82 swaps=4/3p wethΔ=+0.0006586 eth=0
+  actor buy=0.156696 sell=0 net_ratio=1.000 senders={'0xd9fffd': 1} internal_transfers=2 sandwich=[]
+   xfer b26266559 0xba1333->0x5ac9bc 3.667e+19raw tx 0xac5860a976
+   xfer b26266559 0x5ac9bc->0xba1333 3.667e+19raw tx 0xac5860a976
+  top other counterparties: [('0x7a84fc', '2369', '')]
+=== G51 rlusd rule=R4 conf=0.72 wallets=3 usd=679436
+  claim: 289666 tokens bought and later sold after a circle (3 wallets, blocks 26280609–26286869).
+  M 0xa2731676fd3e478bf38db090a3d05656d2eebf37 c=False n=511 lab='' fund=0x4976a4 | in_other=2.97e+07 out_member=2.91e+07 out_other=6e+05 net=3.725e-09 nT=215
+  M 0xb300000b72deaeb607a12d5f54773d1c19c7028d c=True n=1 lab='Binance: DEX Router' fund=- | in_other=2.435e+07 out_other=5.312e+07 out_pool=4.095e+06 in_member=3.287e+07 in_pool=2.897e+05 out_member=2.897e+05 net=-2.235e-08 nT=483
+  M 0xfc0a4350871dc669b9b0f9e7db080a63d3e21612 c=False n=124 lab='' fund=0x4976a4 | in_other=4.923e+06 out_member=3.765e+06 out_other=1.737e+06 in_pool=2.895e+05 in_member=2.897e+05 net=0.0002897 nT=45
+  B 0x09ad820aac5779683b481c4674208a4e1b024afa c=True n=1 lab='' fund=- | in_other=2.985e+07 out_pool=2.985e+07 in_pool=1066 out_other=1066 net=3.725e-09 nT=280
+   b26280609 i38 from=0xfc0a43 to=0xb30000(Binance: DEX Router) actorΔ=-289506 gross=2.895e+05 swaps=1/1p wethΔ=+0 eth=0
+   b26281048 i60 from=0xa27316 to=0xb30000(Binance: DEX Router) actorΔ=-100000 gross=1e+05 swaps=1/1p wethΔ=+0 eth=0
+   b26281095 i46 from=0xa27316 to=0xb30000(Binance: DEX Router) actorΔ=-100000 gross=1e+05 swaps=1/1p wethΔ=+0 eth=0
+   b26281131 i23 from=0xa27316 to=0xb30000(Binance: DEX Router) actorΔ=-208953 gross=2.09e+05 swaps=1/1p wethΔ=+0 eth=0
+   b26281166 i52 from=0xa27316 to=0xb30000(Binance: DEX Router) actorΔ=-399997 gross=4e+05 swaps=1/1p wethΔ=+0 eth=0
+   b26281419 i163 from=0xfc0a43 to=0xb30000(Binance: DEX Router) actorΔ=-290070 gross=2.901e+05 swaps=3/2p wethΔ=+0 eth=0
+   b26281495 i95 from=0xfc0a43 to=0xb30000(Binance: DEX Router) actorΔ=-289506 gross=2.895e+05 swaps=1/1p wethΔ=+0 eth=0
+   b26281729 i53 from=0xfc0a43 to=0xb30000(Binance: DEX Router) actorΔ=-289506 gross=2.895e+05 swaps=7/6p wethΔ=+0 eth=0
+   b26281937 i92 from=0xfc0a43 to=0xb30000(Binance: DEX Router) actorΔ=-289535 gross=2.895e+05 swaps=1/1p wethΔ=+0 eth=0
+   b26282089 i60 from=0xa27316 to=0xb30000(Binance: DEX Router) actorΔ=-275530 gross=2.755e+05 swaps=1/1p wethΔ=+0 eth=0
+   b26282111 i58 from=0xfc0a43 to=0xb30000(Binance: DEX Router) actorΔ=-289506 gross=2.895e+05 swaps=1/1p wethΔ=+0 eth=0
+   b26282826 i76 from=0xa27316 to=0xb30000(Binance: DEX Router) actorΔ=-99997.9 gross=1e+05 swaps=1/1p wethΔ=+0 eth=0
+   b26283241 i70 from=0xfc0a43 to=0xb30000(Binance: DEX Router) actorΔ=-289506 gross=2.895e+05 swaps=4/4p wethΔ=+0 eth=0
+   b26286869 i18 from=0xfc0a43 to=0xb30000(Binance: DEX Router) actorΔ=+289666 gross=2.897e+05 swaps=1/1p wethΔ=+0 eth=0
+  actor buy=289666 sell=3.21162e+06 net_ratio=0.910 senders={'0xfc0a43': 8, '0xa27316': 6} internal_transfers=153 sandwich=[]
+  shared funder: [('0x4976a4a02f38326660d17bf34b431dc6e2eb2327', 2)]
+   xfer b26273698 0xa27316->0xb30000 2e+23raw tx 0x7cea65e649
+   xfer b26273724 0xa27316->0xb30000 1e+23raw tx 0x647ca16996
+   xfer b26273730 0xa27316->0xb30000 1e+23raw tx 0xaf323a733f
+   xfer b26273736 0xa27316->0xb30000 1e+23raw tx 0xdd1306ac82
+   xfer b26273739 0xa27316->0xb30000 1e+23raw tx 0x6e582d44d4
+  top other counterparties: [('0x1231de', '6.225e+07', 'LI.FI: LiFi Diamond'), ('0xada334', '2.159e+07', ''), ('0x6f22ad', '2.025e+07', ''), ('0x28c6c0', '1.41e+07', 'Binance 14')]
+=== G52 rlusd rule=R4 conf=0.72 wallets=14 usd=930520
+  claim: 74373.1 tokens bought and later sold after a circle (14 wallets, blocks 26279645–26285371).
+  M 0x02912516d49de997db75b9d7858faae59209650b c=True n=1 lab='Morpho: Vault Bundles V1' fund=- | in_member=4.238e+07 out_other=4.094e+07 in_other=6.126e+06 out_member=7.565e+06 net=0 nT=116
+  M 0x38b0c12ab81976e9417d4ebfe2a34db6df22e6ad c=True n=1 lab='Morpho: Blue Bundles V1' fund=- | in_member=1.944e+07 out_other=4.407e+06 in_other=2.743e+06 out_member=1.778e+07 net=3.725e-09 nT=221
+  M 0x3c6eab22cfc03fc32ad1bf836f2f886a5015dfff c=True n=1 lab='' fund=- | in_member=4.403e+07 out_member=4.403e+07 net=0 nT=100
+  M 0x419cdbafa120ad8ce5c9daf662bd56a36ce31533 c=True n=1 lab='' fund=- | in_member=10.33 out_member=10.33 net=4.871e-06 nT=16
+  M 0x5b3a59d923cff08e3d53f80d5ea2b9e94a0b3b86 c=False n=396 lab='' fund=0x4976a4 | in_other=4.18e+06 out_other=1.053e+06 in_member=3.113e+06 out_member=6.241e+06 net=45.62 nT=107
+  M 0x6dc58a0fdfc8d694e571dc59b9a52eeea780e6bf c=True n=1 lab='' fund=- | in_member=4.217e+07 in_other=1.715e+06 out_member=5.077e+07 out_other=5.146e+06 net=-1.203e+07 nT=271
+  M 0x6efc48b8b6222924fa6ea95d174af5518b761177 c=False n=2487 lab='' fund=0x9696f5 | in_member=1.696e+06 out_member=1.696e+06 net=0 nT=8
+  M 0x7662e9a3548f11b90f1f5ea75ab566255e00f609 c=False n=109 lab='' fund=0x9fa4a8 | in_member=1.435e+06 out_member=1.435e+06 in_other=387.4 net=0 nT=14
+  B 0x0c9b75a80af53114b743e6beeadfb599965fbd75 c=False n=303 lab='' fund=0x5c7bcd | in_member=9 in_other=7.947 out_pool=16.95 net=0 nT=3
+  B 0x15e8f74a29beeff4fbcc33b5bbab407d2a9cdf95 c=True n=200 lab='' fund=0xec7ea9 | out_member=7.638 in_member=4.092 net=-3.546 nT=5
+  B 0x6fdce26944a8d23158ac07f65c52d0d4a6c3b4d8 c=False n=316 lab='' fund=0x66ff80 | in_member=2.156e+05 out_member=3.166e+05 in_other=1.009e+05 net=0 nT=10
+  B 0xc8b0b311beb09e2bc35767b0e32e8777b0c3281c c=True n=42 lab='' fund=0x4efb7d | out_member=2.232 in_member=1.941e-05 net=-2.232 nT=4
+   b26279720 i166 from=0x8e267e to=0xa45e65() actorΔ=+0 gross=5.135e+04 swaps=0/0p wethΔ=+0 eth=0
+   b26279863 i134 from=0xfac4bc to=0x029125(Morpho: Vault Bundles V1) actorΔ=-1925.42 gross=3851 swaps=0/0p wethΔ=+0 eth=0
+   b26279889 i19 from=0x8e267e to=0xa45e65() actorΔ=+0 gross=7.501e+04 swaps=0/0p wethΔ=+0 eth=0
+   b26280183 i92 from=0x8e267e to=0xa45e65() actorΔ=+0 gross=95.31 swaps=0/0p wethΔ=+0 eth=0
+   b26280201 i223 from=0x7662e9 to=0x87870b(Aave: Pool V3) actorΔ=-300016 gross=6e+05 swaps=0/0p wethΔ=+0 eth=0
+   b26280427 i210 from=0x5b3a59 to=0x87870b(Aave: Pool V3) actorΔ=-60066.4 gross=1.201e+05 swaps=0/0p wethΔ=+0 eth=0
+   b26280645 i76 from=0x5b3a59 to=0x87870b(Aave: Pool V3) actorΔ=+108928 gross=2.179e+05 swaps=0/0p wethΔ=+0 eth=0
+   b26280653 i127 from=0xc46831 to=0x38b0c1(Morpho: Blue Bundles V1) actorΔ=-999598 gross=1.999e+06 swaps=0/0p wethΔ=+0 eth=0
+   b26280717 i54 from=0x5b3a59 to=0x87870b(Aave: Pool V3) actorΔ=-232932 gross=4.659e+05 swaps=0/0p wethΔ=+0 eth=0
+   b26281079 i101 from=0x8e267e to=0xa45e65() actorΔ=+0 gross=64.58 swaps=0/0p wethΔ=+0 eth=0
+   b26281339 i64 from=0xd22152 to=0x38b0c1(Morpho: Blue Bundles V1) actorΔ=-1001 gross=2002 swaps=0/0p wethΔ=+0 eth=0
+   b26281514 i31 from=0x8e267e to=0xa45e65() actorΔ=+0 gross=58.69 swaps=0/0p wethΔ=+0 eth=0
+   b26282000 i33 from=0x5b3a59 to=0x87870b(Aave: Pool V3) actorΔ=-188933 gross=3.779e+05 swaps=0/0p wethΔ=+0 eth=0
+   b26282085 i126 from=0xc46831 to=0x38b0c1(Morpho: Blue Bundles V1) actorΔ=-4.16483e+06 gross=8.33e+06 swaps=0/0p wethΔ=+0 eth=0
+   ... 26 more
+  actor buy=1.97155e+06 sell=6.45511e+06 net_ratio=0.695 senders={'0x8e267e': 8, '0xfac4bc': 1, '0x7662e9': 1, '0x5b3a59': 15, '0xc46831': 3, '0xd22152': 1, '0x0c9b75': 1, '0xccc67b': 1, '0x6efc48': 2, '0x6fdce2': 1, '0x15e8f7': 1, '0xc8b0b3': 2, '0xfeb827': 1, '0xe6db30': 1, '0x7a2d4f': 1} internal_transfers=519 sandwich=[(26283419, 8, 1)]
+   xfer b26265963 0xbbbbbb->0xeff0ae 4.18e+21raw tx 0x3aca2385f3
+   xfer b26265963 0xeff0ae->0x6dc58a 4.18e+21raw tx 0x3aca2385f3
+   xfer b26266084 0xbbbbbb->0x38b0c1 2e+22raw tx 0xa6d4093240
+   xfer b26266303 0x6dc58a->0x419cdb 3.68e+17raw tx 0x16a65e53f6
+   xfer b26266303 0x419cdb->0x8f10b4 3.68e+17raw tx 0x16a65e53f6
+  top other counterparties: [('0x1be45f', '3.86e+07', ''), ('0x4397a6', '1.75e+07', ''), ('0x410144', '5.424e+06', ''), ('0xb03d62', '5.056e+06', '')]
+=== G53 rlusd rule=R4 conf=0.72 wallets=13 usd=2651622
+  claim: 1.07658e+06 tokens bought and later sold after a circle (13 wallets, blocks 26275930–26280260).
+  M 0x1231deb6f5749ef6ce6943a275a1d3e7486f4eae c=True n=1 lab='LI.FI: LiFi Diamond' fund=- | in_member=3.252e+07 out_other=3.13e+07 out_member=1.783e+06 in_other=5.567e+05 out_pool=74.11 net=3.725e-09 nT=356
+  M 0x410144dec85bb1929057829d54fb3b8d3f0ea4a3 c=True n=1 lab='' fund=- | in_member=2.712e+06 out_pool=2.712e+06 in_pool=2.712e+06 out_member=2.712e+06 net=1.863e-09 nT=245
+  M 0x4f3c5109c03fd654015ce777a9b8128a3438db6e c=False n=402 lab='' fund=0x4976a4 | in_other=3.494e+05 out_other=0 out_member=3.494e+05 net=-0.00026 nT=8
+  M 0x5b3a59d923cff08e3d53f80d5ea2b9e94a0b3b86 c=False n=396 lab='' fund=0x4976a4 | in_other=4.18e+06 out_other=1.053e+06 in_member=3.113e+06 out_member=6.241e+06 net=45.62 nT=107
+  M 0x6f22ad44339925ee77ea0cf7c7a87ad6dfe98fbb c=False n=2404 lab='' fund=0x7f3245 | out_other=5.792e+05 in_other=2.083e+07 out_member=2.025e+07 net=3.725e-09 nT=157
+  M 0x89c6340b1a1f4b25d36cd8b063d49045caf3f818 c=True n=1 lab='LI.FI: Permit2 Proxy 2' fund=- | in_other=8.781e+04 out_member=1.283e+05 in_member=4.05e+04 net=1.455e-11 nT=16
+  M 0x8f10b468b06c6fd214b65f87778827f7d113f996 c=True n=1 lab='' fund=- | in_other=8.138e+06 out_pool=1.34e+07 in_pool=1.486e+07 out_other=2.348e+06 in_member=6.447e+06 out_member=1.37e+07 net=0 nT=296
+  M 0xa2731676fd3e478bf38db090a3d05656d2eebf37 c=False n=511 lab='' fund=0x4976a4 | in_other=2.97e+07 out_member=2.91e+07 out_other=6e+05 net=3.725e-09 nT=215
+  B 0x3d695689c81b60c810bc5e3b6121faac878da6aa c=False n=3269 lab='' fund=0x56eddb | in_other=4.801e+06 out_other=7.048e+05 out_member=4.096e+06 net=0 nT=29
+  B 0xd001ae433f254283fece51d4acce8c53263aa186 c=True n=1 lab='' fund=- | in_other=3.139e+04 out_other=1.865e+06 out_pool=1.76e+05 in_member=33.1 out_member=1.185e+06 net=-3.195e+06 nT=172
+   b26275930 i59 from=0xa27316 to=0xb30000(Binance: DEX Router) actorΔ=-199999 gross=2e+05 swaps=1/1p wethΔ=+0 eth=0
+   b26275961 i71 from=0xa27316 to=0xb30000(Binance: DEX Router) actorΔ=-200000 gross=2e+05 swaps=1/1p wethΔ=+0 eth=0
+   b26276114 i49 from=0x5b3a59 to=0x87870b(Aave: Pool V3) actorΔ=+102970 gross=2.059e+05 swaps=0/0p wethΔ=+0 eth=0
+   b26276116 i63 from=0x5b3a59 to=0x87870b(Aave: Pool V3) actorΔ=+70350.3 gross=1.407e+05 swaps=0/0p wethΔ=+0 eth=0
+   b26276116 i103 from=0xa27316 to=0xb30000(Binance: DEX Router) actorΔ=-199999 gross=2e+05 swaps=1/1p wethΔ=+0 eth=0
+   b26276121 i44 from=0x6f22ad to=0xb30000(Binance: DEX Router) actorΔ=-268743 gross=2.687e+05 swaps=2/1p wethΔ=+0 eth=0
+   b26276121 i55 from=0xa27316 to=0xb30000(Binance: DEX Router) actorΔ=-499999 gross=5e+05 swaps=1/1p wethΔ=+0 eth=0
+   b26276268 i85 from=0xa27316 to=0xb30000(Binance: DEX Router) actorΔ=-199400 gross=1.994e+05 swaps=1/1p wethΔ=+0 eth=0
+   b26276296 i103 from=0xa27316 to=0xb30000(Binance: DEX Router) actorΔ=-200000 gross=2e+05 swaps=1/1p wethΔ=+0 eth=0
+   b26276350 i41 from=0xa27316 to=0xb30000(Binance: DEX Router) actorΔ=-200000 gross=2e+05 swaps=1/1p wethΔ=+0 eth=0
+   b26276363 i156 from=0xa27316 to=0xb30000(Binance: DEX Router) actorΔ=-352079 gross=3.521e+05 swaps=1/1p wethΔ=+0 eth=0
+   b26276440 i8 from=0x3ee92c to=0x410144() actorΔ=-0.446411 gross=5.25e+04 swaps=1/1p wethΔ=-28.07 eth=8.71e-16
+   b26276495 i1 from=0x3ee92c to=0x410144() actorΔ=-0.446411 gross=5.25e+04 swaps=1/1p wethΔ=-28.07 eth=4.11e-16
+   b26276715 i7 from=0x3ee92c to=0x410144() actorΔ=-0.446411 gross=3.5e+04 swaps=1/1p wethΔ=-18.72 eth=4.41e-16
+   ... 26 more
+  actor buy=346649 sell=7.7388e+06 net_ratio=0.955 senders={'0xa27316': 25, '0x5b3a59': 5, '0x6f22ad': 2, '0x3ee92c': 6, '0x3d6956': 1, '0xee4266': 1} internal_transfers=548 sandwich=[(26277019, 100, 1), (26276121, 11, 0), (26276116, 40, 0)]
+  shared funder: [('0x4976a4a02f38326660d17bf34b431dc6e2eb2327', 3), ('0x7f324545c481f8c150802103a8ee94014251b888', 1)]
+   xfer b26266018 0x6f22ad->0xb30000 2.896e+23raw tx 0x5c77d09f3d
+   xfer b26266186 0x6f22ad->0xb30000 2.896e+23raw tx 0xc43272d683
+   xfer b26266264 0x6f22ad->0xb30000 2.896e+23raw tx 0x91169f1345
+   xfer b26266336 0x6f22ad->0xb30000 2.896e+23raw tx 0x5923f92e25
+   xfer b26266413 0x6f22ad->0xb30000 2.896e+23raw tx 0xcedf057998
+  top other counterparties: [('0x09ad82', '2.985e+07', ''), ('0xdfd529', '2.246e+07', 'Binance 16'), ('0xada334', '2.159e+07', ''), ('0x28c6c0', '1.974e+07', 'Binance 14')]
+=== G54 rlusd rule=R4 conf=0.72 wallets=5 usd=11954
+  claim: 3645.72 tokens bought and later sold after a circle (5 wallets, blocks 26283334–26285709).
+  M 0x704aed38623a86a1656def65a8e1e296acfad90b c=True n=1 lab='' fund=- | in_member=1.017e+05 out_member=1.017e+05 net=0 nT=26
+  M 0xaae4baba31ed44d579b916c21ea3850c11ace4d3 c=False n=772 lab='' fund=0x0456b1 | in_member=3.405e+04 out_member=3.19e+04 net=2150 nT=5
+  M 0xc031a07d88ea8632ac0b57a2aca624748df6cabc c=False n=803 lab='' fund=0xf2ff84 | in_member=4811 out_member=3491 net=1320 nT=2
+  M 0xe6eeda550918638529c6cf2ea14f9ea0572d6f88 c=True n=1 lab='' fund=- | in_other=2.623e+04 out_pool=7.519e+04 in_pool=6.962e+05 out_other=6.434e+05 out_member=5.272e+04 in_member=4.896e+04 net=-1.164e-10 nT=260
+  M 0xf2ff84d45783bd64913903516fa44b419f266998 c=True n=9875 lab='' fund=0x28c6c0 | in_member=1.386e+04 out_member=1.357e+04 net=290.8 nT=6
+  B 0x2bfd1fc5e25a8f55c2e849492ad7966ea8a0dd9e c=True n=1 lab='' fund=0x000000 | in_member=1.825 net=1.825 nT=3
+   b26283334 i39 from=0xf2ff84 to=0x704aed() actorΔ=-5436.05 gross=5436 swaps=3/3p wethΔ=+0 eth=0
+   b26283431 i92 from=0xf2ff84 to=0x704aed() actorΔ=-2868.01 gross=2868 swaps=4/4p wethΔ=+0 eth=0
+   b26283555 i264 from=0xf2ff84 to=0x704aed() actorΔ=+2560.4 gross=2560 swaps=11/11p wethΔ=+0.1133 eth=0
+   b26283931 i81 from=0xf2ff84 to=0x704aed() actorΔ=-2207.23 gross=2207 swaps=4/4p wethΔ=+0 eth=0
+   b26283981 i124 from=0xf2ff84 to=0x704aed() actorΔ=-3056.32 gross=3056 swaps=4/4p wethΔ=+0 eth=0
+   b26284033 i41 from=0xaae4ba to=0x704aed() actorΔ=-2570.52 gross=2571 swaps=3/3p wethΔ=+0 eth=0
+   b26284359 i157 from=0xaae4ba to=0x704aed() actorΔ=+29657.1 gross=2.966e+04 swaps=3/3p wethΔ=+0 eth=0
+   b26284367 i154 from=0xaae4ba to=0x704aed() actorΔ=-15697.8 gross=1.57e+04 swaps=4/4p wethΔ=+0 eth=0
+   b26284383 i89 from=0xaae4ba to=0x704aed() actorΔ=-13632.5 gross=1.363e+04 swaps=5/5p wethΔ=+0 eth=0
+   b26285709 i27 from=0xc031a0 to=0x704aed() actorΔ=+4811.42 gross=4811 swaps=6/6p wethΔ=-0.04728 eth=0
+  actor buy=37028.9 sell=45468.4 net_ratio=0.186 senders={'0xf2ff84': 5, '0xaae4ba': 4, '0xc031a0': 1} internal_transfers=26 sandwich=[]
+   xfer b26282384 0xe6eeda->0x704aed 4.394e+21raw tx 0x0e69e2b07b
+   xfer b26282384 0x704aed->0xaae4ba 4.394e+21raw tx 0x0e69e2b07b
+   xfer b26282415 0xe6eeda->0x704aed 1.13e+22raw tx 0x3794559b35
+   xfer b26282415 0x704aed->0xf2ff84 1.13e+22raw tx 0x3794559b35
+   xfer b26283334 0xf2ff84->0x704aed 5.436e+21raw tx 0xd0692b2c8f
+  top other counterparties: [('0x1231de', '5.767e+05', 'LI.FI: LiFi Diamond'), ('0x0889e9', '8.997e+04', ''), ('0x719f8b', '1700', 'Euler: Swapper 2'), ('0xbedfac', '1219', '')]
+=== G55 rlusd rule=R4 conf=0.72 wallets=19 usd=4636221
+  claim: 1.5264e+06 tokens bought and later sold after a circle (19 wallets, blocks 26272583–26279645).
+  M 0x0d9d2f3a58f5fb999c1800f34c85f630f1f75ae1 c=True n=1 lab='' fund=- | in_member=0.2892 out_member=0.5784 in_other=0.3008 out_other=0.01164 net=-1.11e-16 nT=5
+  M 0x1231deb6f5749ef6ce6943a275a1d3e7486f4eae c=True n=1 lab='LI.FI: LiFi Diamond' fund=- | in_other=6.85e+05 out_other=3.13e+07 in_member=3.24e+07 out_member=1.783e+06 out_pool=74.11 net=3.725e-09 nT=356
+  M 0x12f03088f1fddbfd4721376c152573a67545f111 c=False n=671 lab='' fund=0x5c7bcd | in_member=2.503e+04 out_pool=1.5e+04 out_member=1.003e+04 net=0 nT=4
+  M 0x2aec304f392cb2086e5201989afbfd9838bf7111 c=True n=335 lab='' fund=0x4976a4 | in_member=2.904e+05 out_other=7.783e+06 in_other=7.783e+06 out_member=2.904e+05 out_pool=19.24 net=9.313e-09 nT=205
+  M 0x38b0c12ab81976e9417d4ebfe2a34db6df22e6ad c=True n=1 lab='Morpho: Blue Bundles V1' fund=- | in_member=1.913e+07 out_other=6.056e+06 in_other=3.056e+06 out_member=1.613e+07 net=1.118e-08 nT=221
+  M 0x3c6eab22cfc03fc32ad1bf836f2f886a5015dfff c=True n=1 lab='' fund=- | in_member=4.403e+07 out_member=4.403e+07 net=0 nT=100
+  M 0x410144dec85bb1929057829d54fb3b8d3f0ea4a3 c=True n=1 lab='' fund=- | in_member=2.712e+06 out_pool=2.712e+06 in_pool=2.712e+06 out_member=2.712e+06 net=1.863e-09 nT=245
+  M 0x4397a68c77b32586ee031f717df4cda807b17e2d c=False n=1916 lab='' fund=0x8797f3 | in_member=5.68e+06 out_member=1.182e+07 in_other=6.138e+06 net=-10.56 nT=149
+  B 0x3d695689c81b60c810bc5e3b6121faac878da6aa c=False n=3269 lab='' fund=0x56eddb | in_other=4.801e+06 out_other=7.048e+05 out_member=4.096e+06 net=0 nT=29
+  B 0x4fa7b0623bb3e338346ca24962edc0f422538ae4 c=False n=407 lab='' fund=0x57b233 | in_member=4.345e+04 out_pool=2e+04 out_other=2.345e+04 in_other=9996 out_member=9996 net=0 nT=5
+  B 0xa2731676fd3e478bf38db090a3d05656d2eebf37 c=False n=511 lab='' fund=0x4976a4 | in_other=2.97e+07 out_member=2.91e+07 out_other=6e+05 net=3.725e-09 nT=215
+  B 0xd001ae433f254283fece51d4acce8c53263aa186 c=True n=1 lab='' fund=- | in_other=3.139e+04 out_other=1.865e+06 out_pool=1.76e+05 in_member=34.26 out_member=1.185e+06 net=-3.195e+06 nT=172
+   b26273041 i144 from=0x4397a6 to=0x87870b(Aave: Pool V3) actorΔ=-189856 gross=3.797e+05 swaps=0/0p wethΔ=+0 eth=0
+   b26273236 i141 from=0x4397a6 to=0x87870b(Aave: Pool V3) actorΔ=-212742 gross=4.255e+05 swaps=0/0p wethΔ=+0 eth=0
+   b26273811 i151 from=0xa27316 to=0xb30000(Binance: DEX Router) actorΔ=-100000 gross=1e+05 swaps=1/1p wethΔ=+0 eth=0
+   b26274087 i83 from=0xa27316 to=0xb30000(Binance: DEX Router) actorΔ=-200000 gross=2e+05 swaps=1/1p wethΔ=+0 eth=0
+   b26274120 i65 from=0x6f22ad to=0xb30000(Binance: DEX Router) actorΔ=-289593 gross=2.896e+05 swaps=1/1p wethΔ=+0 eth=0
+   b26274123 i97 from=0x12f030 to=0x6131b5(KyberSwap: Meta Aggregation ) actorΔ=-9937.01 gross=9937 swaps=1/1p wethΔ=+0 eth=0
+   b26274430 i103 from=0xa27316 to=0xb30000(Binance: DEX Router) actorΔ=-200000 gross=2e+05 swaps=1/1p wethΔ=+0 eth=0
+   b26274769 i38 from=0xa27316 to=0xb30000(Binance: DEX Router) actorΔ=-150000 gross=1.5e+05 swaps=1/1p wethΔ=+0 eth=0
+   b26274784 i92 from=0xa27316 to=0xb30000(Binance: DEX Router) actorΔ=-200000 gross=2e+05 swaps=1/1p wethΔ=+0 eth=0
+   b26274815 i49 from=0xa27316 to=0xb30000(Binance: DEX Router) actorΔ=-201642 gross=2.016e+05 swaps=1/1p wethΔ=+0 eth=0
+   b26275049 i98 from=0x3ee92c to=0x410144() actorΔ=-0.446411 gross=3.5e+04 swaps=1/1p wethΔ=-18.78 eth=3.44e-16
+   b26275186 i32 from=0xdee2f2 to=0x8f8d0a() actorΔ=+0 gross=3.5e+04 swaps=1/1p wethΔ=-18.45 eth=0
+   b26275298 i55 from=0x5b3a59 to=0x87870b(Aave: Pool V3) actorΔ=+243439 gross=4.869e+05 swaps=0/0p wethΔ=+0 eth=0
+   b26275299 i118 from=0x5b3a59 to=0x6131b5(KyberSwap: Meta Aggregation ) actorΔ=-243439 gross=2.434e+05 swaps=3/3p wethΔ=+0 eth=0
+   ... 26 more
+  actor buy=1.30012e+07 sell=6.60726e+06 net_ratio=0.492 senders={'0x4397a6': 2, '0xa27316': 20, '0x6f22ad': 1, '0x12f030': 1, '0x3ee92c': 4, '0xdee2f2': 1, '0x5b3a59': 4, '0xc4ba4e': 2, '0x3d6956': 1, '0xf4ecd1': 1, '0xf1f8ec': 1, '0x4fa7b0': 1, '0xf6137e': 1} internal_transfers=768 sandwich=[]
+  shared funder: [('0x4976a4a02f38326660d17bf34b431dc6e2eb2327', 2), ('0x5c7bcd6e7de5423a257d81b442095a1a6ced35c5', 1)]
+   xfer b26265982 0xfa8258->0x4397a6 1.927e+23raw tx 0xaded3d1c95
+   xfer b26265984 0x4397a6->0x8f10b4 1.927e+23raw tx 0x7b55546fc4
+   xfer b26266018 0x6f22ad->0xb30000 2.896e+23raw tx 0x5c77d09f3d
+   xfer b26266058 0x4397a6->0x8f10b4 1.927e+23raw tx 0xafaf8fe773
+   xfer b26266084 0xbbbbbb->0x38b0c1 2e+22raw tx 0xa6d4093240
+  top other counterparties: [('0x029125', '4.86e+07', 'Morpho: Vault Bundles V1'), ('0x09ad82', '2.985e+07', ''), ('0x28c6c0', '2.837e+07', 'Binance 14'), ('0xdfd529', '2.659e+07', 'Binance 16')]
+=== G56 rlusd rule=R4 conf=0.72 wallets=20 usd=1620781
+  claim: 289499 tokens bought and later sold after a circle (20 wallets, blocks 26276610–26283635).
+  M 0x02912516d49de997db75b9d7858faae59209650b c=True n=1 lab='Morpho: Vault Bundles V1' fund=- | in_member=4.237e+07 out_other=2.334e+06 in_other=6.128e+06 out_member=4.617e+07 net=7.451e-09 nT=116
+  M 0x1231deb6f5749ef6ce6943a275a1d3e7486f4eae c=True n=1 lab='LI.FI: LiFi Diamond' fund=- | in_other=6.85e+05 out_other=3.043e+07 in_member=3.24e+07 out_member=2.651e+06 out_pool=74.11 net=7.451e-09 nT=356
+  M 0x38b0c12ab81976e9417d4ebfe2a34db6df22e6ad c=True n=1 lab='Morpho: Blue Bundles V1' fund=- | in_member=1.939e+07 out_other=4.367e+06 in_other=2.795e+06 out_member=1.782e+07 net=0 nT=221
+  M 0x3c6eab22cfc03fc32ad1bf836f2f886a5015dfff c=True n=1 lab='' fund=- | in_member=4.403e+07 out_member=4.403e+07 net=0 nT=100
+  M 0x410144dec85bb1929057829d54fb3b8d3f0ea4a3 c=True n=1 lab='' fund=- | in_member=2.712e+06 out_pool=2.712e+06 in_pool=2.712e+06 out_member=2.712e+06 net=1.863e-09 nT=245
+  M 0x4f3c5109c03fd654015ce777a9b8128a3438db6e c=False n=402 lab='' fund=0x4976a4 | in_other=3.494e+05 out_other=0 out_member=3.494e+05 net=-0.00026 nT=8
+  M 0x5b3a59d923cff08e3d53f80d5ea2b9e94a0b3b86 c=False n=396 lab='' fund=0x4976a4 | in_other=4.18e+06 out_other=1.053e+06 in_member=3.113e+06 out_member=6.241e+06 net=45.62 nT=107
+  M 0x6344fec307f50466646338bc1c4eaf41a38cb93d c=True n=1 lab='' fund=- | in_member=339.9 out_member=339.9 net=0 nT=40
+  B 0x1be45fef92c4e2538fecd150757ed62b7b3757d7 c=False n=2412 lab='' fund=0xdfd529 | in_member=3.86e+07 out_other=3.86e+07 in_other=0.00089 net=0 nT=16
+  B 0x3d695689c81b60c810bc5e3b6121faac878da6aa c=False n=3269 lab='' fund=0x56eddb | in_other=4.801e+06 out_other=7.048e+05 out_member=4.096e+06 net=0 nT=29
+  B 0x4fa7b0623bb3e338346ca24962edc0f422538ae4 c=False n=407 lab='' fund=0x57b233 | in_member=4.345e+04 out_pool=2e+04 out_other=2.345e+04 in_other=9996 out_member=9996 net=0 nT=5
+  B 0x6fdce26944a8d23158ac07f65c52d0d4a6c3b4d8 c=False n=316 lab='' fund=0x66ff80 | in_member=2.156e+05 out_member=3.166e+05 in_other=1.009e+05 net=0 nT=10
+   b26276715 i7 from=0x3ee92c to=0x410144() actorΔ=-0.446411 gross=3.5e+04 swaps=1/1p wethΔ=-18.72 eth=4.41e-16
+   b26276915 i236 from=0x3d6956 to=0xb30000(Binance: DEX Router) actorΔ=-652372 gross=6.524e+05 swaps=3/3p wethΔ=+0 eth=0
+   b26276918 i175 from=0xa27316 to=0xb30000(Binance: DEX Router) actorΔ=-199999 gross=2e+05 swaps=1/1p wethΔ=+0 eth=0
+   b26276998 i146 from=0xf4ecd1 to=0x38b0c1(Morpho: Blue Bundles V1) actorΔ=+2004.35 gross=4009 swaps=0/0p wethΔ=+0 eth=0
+   b26277015 i260 from=0xf1f8ec to=0x38b0c1(Morpho: Blue Bundles V1) actorΔ=+99125.2 gross=1.983e+05 swaps=0/0p wethΔ=+0 eth=0
+   b26277019 i110 from=0xa27316 to=0xb30000(Binance: DEX Router) actorΔ=-200000 gross=2e+05 swaps=1/1p wethΔ=+0 eth=0
+   b26277113 i75 from=0xa27316 to=0xb30000(Binance: DEX Router) actorΔ=-199999 gross=2e+05 swaps=1/1p wethΔ=+0 eth=0
+   b26277421 i134 from=0x1be45f to=0x029125(Morpho: Vault Bundles V1) actorΔ=+8.4e+06 gross=1.68e+07 swaps=0/0p wethΔ=+0 eth=0
+   b26277640 i141 from=0xa27316 to=0xb30000(Binance: DEX Router) actorΔ=-199999 gross=2e+05 swaps=1/1p wethΔ=+0 eth=0
+   b26277800 i83 from=0xa27316 to=0xb30000(Binance: DEX Router) actorΔ=-200000 gross=2e+05 swaps=1/1p wethΔ=+0 eth=0
+   b26277856 i114 from=0xa27316 to=0xb30000(Binance: DEX Router) actorΔ=-299009 gross=2.99e+05 swaps=1/1p wethΔ=+0 eth=0
+   b26278070 i153 from=0x8e267e to=0xa45e65() actorΔ=+0 gross=1.631 swaps=0/0p wethΔ=+0 eth=0
+   b26278081 i48 from=0xa27316 to=0xb30000(Binance: DEX Router) actorΔ=-200000 gross=2e+05 swaps=1/1p wethΔ=+0 eth=0
+   b26278330 i92 from=0xa27316 to=0xb30000(Binance: DEX Router) actorΔ=-400079 gross=4.001e+05 swaps=1/1p wethΔ=+0 eth=0
+   ... 26 more
+  actor buy=2.14038e+07 sell=8.21929e+06 net_ratio=0.616 senders={'0x3ee92c': 1, '0x3d6956': 1, '0xa27316': 8, '0xf4ecd1': 1, '0xf1f8ec': 1, '0x1be45f': 1, '0x8e267e': 5, '0xfc0a43': 2, '0x4fa7b0': 1, '0xf6137e': 1, '0xc4ba4e': 1, '0x7662e9': 1, '0x5b3a59': 8, '0xd22152': 1, '0xdee2f2': 1, '0xc46831': 2, '0xccc67b': 1, '0x6fdce2': 1, '0xc8b0b3': 2} internal_transfers=974 sandwich=[]
+  shared funder: [('0x4976a4a02f38326660d17bf34b431dc6e2eb2327', 4), ('0x9696f59e4d72e237be84ffd425dcad154bf96976', 1)]
+   xfer b26265963 0xbbbbbb->0xeff0ae 4.18e+21raw tx 0x3aca2385f3
+   xfer b26265963 0xeff0ae->0x6dc58a 4.18e+21raw tx 0x3aca2385f3
+   xfer b26265963 0xbbbbbb->0x6344fe 2.357e+17raw tx 0x557390e464
+   xfer b26265963 0x6344fe->0x6dc58a 2.357e+17raw tx 0x557390e464
+   xfer b26266084 0xbbbbbb->0x38b0c1 2e+22raw tx 0xa6d4093240
+  top other counterparties: [('0x09ad82', '2.985e+07', ''), ('0x60392b', '2.57e+07', 'Binance Deposit: 0x60392b'), ('0xada334', '2.159e+07', ''), ('0x6f22ad', '2.025e+07', '')]
+=== G57 rlusd rule=R4 conf=0.72 wallets=8 usd=220864
+  claim: 20782.6 tokens bought and later sold after a circle (8 wallets, blocks 26277716–26283604).
+  M 0x1231deb6f5749ef6ce6943a275a1d3e7486f4eae c=True n=1 lab='LI.FI: LiFi Diamond' fund=- | in_other=6.85e+05 out_other=1.447e+06 in_member=3.24e+07 out_member=3.163e+07 out_pool=74.11 net=0 nT=356
+  M 0x38b0c12ab81976e9417d4ebfe2a34db6df22e6ad c=True n=1 lab='Morpho: Blue Bundles V1' fund=- | in_member=1.945e+07 out_other=4.319e+06 in_other=2.738e+06 out_member=1.786e+07 net=3.725e-09 nT=221
+  M 0x6efc48b8b6222924fa6ea95d174af5518b761177 c=False n=2487 lab='' fund=0x9696f5 | in_member=1.696e+06 out_member=1.696e+06 net=0 nT=8
+  M 0x8f10b468b06c6fd214b65f87778827f7d113f996 c=True n=1 lab='' fund=- | in_other=1.111e+07 out_pool=1.34e+07 in_pool=1.486e+07 out_other=2.245e+06 in_member=3.479e+06 out_member=1.38e+07 net=0 nT=296
+  M 0xa2731676fd3e478bf38db090a3d05656d2eebf37 c=False n=511 lab='' fund=0x4976a4 | in_other=2.97e+07 out_member=2.91e+07 out_other=6e+05 net=3.725e-09 nT=215
+  M 0xb300000b72deaeb607a12d5f54773d1c19c7028d c=True n=1 lab='Binance: DEX Router' fund=- | in_member=5.345e+07 out_other=2.188e+07 in_other=3.768e+06 out_pool=4.095e+06 out_member=3.153e+07 in_pool=2.897e+05 net=5.215e-08 nT=483
+  M 0xbbbbbbbbbb9cc5e90e3b3af64bdaf62c37eeffcb c=True n=1 lab='Morpho: Morpho' fund=- | out_other=3.555e+07 out_member=6.227e+06 in_member=1.596e+07 in_other=1.609e+07 net=-9.739e+06 nT=270
+  M 0xc468315a2df54f9c076bd5cfe5002ba211f74ca6 c=False n=4692 lab='' fund=0x887fd3 | in_member=1.283e+07 out_member=1.283e+07 net=0 nT=14
+  B 0x09ad820aac5779683b481c4674208a4e1b024afa c=True n=1 lab='' fund=- | in_member=2.985e+07 out_pool=2.985e+07 in_pool=1066 out_other=1066 net=3.725e-09 nT=280
+  B 0x15e8f74a29beeff4fbcc33b5bbab407d2a9cdf95 c=True n=200 lab='' fund=0xec7ea9 | out_member=7.638 in_member=4.092 net=-3.546 nT=5
+  B 0x3d695689c81b60c810bc5e3b6121faac878da6aa c=False n=3269 lab='' fund=0x56eddb | in_other=4.801e+06 out_other=7.048e+05 out_member=4.096e+06 net=0 nT=29
+  B 0x4fa7b0623bb3e338346ca24962edc0f422538ae4 c=False n=407 lab='' fund=0x57b233 | in_member=4.345e+04 out_pool=2e+04 out_other=2.345e+04 in_other=9996 out_member=9996 net=0 nT=5
+   b26277733 i106 from=0x3d6956 to=0xb30000(Binance: DEX Router) actorΔ=-494725 gross=4.947e+05 swaps=3/2p wethΔ=+0 eth=0
+   b26277800 i83 from=0xa27316 to=0xb30000(Binance: DEX Router) actorΔ=-200000 gross=2e+05 swaps=1/1p wethΔ=+0 eth=0
+   b26277832 i65 from=0xc0358e to=0x38b0c1(Morpho: Blue Bundles V1) actorΔ=-48277.1 gross=9.655e+04 swaps=0/0p wethΔ=+0 eth=0
+   b26277856 i114 from=0xa27316 to=0xb30000(Binance: DEX Router) actorΔ=-299009 gross=2.99e+05 swaps=1/1p wethΔ=+0 eth=0
+   b26277948 i275 from=0x6f22ad to=0xb30000(Binance: DEX Router) actorΔ=-158823 gross=1.588e+05 swaps=1/1p wethΔ=+0 eth=0
+   b26277955 i196 from=0x8449f9 to=0x38b0c1(Morpho: Blue Bundles V1) actorΔ=+16105 gross=3.221e+04 swaps=0/0p wethΔ=+0 eth=0
+   b26278081 i48 from=0xa27316 to=0xb30000(Binance: DEX Router) actorΔ=-200000 gross=2e+05 swaps=1/1p wethΔ=+0 eth=0
+   b26278109 i237 from=0xa27316 to=0xb30000(Binance: DEX Router) actorΔ=-199999 gross=2e+05 swaps=1/1p wethΔ=+0 eth=0
+   b26278147 i276 from=0xa27316 to=0xb30000(Binance: DEX Router) actorΔ=-299999 gross=3e+05 swaps=1/1p wethΔ=+0 eth=0
+   b26278239 i35 from=0xa27316 to=0xb30000(Binance: DEX Router) actorΔ=-115749 gross=1.157e+05 swaps=1/1p wethΔ=+0 eth=0
+   b26278266 i153 from=0xa27316 to=0xb30000(Binance: DEX Router) actorΔ=-599999 gross=6e+05 swaps=1/1p wethΔ=+0 eth=0
+   b26278322 i76 from=0xa27316 to=0xb30000(Binance: DEX Router) actorΔ=-443442 gross=4.434e+05 swaps=1/1p wethΔ=+0 eth=0
+   b26278330 i92 from=0xa27316 to=0xb30000(Binance: DEX Router) actorΔ=-400079 gross=4.001e+05 swaps=1/1p wethΔ=+0 eth=0
+   b26278519 i148 from=0xde640e to=0x38b0c1(Morpho: Blue Bundles V1) actorΔ=+19258.9 gross=3.852e+04 swaps=0/0p wethΔ=+0 eth=0
+   ... 26 more
+  actor buy=6.77031e+06 sell=1.59543e+07 net_ratio=0.576 senders={'0x3d6956': 1, '0xa27316': 14, '0xc0358e': 1, '0x6f22ad': 1, '0x8449f9': 1, '0xde640e': 1, '0x4fa7b0': 1, '0xf6137e': 1, '0xc46831': 8, '0xd22152': 1, '0x6fdce2': 3, '0xccc67b': 1, '0x6efc48': 2, '0xfc0a43': 1, '0x15e8f7': 1, '0xc8b0b3': 2} internal_transfers=402 sandwich=[(26283419, 8, 1)]
+   xfer b26266084 0xbbbbbb->0x38b0c1 2e+22raw tx 0xa6d4093240
+   xfer b26266439 0xbbbbbb->0x38b0c1 3.781e+21raw tx 0x4712c9a0dc
+   xfer b26266680 0x38b0c1->0xbbbbbb 5.065e+22raw tx 0x54a6a6b72d
+   xfer b26266942 0x38b0c1->0xbbbbbb 2.312e+23raw tx 0x794e6b8165
+   xfer b26266983 0xbbbbbb->0x38b0c1 5.5e+23raw tx 0x12d8c461d6
+  top other counterparties: [('0x3c6eab', '4.403e+07', ''), ('0xada334', '2.159e+07', ''), ('0xdfd529', '2.112e+07', 'Binance 16'), ('0x28c6c0', '1.873e+07', 'Binance 14')]
+=== G58 rlusd rule=R4 conf=0.72 wallets=2 usd=290982
+  claim: 140927 tokens bought and later sold after a circle (2 wallets, blocks 26276709–26283846).
+  M 0xc76c07e16849fc778b9039e78ce93af3ced6689a c=False n=1659 lab='' fund=0xe8a969 | in_other=7.23e+06 out_member=7.08e+06 out_other=2.909e+05 in_member=1.409e+05 net=8.019e-07 nT=116
+  M 0xf87a03cdeb8e79e1925fad4d28e4e676d63089d6 c=True n=1 lab='' fund=- | in_member=7.08e+06 out_pool=7.08e+06 in_pool=1.409e+05 out_member=1.409e+05 net=0 nT=109
+   b26276709 i134 from=0xc76c07 to=0xf87a03() actorΔ=-149932 gross=1.499e+05 swaps=1/1p wethΔ=+0 eth=0
+   b26276911 i33 from=0xc76c07 to=0xf87a03() actorΔ=-149940 gross=1.499e+05 swaps=1/1p wethΔ=+0 eth=0
+   b26277442 i77 from=0xc76c07 to=0xf87a03() actorΔ=-95439.4 gross=9.544e+04 swaps=1/1p wethΔ=+0 eth=0
+   b26277457 i27 from=0xc76c07 to=0xf87a03() actorΔ=-99962.4 gross=9.996e+04 swaps=1/1p wethΔ=+0 eth=0
+   b26278191 i91 from=0xc76c07 to=0xf87a03() actorΔ=-149941 gross=1.499e+05 swaps=1/1p wethΔ=+0 eth=0
+   b26278200 i87 from=0xc76c07 to=0xf87a03() actorΔ=-149943 gross=1.499e+05 swaps=1/1p wethΔ=+0 eth=0
+   b26278528 i18 from=0xc76c07 to=0xf87a03() actorΔ=-140930 gross=1.409e+05 swaps=1/1p wethΔ=+0 eth=0
+   b26278547 i72 from=0xc76c07 to=0xf87a03() actorΔ=-149935 gross=1.499e+05 swaps=1/1p wethΔ=+0 eth=0
+   b26278555 i43 from=0xc76c07 to=0xf87a03() actorΔ=-149937 gross=1.499e+05 swaps=1/1p wethΔ=+0 eth=0
+   b26278563 i26 from=0xc76c07 to=0xf87a03() actorΔ=-149937 gross=1.499e+05 swaps=1/1p wethΔ=+0 eth=0
+   b26278571 i24 from=0xc76c07 to=0xf87a03() actorΔ=-149937 gross=1.499e+05 swaps=1/1p wethΔ=+0 eth=0
+   b26278580 i133 from=0xc76c07 to=0xf87a03() actorΔ=-149938 gross=1.499e+05 swaps=1/1p wethΔ=+0 eth=0
+   b26278594 i14 from=0xc76c07 to=0xf87a03() actorΔ=-149937 gross=1.499e+05 swaps=1/1p wethΔ=+0 eth=0
+   b26280262 i24 from=0xc76c07 to=0xf87a03() actorΔ=-111729 gross=1.117e+05 swaps=1/1p wethΔ=+0 eth=0
+   ... 12 more
+  actor buy=140927 sell=3.30703e+06 net_ratio=0.957 senders={'0xc76c07': 26} internal_transfers=53 sandwich=[]
+   xfer b26266048 0xc76c07->0xf87a03 1.499e+23raw tx 0xee407851d4
+   xfer b26266057 0xc76c07->0xf87a03 1.499e+23raw tx 0x73c9115332
+   xfer b26266076 0xc76c07->0xf87a03 1.499e+23raw tx 0x5785d6d2bc
+   xfer b26266091 0xc76c07->0xf87a03 1.499e+23raw tx 0x1963962d65
+   xfer b26266106 0xc76c07->0xf87a03 1.499e+23raw tx 0xe0683c9e86
+  top other counterparties: [('0x21a31e', '2.648e+06', 'Binance 15'), ('0x28c6c0', '2.626e+06', 'Binance 14'), ('0xdfd529', '1.957e+06', 'Binance 16'), ('0xe23ec8', '2.909e+05', 'Binance Deposit: 0xe23Ec8')]
+=== G59 spx rule=R5 conf=0.72 wallets=1 usd=2848
+  claim: 0x560a5a465431c77ae4f9abc925a78be5ebb4093e bought 3623.77 and sold 3786.34 across 12 trades and finished flat.
+  M 0x560a5a465431c77ae4f9abc925a78be5ebb4093e c=False n=157 lab='' fund=0x466c34 | net=0 nT=0
+   b26282019 i22 from=0x560a5a to=0x5228ed() actorΔ=+0 gross=0 swaps=2/2p wethΔ=+0 eth=0.1
+   b26282020 i1 from=0x560a5a to=0x5228ed() actorΔ=+0 gross=0 swaps=2/2p wethΔ=+0 eth=0.2
+   b26282045 i187 from=0x560a5a to=0x5228ed() actorΔ=+0 gross=0 swaps=2/2p wethΔ=+0 eth=0
+   b26282062 i16 from=0x560a5a to=0x5228ed() actorΔ=+0 gross=0 swaps=2/2p wethΔ=+0 eth=0
+   b26282072 i160 from=0x560a5a to=0x5228ed() actorΔ=+0 gross=0 swaps=2/2p wethΔ=+0 eth=0
+   b26282104 i15 from=0x560a5a to=0x5228ed() actorΔ=+0 gross=0 swaps=2/2p wethΔ=+0 eth=0
+  actor buy=0 sell=0 net_ratio=0.000 senders={'0x560a5a': 6} internal_transfers=0 sandwich=[]
+=== G60 spx rule=R5 conf=0.72 wallets=1 usd=3242
+  claim: 0x545fd91c9c2aa4aeba38c7e6792497e8d5f2003a bought 4204.58 and sold 4237.88 across 26 trades and finished flat.
+  M 0x545fd91c9c2aa4aeba38c7e6792497e8d5f2003a c=False n=30 lab='' fund=0xf70da9 | net=0 nT=0
+   b26282123 i22 from=0x545fd9 to=0xba412d() actorΔ=+0 gross=0 swaps=2/2p wethΔ=+0 eth=0.045
+   b26282156 i22 from=0x545fd9 to=0xba412d() actorΔ=+0 gross=0 swaps=2/2p wethΔ=+0 eth=0.04
+   b26282293 i197 from=0x545fd9 to=0xba412d() actorΔ=+0 gross=0 swaps=2/2p wethΔ=+0 eth=0
+   b26282300 i41 from=0x545fd9 to=0xba412d() actorΔ=+0 gross=0 swaps=2/2p wethΔ=+0 eth=0.05
+   b26282313 i1 from=0x545fd9 to=0xba412d() actorΔ=+0 gross=0 swaps=2/2p wethΔ=+0 eth=0.03
+   b26282355 i30 from=0x545fd9 to=0xba412d() actorΔ=+0 gross=0 swaps=2/2p wethΔ=+0 eth=0
+   b26282402 i33 from=0x545fd9 to=0xba412d() actorΔ=+0 gross=0 swaps=2/2p wethΔ=+0 eth=0.06
+   b26282469 i4 from=0x545fd9 to=0xba412d() actorΔ=+0 gross=0 swaps=2/2p wethΔ=+0 eth=0
+   b26282492 i173 from=0x545fd9 to=0xba412d() actorΔ=+0 gross=0 swaps=2/2p wethΔ=+0 eth=0.05
+   b26282532 i0 from=0x545fd9 to=0xba412d() actorΔ=+0 gross=0 swaps=2/2p wethΔ=+0 eth=0
+   b26282579 i3 from=0x545fd9 to=0xba412d() actorΔ=+0 gross=0 swaps=2/2p wethΔ=+0 eth=0.05
+   b26282639 i18 from=0x545fd9 to=0xba412d() actorΔ=+0 gross=0 swaps=2/2p wethΔ=+0 eth=0
+   b26282831 i56 from=0x545fd9 to=0xba412d() actorΔ=+0 gross=0 swaps=2/2p wethΔ=+0 eth=0.05
+   b26282899 i60 from=0x545fd9 to=0xba412d() actorΔ=+0 gross=0 swaps=2/2p wethΔ=+0 eth=0
+  actor buy=0 sell=0 net_ratio=0.000 senders={'0x545fd9': 14} internal_transfers=0 sandwich=[]
+=== G61 spx rule=R5 conf=0.72 wallets=1 usd=8311
+  claim: 0x383cb33cc75e3bd9aa82688444ee894a320f76c1 bought 10901.8 and sold 10759.1 across 28 trades and finished flat.
+  M 0x383cb33cc75e3bd9aa82688444ee894a320f76c1 c=False n=128 lab='' fund=0xf30ba1 | net=0 nT=0
+   b26281981 i7 from=0x383cb3 to=0xba412d() actorΔ=+0 gross=0 swaps=2/2p wethΔ=+0 eth=0.125
+   b26281985 i5 from=0x383cb3 to=0xba412d() actorΔ=+0 gross=0 swaps=2/2p wethΔ=+0 eth=0
+   b26282070 i3 from=0x383cb3 to=0xba412d() actorΔ=+0 gross=0 swaps=2/2p wethΔ=+0 eth=0.08
+   b26282082 i11 from=0x383cb3 to=0xba412d() actorΔ=+0 gross=0 swaps=2/2p wethΔ=+0 eth=0
+   b26282109 i8 from=0x383cb3 to=0xba412d() actorΔ=+0 gross=0 swaps=2/2p wethΔ=+0 eth=0.1
+   b26282113 i158 from=0x383cb3 to=0xba412d() actorΔ=+0 gross=0 swaps=2/2p wethΔ=+0 eth=0
+   b26282216 i186 from=0x383cb3 to=0xba412d() actorΔ=+0 gross=0 swaps=2/2p wethΔ=+0 eth=0.1
+   b26282405 i4 from=0x383cb3 to=0xba412d() actorΔ=+0 gross=0 swaps=2/2p wethΔ=+0 eth=0
+   b26282409 i7 from=0x383cb3 to=0xba412d() actorΔ=+0 gross=0 swaps=2/2p wethΔ=+0 eth=0.25
+   b26282417 i80 from=0x383cb3 to=0xba412d() actorΔ=+0 gross=0 swaps=2/2p wethΔ=+0 eth=0
+   b26282418 i134 from=0x383cb3 to=0xba412d() actorΔ=+0 gross=0 swaps=2/2p wethΔ=+0 eth=0.15
+   b26282419 i25 from=0x383cb3 to=0xba412d() actorΔ=+0 gross=0 swaps=2/2p wethΔ=+0 eth=0
+   b26286099 i5 from=0x383cb3 to=0xba412d() actorΔ=+0 gross=0 swaps=2/2p wethΔ=+0 eth=0.1
+   b26286614 i46 from=0x383cb3 to=0xba412d() actorΔ=+0 gross=0 swaps=2/2p wethΔ=+0 eth=0
+  actor buy=0 sell=0 net_ratio=0.000 senders={'0x383cb3': 14} internal_transfers=0 sandwich=[]
+=== G62 spx rule=R5 conf=0.72 wallets=1 usd=2400
+  claim: 0xf29beaa9667428a75e0019a3365b4a47d80cd74f bought 3117.35 and sold 3123.25 across 14 trades and finished flat.
+  M 0xf29beaa9667428a75e0019a3365b4a47d80cd74f c=False n=168 lab='' fund=0x4da473 | net=0 nT=0
+   b26282036 i11 from=0xf29bea to=0x4313c3() actorΔ=+0 gross=0 swaps=2/2p wethΔ=+0 eth=0.05
+   b26282049 i58 from=0xf29bea to=0x4313c3() actorΔ=+0 gross=0 swaps=2/2p wethΔ=+0 eth=0.05
+   b26282084 i80 from=0xf29bea to=0x4313c3() actorΔ=+0 gross=0 swaps=2/2p wethΔ=+0 eth=0.03
+   b26282108 i213 from=0xf29bea to=0x4313c3() actorΔ=+0 gross=0 swaps=2/2p wethΔ=+0 eth=0.03
+   b26282142 i14 from=0xf29bea to=0x4313c3() actorΔ=+0 gross=0 swaps=2/2p wethΔ=+0 eth=0
+   b26282150 i123 from=0xf29bea to=0x4313c3() actorΔ=+0 gross=0 swaps=2/2p wethΔ=+0 eth=0.1
+   b26282166 i7 from=0xf29bea to=0x4313c3() actorΔ=+0 gross=0 swaps=2/2p wethΔ=+0 eth=0
+  actor buy=0 sell=0 net_ratio=0.000 senders={'0xf29bea': 7} internal_transfers=0 sandwich=[]
+=== G63 spx rule=R5 conf=0.72 wallets=1 usd=95
+  claim: 0x66930ba9902d2767b2bb9f6f6ce5e3b409999999 bought 120.771 and sold 127.095 across 6 trades and finished flat.
+  M 0x66930ba9902d2767b2bb9f6f6ce5e3b409999999 c=False n=314 lab='' fund=0x60a2e3 | net=0 nT=0
+   b26282022 i43 from=0x66930b to=0x4313c3() actorΔ=+0 gross=0 swaps=2/2p wethΔ=+0 eth=0.01
+   b26282051 i45 from=0x66930b to=0x4313c3() actorΔ=+0 gross=0 swaps=2/2p wethΔ=+0 eth=0
+   b26285047 i246 from=0x66930b to=0x4313c3() actorΔ=+0 gross=0 swaps=2/2p wethΔ=+0 eth=0
+  actor buy=0 sell=0 net_ratio=0.000 senders={'0x66930b': 3} internal_transfers=0 sandwich=[]
+=== G64 pepe rule=R6 conf=0.72 wallets=1 usd=47
+  claim: 0xf73644da46ab85da864fc4284322f489134ee82c bought and sold in the same transaction 0xb3317271d8c344cae047bf2d0779dbe8cddcd81715d0720620a00c5f59dc5d18.
+  M 0xf73644da46ab85da864fc4284322f489134ee82c c=False n=48770 lab='' fund=0x25e9ad | net=0 nT=0
+  B 0xac4cccd9f0e800fd426f51a806e8d77dd8f6e3c8 c=True n=1 lab='' fund=- | in_other=1.042e+07 out_pool=1.042e+07 net=0 nT=2
+   b26275295 i4 from=0xf73644 to=0xa66b23() actorΔ=+0 gross=1.042e+07 swaps=7/7p wethΔ=+0 eth=0
+  actor buy=0 sell=0 net_ratio=0.000 senders={'0xf73644': 1} internal_transfers=0 sandwich=[]
+  top other counterparties: [('0x23617e', '1.042e+07', 'Uniswap: Universal Router')]
+=== G65 spx rule=R6 conf=0.72 wallets=1 usd=3450
+  claim: 0x5b43453fce04b92e190f391a83136bfbecedefd1 bought and sold in the same transaction 0xd3cdc4b34f0a403710625aff28769608012277b4a168a31141a65d117eee9c8f.
+  M 0x5b43453fce04b92e190f391a83136bfbecedefd1 c=False n=1199343 lab='' fund=0x68d3a9 | net=0 nT=0
+  B 0xbdb3ba9ffe392549e1f8658dd2630c141fdf47b6 c=True n=1 lab='' fund=- | in_pool=1.151e+06 out_pool=9.567e+05 in_other=5257 out_other=2.689e+05 net=-6.948e+04 nT=551
+   b26277637 i1 from=0x5b4345 to=0xbdb3ba() actorΔ=+8942.76 gross=8943 swaps=10/10p wethΔ=-4.281 eth=2.63e-11
+  actor buy=8942.76 sell=0 net_ratio=1.000 senders={'0x5b4345': 1} internal_transfers=0 sandwich=[]
+  top other counterparties: [('0xb5c5a9', '2.687e+05', 'ByBit Deposit: 0xb5C5A9A1'), ('0x24ed36', '5519', '')]
+=== G66 rlusd rule=R6 conf=0.72 wallets=1 usd=622710
+  claim: 0xa7bffaede70c5544a59592e6c41e23b8dfd3d3e3 bought and sold in the same transaction 0xb49f341272a46faa6105fc38746b0062c8cb643c0767a7a73555c34f13eaae35.
+  M 0xa7bffaede70c5544a59592e6c41e23b8dfd3d3e3 c=False n=63 lab='' fund=0x43dc48 | in_member=1.573e+06 out_other=1.573e+06 net=-2.328e-10 nT=3
+  B 0x0cef320d0c5793ade37964e2661a033771e53cd5 c=True n=1 lab='' fund=- | in_pool=2.24e+06 out_other=9.546e+05 in_member=2.877e+05 out_member=1.573e+06 in_other=2.896e+05 out_pool=2.896e+05 net=4.657e-10 nT=71
+  B 0xd001ae433f254283fece51d4acce8c53263aa186 c=True n=1 lab='' fund=- | in_other=3.142e+04 out_other=2.763e+06 out_pool=1.76e+05 out_member=2.877e+05 net=-3.195e+06 nT=172
+  B 0xf5c4f3dc02c3fb9279495a8fef7b0741da956157 c=False n=5471 lab='' fund=0x70bf66 | in_member=3.494 net=3.494 nT=2
+   b26271757 i164 from=0xa7bffa to=0x0cef32() actorΔ=+799803 gross=9.772e+05 swaps=3/3p wethΔ=+0 eth=0
+  actor buy=799803 sell=0 net_ratio=1.000 senders={'0xa7bffa': 1} internal_transfers=0 sandwich=[]
+  top other counterparties: [('0x029125', '1.573e+06', 'Morpho: Vault Bundles V1'), ('0x8f10b4', '1.185e+06', ''), ('0xe0f3fd', '7.664e+05', ''), ('0xf68607', '5.257e+05', '')]
+=== G67 mog rule=R6 conf=0.72 wallets=1 usd=46
+  claim: 0xc476fb435fa6e6372d12b9134a4649ff17fce021 bought and sold in the same transaction 0xf1b1a3fdfb0694a3d370dd52a1fbe60d0fbfaa76fdffd0d05fe66b2044e3dba6.
+  M 0xc476fb435fa6e6372d12b9134a4649ff17fce021 c=False n=13447 lab='' fund=0xcecb5f | net=0 nT=0
+  B 0xf89b2629aa641c93d0212f143f29f03bc43aabcb c=True n=50 lab='' fund=0x1ab497 | out_other=0 out_pool=4.683e+08 net=-4.683e+08 nT=4
+   b26273274 i46 from=0xc476fb to=0xf89b26() actorΔ=-4.68259e+08 gross=4.683e+08 swaps=3/3p wethΔ=+0 eth=0
+  actor buy=0 sell=4.68259e+08 net_ratio=1.000 senders={'0xc476fb': 1} internal_transfers=0 sandwich=[]
+  top other counterparties: [('0xaaee1a', '0', 'Mog Coin: Mog Token')]
+=== G68 turbo rule=R6 conf=0.72 wallets=1 usd=62
+  claim: 0x65647319df2ebaeb141e1166da4d1961866b0218 bought and sold in the same transaction 0xa89af7a0f4dfc401addfbd6d0b87e037cfd3ab44dd81b17f04ad3e96fc8ddb8c.
+  M 0x65647319df2ebaeb141e1166da4d1961866b0218 c=False n=8 lab='' fund=0xc88f76 | out_other=7.764e+04 net=-7.764e+04 nT=1
+  B 0xa1606e03121b94e73de7338b32c2b1f42986f91e c=False n=1514 lab='' fund=0x685527 | in_other=776.4 out_other=776.4 net=0 nT=2
+  B 0xc06ebbefd94032b85424d51906e2a335efae264b c=False n=25356 lab='' fund=0x8932eb | in_other=4157 out_other=7167 net=-3010 nT=6
+  B 0xe6eeda550918638529c6cf2ea14f9ea0572d6f88 c=True n=1 lab='' fund=- | in_other=8.66e+04 out_pool=8.66e+04 net=0 nT=5
+   b26274210 i92 from=0x656473 to=0x1231de(LI.FI: LiFi Diamond) actorΔ=-77642.5 gross=7.861e+04 swaps=5/5p wethΔ=+0.01859 eth=0
+  actor buy=0 sell=77642.5 net_ratio=1.000 senders={'0x656473': 1} internal_transfers=0 sandwich=[]
+  top other counterparties: [('0x1231de', '1.664e+05', 'LI.FI: LiFi Diamond'), ('0x337685', '9931', 'Mayan: Forwarder'), ('0x9891a7', '776.4', '')]
+=== G69 pepe rule=R6 conf=0.72 wallets=1 usd=3086
+  claim: 0x5b43453fce04b92e190f391a83136bfbecedefd1 bought and sold in the same transaction 0xcec69c0cbc31ca5e042261a658bfc49ea8389a9ae6dd137e6f72f09050b228dc.
+  M 0x5b43453fce04b92e190f391a83136bfbecedefd1 c=False n=1199343 lab='' fund=0x68d3a9 | net=0 nT=0
+  B 0xbdb3ba9ffe392549e1f8658dd2630c141fdf47b6 c=True n=1 lab='' fund=- | out_pool=4.393e+10 in_pool=5.096e+10 in_other=7.937e+08 out_other=9.391e+08 net=6.885e+09 nT=276
+   b26274879 i1 from=0x5b4345 to=0xbdb3ba() actorΔ=+6.98769e+08 gross=6.988e+08 swaps=24/24p wethΔ=+4.164 eth=2.63e-11
+  actor buy=6.98769e+08 sell=0 net_ratio=1.000 senders={'0x5b4345': 1} internal_transfers=0 sandwich=[]
+  top other counterparties: [('0xce2622', '1.035e+09', ''), ('0xba4cb4', '6.335e+08', ''), ('0x0a8084', '5.797e+07', ''), ('0x3d9bdb', '6.723e+06', '')]
+=== G70 spx rule=R6 conf=0.72 wallets=1 usd=1363
+  claim: 0x5b43453fce04b92e190f391a83136bfbecedefd1 bought and sold in the same transaction 0xbbad46d88825a8171cef32252557295e0676ba0eeb499469d937925332ada188.
+  M 0x5b43453fce04b92e190f391a83136bfbecedefd1 c=False n=1199343 lab='' fund=0x68d3a9 | net=0 nT=0
+  B 0xbdb3ba9ffe392549e1f8658dd2630c141fdf47b6 c=True n=1 lab='' fund=- | in_pool=1.151e+06 out_pool=9.567e+05 in_other=5257 out_other=2.689e+05 net=-6.948e+04 nT=551
+   b26275760 i1 from=0x5b4345 to=0xbdb3ba() actorΔ=+3611.32 gross=3611 swaps=47/47p wethΔ=+2.944 eth=2.63e-11
+  actor buy=3611.32 sell=0 net_ratio=1.000 senders={'0x5b4345': 1} internal_transfers=0 sandwich=[]
+  top other counterparties: [('0xb5c5a9', '2.687e+05', 'ByBit Deposit: 0xb5C5A9A1'), ('0x24ed36', '5519', '')]
+=== G71 rlusd rule=R6 conf=0.72 wallets=1 usd=1000322
+  claim: 0x2b7b7be10e25c263334c6d3f1f039f3bfada895e bought and sold in the same transaction 0x818617bf354b54cea64a835f0982ec8165e9f23e21bc9f5509fd6be96f13c51b.
+  M 0x2b7b7be10e25c263334c6d3f1f039f3bfada895e c=False n=88 lab='' fund=0x37f6bf | in_other=1e+06 out_other=1e+06 net=-0.000483 nT=4
+   b26285436 i278 from=0x2b7b7b to=0x6a000f(Velora: Augustus V6.2) actorΔ=-1e+06 gross=1e+06 swaps=2/2p wethΔ=+0 eth=0
+  actor buy=0 sell=1e+06 net_ratio=1.000 senders={'0x2b7b7b': 1} internal_transfers=0 sandwich=[]
+  top other counterparties: [('0x082738', '1e+06', ''), ('0x7a9e7a', '1e+06', ''), ('0x7a9e66', '0', 'Fake_Phishing7957951'), ('0x7a9e95', '0', '')]
+=== G72 mog rule=R6 conf=0.72 wallets=1 usd=9
+  claim: 0x97a1e9b2e73c530aa365ae7a7bfd81e7a1537393 bought and sold in the same transaction 0x831dd227550a838158d80a9bdc09bbaf493a4659677af48c630f18451864e552.
+  M 0x97a1e9b2e73c530aa365ae7a7bfd81e7a1537393 c=False n=2757 lab='' fund=0x4976a4 | net=0 nT=0
+  B 0x111116058b9828cdcdd810c502b925c14f34ca11 c=True n=1 lab='' fund=- | in_other=2.143e+10 out_other=5.052e+09 out_pool=2.138e+10 in_pool=4.995e+09 net=-7.629e-06 nT=33
+  B 0x73d8bd54f7cf5fab43fe4ef40a62d390644946db c=True n=1 lab='' fund=- | in_other=5.759e+09 out_other=3.712e+09 net=2.047e+09 nT=28
+   b26282318 i4 from=0x97a1e9 to=0x6aba03() actorΔ=+0 gross=8.914e+07 swaps=2/2p wethΔ=+0.002895 eth=0
+  actor buy=0 sell=0 net_ratio=0.000 senders={'0x97a1e9': 1} internal_transfers=0 sandwich=[]
+  top other counterparties: [('0xd2ce3a', '1.916e+10', ''), ('0x6aba03', '9.445e+09', ''), ('0x111111', '4.995e+09', '1inch: Aggregation Router'), ('0xb67819', '2.055e+09', '')]
+=== G73 turbo rule=R6 conf=0.72 wallets=1 usd=6
+  claim: 0x5ed864e8f37dcb4f79c5172a815d1b3a9147eaab bought and sold in the same transaction 0xb778a499446afb23e6d52d4a0905a5380c14ced0a7dbe9cc7fcbf158d41ac0b0.
+  M 0x5ed864e8f37dcb4f79c5172a815d1b3a9147eaab c=True n=48069 lab='' fund=0x00cafb | net=0 nT=0
+  B 0x437a44a7f0437c2a74621f337b4d6788beefbc47 c=False n=8 lab='' fund=0x6066a5 | out_other=1.723e+04 net=-1.723e+04 nT=2
+   b26271683 i24 from=0x5ed864 to=0x9008d1(CoW Protocol: GPv2Settlement) actorΔ=+0 gross=7230 swaps=5/5p wethΔ=+0 eth=0
+  actor buy=0 sell=0 net_ratio=0.000 senders={'0x5ed864': 1} internal_transfers=0 sandwich=[]
+  top other counterparties: [('0x694605', '1e+04', 'Rango V2: Rango Diamond'), ('0x9008d1', '7230', 'CoW Protocol: GPv2Settlem')]
+=== G74 pepe rule=R6 conf=0.72 wallets=1 usd=5445
+  claim: 0x5b43453fce04b92e190f391a83136bfbecedefd1 bought and sold in the same transaction 0xe3343d83be4f8425e64c1f67ae249bf4298c5d56dfa11a73a671b3b4ce109d2d.
+  M 0x5b43453fce04b92e190f391a83136bfbecedefd1 c=False n=1199344 lab='' fund=0x68d3a9 | net=0 nT=0
+  B 0xbdb3ba9ffe392549e1f8658dd2630c141fdf47b6 c=True n=1 lab='' fund=- | out_pool=4.393e+10 in_pool=5.096e+10 in_other=7.937e+08 out_other=9.391e+08 net=6.885e+09 nT=276
+   b26274663 i1 from=0x5b4345 to=0xbdb3ba() actorΔ=+1.2389e+09 gross=1.239e+09 swaps=17/17p wethΔ=-4.032 eth=2.63e-11
+  actor buy=1.2389e+09 sell=0 net_ratio=1.000 senders={'0x5b4345': 1} internal_transfers=0 sandwich=[]
+  top other counterparties: [('0xce2622', '1.035e+09', ''), ('0xba4cb4', '6.335e+08', ''), ('0x0a8084', '5.797e+07', ''), ('0x3d9bdb', '6.723e+06', '')]
+=== G75 spx rule=R6 conf=0.72 wallets=1 usd=110
+  claim: 0x5b43453fce04b92e190f391a83136bfbecedefd1 bought and sold in the same transaction 0x31b8b41a6d05a239ef6e74bf78c30ff10bb6f06d63b1986bddfd5a7f9d21ead3.
+  M 0x5b43453fce04b92e190f391a83136bfbecedefd1 c=False n=1199344 lab='' fund=0x68d3a9 | net=0 nT=0
+  B 0xbdb3ba9ffe392549e1f8658dd2630c141fdf47b6 c=True n=1 lab='' fund=- | in_pool=1.151e+06 out_pool=9.567e+05 in_other=5257 out_other=2.689e+05 net=-6.948e+04 nT=551
+   b26275973 i1 from=0x5b4345 to=0xbdb3ba() actorΔ=+287.296 gross=287.3 swaps=11/11p wethΔ=-1.03 eth=2.63e-11
+  actor buy=287.296 sell=0 net_ratio=1.000 senders={'0x5b4345': 1} internal_transfers=0 sandwich=[]
+  top other counterparties: [('0xb5c5a9', '2.687e+05', 'ByBit Deposit: 0xb5C5A9A1'), ('0x24ed36', '5519', '')]
+=== G76 rlusd rule=R6 conf=0.72 wallets=1 usd=414148
+  claim: 0x6efc48b8b6222924fa6ea95d174af5518b761177 bought and sold in the same transaction 0x8a86960c59786a907ce56ec187d890295f7021c5959c9bc89aeab96b7036bf98.
+  M 0x6efc48b8b6222924fa6ea95d174af5518b761177 c=False n=2487 lab='' fund=0x9696f5 | in_other=1.696e+06 out_member=1.696e+06 net=0 nT=8
+  B 0x8f10b468b06c6fd214b65f87778827f7d113f996 c=True n=1 lab='' fund=- | in_other=1.289e+07 out_pool=1.34e+07 in_pool=1.486e+07 out_other=1.604e+07 in_member=1.696e+06 net=-3.725e-09 nT=296
+   b26282318 i122 from=0x6efc48 to=0x6131b5(KyberSwap: Meta Aggregation ) actorΔ=-414000 gross=4.14e+05 swaps=2/2p wethΔ=+0 eth=0
+  actor buy=0 sell=414000 net_ratio=1.000 senders={'0x6efc48': 1} internal_transfers=0 sandwich=[]
+  top other counterparties: [('0xc46831', '1.283e+07', ''), ('0x4397a6', '6.138e+06', ''), ('0x5b3a59', '3.127e+06', ''), ('0x1231de', '2.651e+06', 'LI.FI: LiFi Diamond')]
+=== G77 mog rule=R6 conf=0.72 wallets=1 usd=153
+  claim: 0x9568a788e04b2e35383c284bf3d748483d77db44 bought and sold in the same transaction 0x3ea40cffa84916d6e25b954d9005ea0407fc58a545e407c31e65607b3c6fcfe2.
+  M 0x9568a788e04b2e35383c284bf3d748483d77db44 c=False n=8136 lab='' fund=0x5babe6 | net=0 nT=0
+  B 0x377900904c573b02148025e1d8ea660808c8c757 c=True n=1 lab='' fund=- | in_other=1.064e+11 out_other=8.356e+10 in_member=1.491e+09 net=2.429e+10 nT=72
+  B 0x9c8c759c393a48908dc0db539ec3c8c36a2dbf5d c=True n=1 lab='' fund=- | in_pool=1.491e+09 out_other=0 out_member=1.491e+09 net=1.717e-05 nT=5
+   b26279917 i85 from=0x9568a7 to=0x199737() actorΔ=+0 gross=1.491e+09 swaps=6/4p wethΔ=+0 eth=0.0011
+  actor buy=0 sell=0 net_ratio=0.000 senders={'0x9568a7': 1} internal_transfers=0 sandwich=[]
+  top other counterparties: [('0xfdcb36', '8.659e+10', ''), ('0xa41a30', '5.093e+10', ''), ('0xb67819', '1.548e+10', ''), ('0xd7ca08', '1.167e+10', '')]
+=== G78 pepe rule=R6 conf=0.72 wallets=1 usd=23
+  claim: 0xf73644da46ab85da864fc4284322f489134ee82c bought and sold in the same transaction 0xc05bee7318ab384c0781347423c251749bb4b64795fdc634e14a13c6e591c108.
+  M 0xf73644da46ab85da864fc4284322f489134ee82c c=False n=48770 lab='' fund=0x25e9ad | net=0 nT=0
+  B 0xd39275f934672e24038db921c29d77deab0439f8 c=True n=1 lab='' fund=- | in_pool=5.148e+06 out_other=5.148e+06 net=0 nT=3
+   b26275217 i26 from=0xf73644 to=0xa66b23() actorΔ=+0 gross=5.148e+06 swaps=3/3p wethΔ=+0 eth=0
+  actor buy=0 sell=0 net_ratio=0.000 senders={'0xf73644': 1} internal_transfers=0 sandwich=[]
+  top other counterparties: [('0xb92fe9', '5.148e+06', 'Relay: Router V3')]
+=== G79 spx rule=R6 conf=0.72 wallets=1 usd=11651
+  claim: 0x52f7c5e8dd1a5d511adaab49bff2a927559ba1fa bought and sold in the same transaction 0x531e9e4a4d90e9d0a8d4c787e8afe630bde23a8279a9987a0a9038f990bf9e22.
+  M 0x52f7c5e8dd1a5d511adaab49bff2a927559ba1fa c=True n=10 lab='' fund=0xd78d19 | in_pool=1.199e+05 in_member=936.5 out_other=1.2e+05 out_pool=848.7 net=-1.455e-11 nT=16
+  B 0x7c1c4a2cf81d2fc83b89bfd34f4d2c7e90044b32 c=True n=1 lab='' fund=- | in_pool=1740 in_other=1.789e+04 out_other=2.138e+04 out_pool=8305 out_member=936.5 net=-1.099e+04 nT=120
+   b26286818 i3 from=0x52f7c5 to=0x23617e(Uniswap: Universal Router v2) actorΔ=+30167.6 gross=3.041e+04 swaps=5/5p wethΔ=+0 eth=5
+  actor buy=30167.6 sell=0 net_ratio=1.000 senders={'0x52f7c5': 1} internal_transfers=0 sandwich=[]
+  top other counterparties: [('0xa6a02e', '1.2e+05', ''), ('0x000000', '7703', ''), ('0xe6eeda', '6316', ''), ('0x0cef32', '2972', '')]
+=== G80 rlusd rule=R6 conf=0.72 wallets=1 usd=4813
+  claim: 0xc031a07d88ea8632ac0b57a2aca624748df6cabc bought and sold in the same transaction 0x7cea169c13e189b06a972cddcc1e92848502708b64b412af11736239b79bc38a.
+  M 0xc031a07d88ea8632ac0b57a2aca624748df6cabc c=False n=803 lab='' fund=0xf2ff84 | in_other=4811 out_other=3491 net=1320 nT=2
+   b26285709 i27 from=0xc031a0 to=0x704aed() actorΔ=+4811.42 gross=4811 swaps=6/6p wethΔ=+0 eth=0
+  actor buy=4811.42 sell=0 net_ratio=1.000 senders={'0xc031a0': 1} internal_transfers=0 sandwich=[]
+  top other counterparties: [('0x704aed', '8303', '')]
