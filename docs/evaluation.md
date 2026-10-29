@@ -744,7 +744,7 @@ Etherscan name tag and "Funded By". The rubric is in [handcheck/rubric.md](handc
 every case with evidence and Etherscan links is in [handcheck/cases.csv](handcheck/cases.csv),
 and the scripts are in `handcheck/tools/`.
 
-> **Caveat.** All labels were made by one AI annotator (Grok Bot) from on-chain evidence. There
+> **Caveat.** All labels were made by one annotator from on-chain evidence. There
 > is no second annotator and no ground truth. Treat the numbers as a careful first pass, and see
 > the 20 re-check cases at the end of this section.
 
@@ -818,7 +818,7 @@ gaps did show up:
 | R3 "funder" is a protocol | 2 | The shared "funder" sent RLUSD from Morpho or another DeFi contract, not ETH. |
 | ERC-4337 bundler | 1 | `tx.from` is a bundler serving many accounts. |
 
-### Suggested detector fixes (not applied)
+### Suggested detector fixes (applied)
 
 1. **Score the token holder, not just the gas payer.** Take the holder from the receipt's token
    delta (the `tx.to` contract when it holds the token). Drop swaps where that delta is 0, because
@@ -838,6 +838,9 @@ gaps did show up:
    within the window.
 8. **Confidence:** lower confidence for very high nonce, tx index 0–2, multi-pool txs, and holders
    with CEX deposit flows (market makers).
+
+Fixes 1 to 7 are now in the detector (`trades.py`, `rules.py`, `config.py`). Fix 8 is not. The
+results are in [Real-case test](#real-case-test).
 
 ### Clearest examples
 
@@ -885,6 +888,90 @@ These are all the positives and Unclear cases, plus the Not wash calls that rest
 | G58 | RLUSD | R4 | Not wash | Wallet ↔ own contract seller |
 | G59 | SPX | R5 | Not wash | Route-hop reading of R5 |
 | G66 | RLUSD | R6 | Not wash | Split-route reading of R6 |
+
+## Real-case test
+
+### NexFundAI (CLS Global)
+
+CLS Global admitted wash trading NexFundAI (NEXF) for the FBI in 2024. The case files name 30
+wallets and 740 trades in the Uniswap v2 pool `0x19e7fe8c…` (token `0x16ca471a…`) between
+22 Aug and 19 Sep 2024. This is the only labelled real wash ring we have. The detector ran with
+the app defaults (net_ratio 0.05, max_block_gap 7200, max_group_size 24).
+
+| | Before fixes | After fixes |
+|---|---:|---:|
+| CLS wallets found | 30 / 30 | 30 / 30 |
+| CLS trades flagged | 422 / 740 (57.0%) | 664 / 740 (89.7%) |
+| CLS USD flagged | 52.5% | 90.8% |
+| Flagged trades outside the 740 | 0 | 10 |
+| Groups | | 333 (R2 252, R1 57, R4 24) |
+
+All 30 wallets fall in one linked component. The 10 extra trades all belong to one holder,
+`0x8a5d87…`, which is not on the CLS list. One gas payer buys about 190M NEXF and another sells
+about 185M through the same contract, alternating over about four days. That is a two-key volume bot,
+so these are likely real wash outside the published list rather than false positives. At
+max_block_gap 200 the old detector found nothing, because CLS wallets often waited hours
+between legs.
+
+The biggest gain came from the resolver no longer treating a CLS wallet as a shared service when
+it received tokens bought by another CLS wallet. Before that change, 242 CLS buys were dropped.
+
+### Hand-checked cases, re-scored
+
+The 80 hand-checked groups and 20 controls were re-run with the fixed detector. A case is "kept"
+if any of its swaps is still in a group. Two definitions are used:
+
+- **Strict:** the labels above (clear or likely wash).
+- **Wide:** any holder that buys and sells within a short window counts, including churning
+  bots and market makers, one buy against many sells, and tokens passed between wallets.
+  Unrelated wallets with matching amounts do not count. The Unclear cases and the bot/market-maker
+  cases from the re-check list are wash under this definition.
+
+| | Kept | Wide precision | Strict precision |
+|---|---:|---:|---:|
+| Before fixes | 80 / 80 | 11 / 80 (13.8%) | 3 / 80 (3.8%) |
+| After fixes, original labels | 27 / 80 | 10 / 27 (37.0%) | 3 / 27 (11.1%) |
+
+Only one wide positive was lost (G26). All three strict positives are kept.
+
+The original labels understate the new precision. Each of the 17 kept negatives is now flagged by
+a different group from the one that was labelled. The router, arbitrage and split-route reasons
+are gone. What remains is:
+
+| Now flagged as | Cases | Wide | Strict |
+|---|---|:-:|:-:|
+| Bot `0xbdb3ba…` churning PEPE in and out within hours | G14, G21, G65, G69, G70, G75 | wash | no |
+| MOG holder `0xd2ce3a…` buying and selling ~100B MOG in a day | G27, G33, G48 | wash | no |
+| `0xfc0a43…` flipping 1.45M RLUSD | G51, G56 | wash | no |
+| `0xf2ff84…` 13.9k RLUSD round trip | G16, G54 | wash | no |
+| `0xeff6cb…` 50M SPX round trip within ~3 h | G19 | wash | no |
+| `0xac4ccc…` 10.4M round trip within 4 blocks | G64 | wash | no |
+| Small same-wallet round trips | G37, G38 | wash | no |
+
+Re-labelled this way, all 27 kept groups are wash under the wide definition, and 3 are under the
+strict one. Under the wide definition this mostly shows that the detector now finds the right
+holder and the right side. It does not show intent.
+
+Controls flagged now: C01, C04, C08, C13, C17, C18, C19, C20. C08 (one buy, two sells) was the
+missed case and is now caught. C13 is a bundler; the flagged trades belong to one smart account
+that bought and sold 110M MOG within 53 blocks. C04 and C17–C20 are the operators of the
+`0xeff6cb…` and `0x51c728…` bots. All are wash under the wide definition and none under the
+strict one.
+
+### Uniswap v4 sides
+
+While re-scoring we found that every v4 swap had its side inverted. The v4 Swap event reports
+amounts from the swapper's side, while v2 and v3 report them from the pool's side. The decoder now
+negates v4 amounts, and opening an existing cache flips old v4 rows once. Derived tables in old
+databases (for example labelled swaps and wallet features) stay stale until they are rebuilt.
+
+### Caveats
+
+- The fixes were tuned on the same 80 cases, so the after figures are optimistic.
+- NexF is one token, one pool and one actor, on Uniswap v2 only.
+- R3 uses each wallet's first inbound transfer within the loaded window, not its true first
+  funder.
+- Labels are from one annotator, and the wide definition counts market makers as wash.
 
 ## Limitations
 

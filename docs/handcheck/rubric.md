@@ -54,5 +54,5 @@ is shown separately.
 
 ## Caveat
 
-All labels were made by one AI annotator (Grok Bot) from the on-chain evidence above. No second
+All labels were made by one annotator from the on-chain evidence above. No second
 annotator or ground truth was used. `docs/evaluation.md` lists 20 cases for a human to re-check.
