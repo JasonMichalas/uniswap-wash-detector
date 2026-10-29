@@ -138,9 +138,10 @@ def decode_pool_log(
             return "swap", {**leg, "sender": sender, "recipient": recipient}
         if family == "v4" and kind_topic == SWAP_V4:
             amount0, amount1 = decode_v4_swap_amounts(data)
+            # v4 reports the swapper's balance change; v2 and v3 report the pool's.
             leg = classify_leg(
                 token, pool.token0, pool.token1, pool.token0_decimals, pool.token1_decimals,
-                amount0, amount1,
+                -amount0, -amount1,
             )
             if not leg:
                 return None

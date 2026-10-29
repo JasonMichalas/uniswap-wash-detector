@@ -237,6 +237,7 @@ class Store:
         self.lock = threading.RLock()
         self.con.execute(SCHEMA)
         self._ensure_swap_price_source()
+        self._fix_v4_sides()
         self.con.execute(
             "CREATE INDEX IF NOT EXISTS coverage_token_dataset ON coverage(token, dataset)"
         )
@@ -250,6 +251,19 @@ class Store:
         names = {str(row[0]) for row in rows}
         if "price_source" not in names:
             self.con.execute("ALTER TABLE swaps ADD COLUMN price_source VARCHAR")
+
+    def _fix_v4_sides(self) -> None:
+        """Older caches stored v4 swaps with buy and sell swapped."""
+        self.con.execute("CREATE TABLE IF NOT EXISTS fixes (name VARCHAR PRIMARY KEY)")
+        if self.con.execute("SELECT 1 FROM fixes WHERE name = 'v4_side'").fetchone():
+            return
+        flip = "CASE WHEN {0} LIKE '-%' THEN substr({0}, 2) WHEN {0} IN ('0', '') OR {0} IS NULL THEN {0} ELSE '-' || {0} END"
+        self.con.execute(
+            f"""UPDATE swaps SET side = CASE side WHEN 'buy' THEN 'sell' WHEN 'sell' THEN 'buy' ELSE side END,
+            amount0_raw = {flip.format('amount0_raw')}, amount1_raw = {flip.format('amount1_raw')}
+            WHERE protocol LIKE '%v4%'"""
+        )
+        self.con.execute("INSERT INTO fixes VALUES ('v4_side')")
 
     def close(self) -> None:
         with self.lock:

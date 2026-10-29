@@ -101,3 +101,38 @@ def test_undecoded_logs_are_called_a_reader_problem():
     note = _empty_window_note(DACITY, datetime(2026, 10, 5), 12, 100)
     assert "reader problem" in note
     assert "not a wash result" in note
+
+
+def test_v4_amounts_are_the_swappers_so_paying_the_token_is_a_sell():
+    from eth_abi import encode
+
+    log = dict(_load("v4_swap.json"))
+    log["data"] = "0x" + encode(
+        ["int128", "int128", "uint160", "uint128", "int24", "uint24"],
+        [-5 * 10**18, 2 * 10**18, 1, 1, 0, 0],
+    ).hex()
+    pool = PoolMeta(
+        pool_address=log["topics"][1].lower(), protocol="v4", token0=DACITY, token1=WETH, fee=0,
+        token0_decimals=18, token1_decimals=18, token0_symbol="DACITY", token1_symbol="WETH",
+    )
+    _kind, fields = decode_pool_log(log, pool, DACITY)
+    assert fields["side"] == "sell"
+    assert fields["amount_token"] == 5
+
+
+def test_old_v4_rows_are_flipped_once(tmp_path):
+    from washdetect.store import Store
+
+    path = tmp_path / "old.duckdb"
+    store = Store(path)
+    store.con.execute("DELETE FROM fixes")
+    store.con.execute(
+        "INSERT INTO swaps (token, tx_hash, log_index, protocol, side, amount0_raw, amount1_raw) "
+        "VALUES ('t', '0x1', 0, 'v4', 'buy', '-5', '2'), ('t', '0x2', 0, 'v3', 'buy', '-5', '2')"
+    )
+    store.close()
+    for _ in range(2):
+        store = Store(path)
+        rows = store.con.execute("SELECT tx_hash, side, amount0_raw, amount1_raw FROM swaps ORDER BY 1").fetchall()
+        store.close()
+        assert rows == [("0x1", "sell", "5", "-2"), ("0x2", "buy", "-5", "2")]
