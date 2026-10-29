@@ -247,7 +247,7 @@ def _match_sell(
         f"{'a circle' if rule == 'R4' else 'being passed along'} "
         f"({len(wallets)} wallets, blocks {start}–{sell.block})."
     )
-    swaps = [lot.origin for lot, _take in chosen] + [sell]
+    swaps = list({(lot.origin.tx_hash, lot.origin.log_index): lot.origin for lot, _take in chosen}.values()) + [sell]
     return RuleHit(
         rule=rule,
         why=why,
@@ -275,6 +275,9 @@ def _flow_pattern(buyers: set[str], sellers: set[str], n_wallets: int) -> str:
     return "round_trip"
 
 
+HUB_PEERS = 25
+
+
 def _common_controllers(
     swaps: list[SwapEvent],
     transfers: list[TransferEvent],
@@ -287,14 +290,22 @@ def _common_controllers(
     for swap in swaps:
         if swap.wallet in traded:
             books[swap.wallet].append(swap)
+    peers: dict[str, set[str]] = defaultdict(set)
+    for transfer in transfers:
+        peers[transfer.src].add(transfer.dst)
+        peers[transfer.dst].add(transfer.src)
+    hubs = {address for address, seen in peers.items() if len(seen) > HUB_PEERS}
     incoming: dict[str, list[tuple[str, int, str]]] = defaultdict(list)
     outgoing: dict[str, list[tuple[str, int, str]]] = defaultdict(list)
-    for transfer in transfers:
+    funded: set[str] = set()
+    for transfer in sorted(transfers, key=lambda t: (t.block, t.log_index)):
         if transfer.src in blocked or transfer.dst in blocked or transfer.src == transfer.dst:
             continue
-        if transfer.dst in traded and transfer.src not in traded:
-            incoming[transfer.src].append((transfer.dst, transfer.block, transfer.tx_hash))
-        if transfer.src in traded and transfer.dst not in traded:
+        if transfer.dst in traded and transfer.src not in traded and transfer.dst not in funded:
+            funded.add(transfer.dst)
+            if transfer.src not in hubs:
+                incoming[transfer.src].append((transfer.dst, transfer.block, transfer.tx_hash))
+        if transfer.src in traded and transfer.dst not in traded and transfer.dst not in hubs:
             outgoing[transfer.dst].append((transfer.src, transfer.block, transfer.tx_hash))
     hits: list[RuleHit] = []
     for funder, rows in incoming.items():
