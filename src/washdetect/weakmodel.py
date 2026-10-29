@@ -139,7 +139,7 @@ class Booster:
 class WeakWashModel:
     """Wallet and swap models. Rules only make the training targets; the models never see rule outputs."""
 
-    def __init__(self, features: str = "batch2") -> None:
+    def __init__(self, features: str = "base") -> None:
         self.wallet = Booster(list(WALLET_SETS[features]))
         self.trade = Booster([*TRADE_OWN, *WALLET_SETS[features]])
         self.wallet_labels = LabelModel()

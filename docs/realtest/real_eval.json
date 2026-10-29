@@ -18,10 +18,10 @@
   ],
   "wallet_rows": 4899,
   "trade_rows": 28867,
-  "wallet_prior": 0.28997053425264585,
-  "trade_prior": 0.39603109084825333,
-  "wallet_threshold": 0.1807327809136241,
-  "trade_threshold": 0.22840726752655496
+  "wallet_prior": 0.2899724126621947,
+  "trade_prior": 0.3960315040257513,
+  "wallet_threshold": 0.0985526303088281,
+  "trade_threshold": 0.2202019750750671
  },
  "nexf": {
   "wallets": 59,
@@ -141,8 +141,8 @@
    },
    "weak_xgb": {
     "precision": [
-     0.938,
-     0.84,
+     0.909,
+     0.786,
      1.0
     ],
     "recall": [
@@ -151,13 +151,13 @@
      1.0
     ],
     "f1": [
-     0.968,
-     0.913,
+     0.952,
+     0.88,
      1.0
     ],
     "ap": [
-     0.976,
-     0.915,
+     0.999,
+     0.994,
      1.0
     ]
    },
@@ -178,8 +178,8 @@
      1.0
     ],
     "ap": [
-     0.976,
-     0.915,
+     0.999,
+     0.994,
      1.0
     ]
    },
@@ -214,18 +214,18 @@
      1.0
     ],
     "recall": [
-     0.897,
-     0.865,
-     0.938
+     0.889,
+     0.858,
+     0.927
     ],
     "f1": [
-     0.939,
-     0.918,
-     0.961
+     0.935,
+     0.913,
+     0.956
     ],
     "ap": [
-     0.976,
-     0.937,
+     0.975,
+     0.935,
      0.997
     ]
    },
@@ -335,7 +335,7 @@
     ],
     "ap": [
      0.999,
-     0.998,
+     0.997,
      1.0
     ]
    },
@@ -346,18 +346,18 @@
      1.0
     ],
     "recall": [
-     0.064,
-     0.029,
-     0.113
+     0.046,
+     0.021,
+     0.081
     ],
     "f1": [
-     0.119,
-     0.056,
-     0.203
+     0.088,
+     0.041,
+     0.149
     ],
     "ap": [
      0.999,
-     0.998,
+     0.997,
      1.0
     ]
    }
@@ -481,7 +481,7 @@
     "precision": [
      0.048,
      0.0,
-     0.109
+     0.106
     ],
     "recall": [
      1.0,
@@ -489,9 +489,9 @@
      1.0
     ],
     "f1": [
-     0.092,
+     0.091,
      0.0,
-     0.197
+     0.192
     ],
     "ap": [
      0.444,
@@ -523,9 +523,9 @@
    },
    "weak_xgb_wallet": {
     "precision": [
-     0.049,
+     0.043,
      0.0,
-     0.111
+     0.095
     ],
     "recall": [
      1.0,
@@ -533,14 +533,14 @@
      1.0
     ],
     "f1": [
-     0.094,
+     0.082,
      0.0,
-     0.2
+     0.174
     ],
     "ap": [
-     0.6,
-     0.236,
-     1.0
+     0.3,
+     0.091,
+     0.667
     ]
    },
    "weak_xgb_wallet@0.5": {
@@ -560,9 +560,9 @@
      0.5
     ],
     "ap": [
-     0.6,
-     0.236,
-     1.0
+     0.3,
+     0.091,
+     0.667
     ]
    },
    "old_xgb_wallet": {
@@ -702,23 +702,23 @@
    },
    "weak_xgb": {
     "precision": [
-     0.161,
-     0.076,
-     0.258
+     0.175,
+     0.091,
+     0.277
     ],
     "recall": [
-     0.833,
-     0.6,
+     0.917,
+     0.727,
      1.0
     ],
     "f1": [
-     0.27,
-     0.135,
-     0.4
+     0.293,
+     0.162,
+     0.424
     ],
     "ap": [
-     0.337,
-     0.148,
+     0.338,
+     0.149,
      0.65
     ]
    },
@@ -739,16 +739,16 @@
      0.0
     ],
     "ap": [
-     0.337,
-     0.148,
+     0.338,
+     0.149,
      0.65
     ]
    },
    "weak_xgb_wallet": {
     "precision": [
-     0.164,
-     0.082,
-     0.266
+     0.143,
+     0.07,
+     0.225
     ],
     "recall": [
      0.833,
@@ -756,14 +756,14 @@
      1.0
     ],
     "f1": [
-     0.274,
-     0.147,
-     0.405
+     0.244,
+     0.128,
+     0.36
     ],
     "ap": [
-     0.394,
-     0.171,
-     0.701
+     0.367,
+     0.15,
+     0.634
     ]
    },
    "weak_xgb_wallet@0.5": {
@@ -783,9 +783,9 @@
      0.514
     ],
     "ap": [
-     0.394,
-     0.171,
-     0.701
+     0.367,
+     0.15,
+     0.634
     ]
    },
    "old_xgb_wallet": {
@@ -818,7 +818,7 @@
     "token": "mog",
     "held_out": true,
     "rules_pct": 0.4413,
-    "weak_pct": 0.7408,
+    "weak_pct": 0.8253,
     "n": 610,
     "benford_mad": 0.011,
     "round_ratio": 0.9437,
@@ -828,7 +828,7 @@
     "token": "neiro",
     "held_out": true,
     "rules_pct": 0.6149,
-    "weak_pct": 0.8731,
+    "weak_pct": 0.8882,
     "n": 394,
     "benford_mad": 0.0751,
     "round_ratio": 1.7208,
@@ -838,7 +838,7 @@
     "token": "pepe",
     "held_out": true,
     "rules_pct": 0.2691,
-    "weak_pct": 0.762,
+    "weak_pct": 0.7921,
     "n": 1240,
     "benford_mad": 0.023,
     "round_ratio": 0.9078,
@@ -848,7 +848,7 @@
     "token": "rlusd",
     "held_out": true,
     "rules_pct": 0.0254,
-    "weak_pct": 0.9234,
+    "weak_pct": 0.9351,
     "n": 2507,
     "benford_mad": 0.0621,
     "round_ratio": 7.1487,
@@ -858,7 +858,7 @@
     "token": "spx",
     "held_out": true,
     "rules_pct": 0.2278,
-    "weak_pct": 0.606,
+    "weak_pct": 0.6211,
     "n": 3223,
     "benford_mad": 0.0137,
     "round_ratio": 0.9724,
@@ -877,7 +877,7 @@
    {
     "token": "nexf",
     "held_out": true,
-    "rules_pct": 0.8956,
+    "rules_pct": 0.8845,
     "weak_pct": 0.9962,
     "n": 827,
     "benford_mad": 0.0357,
@@ -888,7 +888,7 @@
     "token": "wojak",
     "held_out": false,
     "rules_pct": 0.1336,
-    "weak_pct": 0.3878,
+    "weak_pct": 0.4138,
     "n": 894,
     "benford_mad": 0.0167,
     "round_ratio": 1.2019,
@@ -898,7 +898,7 @@
     "token": "andy",
     "held_out": false,
     "rules_pct": 0.0552,
-    "weak_pct": 0.4278,
+    "weak_pct": 0.4821,
     "n": 581,
     "benford_mad": 0.0358,
     "round_ratio": 1.8054,
@@ -908,7 +908,7 @@
     "token": "elon",
     "held_out": false,
     "rules_pct": 0.0675,
-    "weak_pct": 0.1926,
+    "weak_pct": 0.2519,
     "n": 405,
     "benford_mad": 0.0149,
     "round_ratio": 1.0739,
@@ -918,7 +918,7 @@
     "token": "floki",
     "held_out": false,
     "rules_pct": 0.0256,
-    "weak_pct": 0.2593,
+    "weak_pct": 0.2631,
     "n": 434,
     "benford_mad": 0.0289,
     "round_ratio": 1.2674,
@@ -928,7 +928,7 @@
     "token": "bitcoin",
     "held_out": false,
     "rules_pct": 0.2131,
-    "weak_pct": 0.3801,
+    "weak_pct": 0.3869,
     "n": 1219,
     "benford_mad": 0.0205,
     "round_ratio": 1.2803,
@@ -938,7 +938,7 @@
     "token": "npc",
     "held_out": false,
     "rules_pct": 0.2827,
-    "weak_pct": 0.6832,
+    "weak_pct": 0.7135,
     "n": 2634,
     "benford_mad": 0.0478,
     "round_ratio": 1.4181,
@@ -947,8 +947,8 @@
    {
     "token": "hex",
     "held_out": false,
-    "rules_pct": 0.3429,
-    "weak_pct": 0.4897,
+    "rules_pct": 0.3428,
+    "weak_pct": 0.4996,
     "n": 5976,
     "benford_mad": 0.0065,
     "round_ratio": 1.1067,
@@ -958,7 +958,7 @@
     "token": "ldo",
     "held_out": false,
     "rules_pct": 0.5231,
-    "weak_pct": 0.8676,
+    "weak_pct": 0.8749,
     "n": 4793,
     "benford_mad": 0.0093,
     "round_ratio": 1.0489,
@@ -978,7 +978,7 @@
     "token": "ape",
     "held_out": false,
     "rules_pct": 0.4589,
-    "weak_pct": 0.5698,
+    "weak_pct": 0.5839,
     "n": 1209,
     "benford_mad": 0.0417,
     "round_ratio": 1.312,
@@ -988,7 +988,7 @@
     "token": "gato",
     "held_out": false,
     "rules_pct": 0.5788,
-    "weak_pct": 0.8292,
+    "weak_pct": 0.8394,
     "n": 11047,
     "benford_mad": 0.0136,
     "round_ratio": 1.0711,
@@ -997,8 +997,8 @@
    {
     "token": "amp",
     "held_out": false,
-    "rules_pct": 0.4588,
-    "weak_pct": 0.5509,
+    "rules_pct": 0.447,
+    "weak_pct": 0.573,
     "n": 2297,
     "benford_mad": 0.036,
     "round_ratio": 1.0915,
@@ -1025,20 +1025,20 @@
     19
    ],
    "weak_pct~benford_mad": [
-    0.714,
+    0.607,
     -0.176,
-    0.961,
-    7
-   ],
-   "weak_pct~round_ratio": [
-    0.321,
-    -0.869,
     0.887,
     7
    ],
+   "weak_pct~round_ratio": [
+    0.357,
+    -0.75,
+    1.0,
+    7
+   ],
    "weak_pct~tail_alpha": [
-    0.929,
-    0.412,
+    0.964,
+    0.698,
     1.0,
     7
    ]
