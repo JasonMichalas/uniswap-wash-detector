@@ -25,23 +25,41 @@ class TradeResolver:
         for swap in swaps:
             by_tx[swap.tx_hash].append(swap)
         senders = {tx: rows[0].wallet for tx, rows in by_tx.items()}
+        arbs: dict[str, int] = defaultdict(int)
+        total: dict[str, int] = defaultdict(int)
         out: list[SwapEvent] = []
         for tx, rows in by_tx.items():
+            total[senders[tx]] += 1
+            if self._is_arb(rows):
+                arbs[senders[tx]] += 1
+                continue
             out.extend(self._resolve_tx(tx, sorted(rows, key=lambda s: s.log_index)))
+        arbitrageurs = {s for s, n in arbs.items() if n >= 3 and n >= 0.3 * total[s]}
+        out = [s for s in out if senders[s.tx_hash] not in arbitrageurs and s.wallet not in arbitrageurs]
         return self._drop_sandwiches(self._drop_shared(out, senders))
+
+    def _is_arb(self, rows: list[SwapEvent]) -> bool:
+        """Buys and sells across pools that net out in one tx: a route hop or an atomic arbitrage."""
+        buy = sum(s.amount for s in rows if s.side == "buy")
+        sell = sum(s.amount for s in rows if s.side == "sell")
+        if buy <= 0 or sell <= 0 or len({s.pool for s in rows}) < 2:
+            return False
+        return abs(buy - sell) <= self.net_ratio * max(buy, sell)
 
     @staticmethod
     def _drop_shared(swaps: list[SwapEvent], senders: dict[str, str]) -> list[SwapEvent]:
-        """A contract that many one-off senders trade through is a service (RFQ maker, vault), not one owner."""
+        """A holder that never sends a tx but many one-off senders trade through is a service (RFQ maker, vault)."""
         txs: dict[str, dict[str, set[str]]] = defaultdict(lambda: defaultdict(set))
         for swap in swaps:
             sender = senders[swap.tx_hash]
             if sender != swap.wallet:
                 txs[swap.wallet][sender].add(swap.tx_hash)
+        active = set(senders.values())
         shared = {
             holder
             for holder, by_sender in txs.items()
-            if len(by_sender) >= 4 and sum(map(len, by_sender.values())) < 3 * len(by_sender)
+            if holder not in active
+            and len(by_sender) >= 4 and sum(map(len, by_sender.values())) < 3 * len(by_sender)
         }
         return [s for s in swaps if s.wallet not in shared or senders[s.tx_hash] == s.wallet]
 
@@ -51,8 +69,6 @@ class TradeResolver:
         mixed = buy > 0 and sell > 0
         if mixed and len({s.pool for s in rows}) > 1:
             net = buy - sell
-            if abs(net) <= self.net_ratio * max(buy, sell):
-                return []
             side = "buy" if net > 0 else "sell"
             scale = abs(net) / (buy if side == "buy" else sell)
             rows = [replace(s, amount=s.amount * scale, usd=s.usd * scale) for s in rows if s.side == side]
