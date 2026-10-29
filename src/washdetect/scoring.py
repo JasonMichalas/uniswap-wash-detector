@@ -5,6 +5,7 @@ from pathlib import Path
 import pandas as pd
 
 from washdetect.behaviour import BehaviourFeatures
+from washdetect.context import CONTEXT_FEATURES
 from washdetect.dataset import events_from_frames
 from washdetect.detector import Detection
 from washdetect.features import build_feature_frame, build_trade_frame
@@ -63,7 +64,8 @@ class ScoreCache:
         funding = None
         if BUDGET > 0 and any(c in self.weak.wallet.columns for c in FUNDING_FEATURES):
             funding = lookup(repeat_traders(features.swaps), sorted(features.swaps["pool_address"].str.lower().unique()), BUDGET)
-        self.weak_wallets = wallet_table(features, self.liquidity, pool_fees(self.pools), funding)
+        context = any(c in self.weak.wallet.columns for c in CONTEXT_FEATURES)
+        self.weak_wallets = wallet_table(features, self.liquidity, pool_fees(self.pools), funding, context)
         self.weak_wallets["ml_score"] = self.weak.wallet.proba(self.weak_wallets)
         trades = features.trades(self.weak_wallets)
         trades["ml_score"] = self.weak.trade.proba(trades)

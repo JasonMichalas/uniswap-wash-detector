@@ -43,11 +43,13 @@ def wallet_table(
     liquidity: pd.DataFrame | None = None,
     pool_fees: dict[str, float] | None = None,
     funding: tuple[dict, dict] | None = None,
+    context: bool = True,
 ) -> pd.DataFrame:
     """Behaviour, context and (when looked up) funding columns, one row per trader."""
     wallets = features.wallets()
-    context = context_features(features.swaps, features.transfers, features.pools, liquidity, pool_fees, features.eth_usd())
-    wallets = wallets.merge(context, on="wallet", how="left")
+    if context:
+        extra = context_features(features.swaps, features.transfers, features.pools, liquidity, pool_fees, features.eth_usd())
+        wallets = wallets.merge(extra, on="wallet", how="left")
     providers = set()
     if liquidity is not None and "provider" in liquidity.columns:
         providers = set(liquidity["provider"].dropna().astype(str).str.lower())
