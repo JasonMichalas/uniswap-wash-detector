@@ -13,7 +13,8 @@ from washdetect.events import SwapEvent, TransferEvent
 from washdetect.trades import TradeResolver
 
 ABSTAIN = -1
-VOTERS = ["R1", "R2", "R3", "R4", "R5", "R6", "NM", "B25", "one_sided", "single", "dropped", "slow"]
+RULES = ["R1", "R2", "R4", "R5", "R6"]
+VOTERS = [*RULES, "NM", "B25", "one_sided", "single", "dropped", "slow"]
 
 
 def quick_flips(swaps: list[SwapEvent], blocks: int = 25, usd_gap: float = 0.01, repeats: int = 3) -> set[tuple[str, int]]:
@@ -71,7 +72,7 @@ class Votes:
             key = (s.tx_hash, s.log_index)
             rules = set(flagged.get(key, {}).get("rules", "").split(","))
             row = {"wallet": s.wallet, "tx_hash": s.tx_hash, "log_index": s.log_index}
-            for rule in ("R1", "R2", "R3", "R4", "R5", "R6"):
+            for rule in RULES:
                 row[rule] = 1 if rule in rules else ABSTAIN
             row["NM"] = 1 if key in nm else ABSTAIN
             row["B25"] = 1 if key in fast else ABSTAIN

@@ -517,7 +517,7 @@ PALETTE: list[dict[str, Any]] = [
             "tolerance": 0.05,
             "window_blocks": 7200,
             "max_group_size": 24,
-            "rules": "R1,R2,R3,R4,R5,R6",
+            "rules": "R1,R2,R4,R5,R6",
         },
     },
     {

@@ -2,9 +2,9 @@
 
 R1 is still the same-wallet round trip the older detector already found.
 R2 traces token lots through transfers, including a partial amount and a long chain.
-The other rules add controllers, circles, churn, and a buy and a sell in one transaction.
-A swap is wash only for the token amount a rule could follow. Two strangers who both
-trade, with nothing linking them, are not a group.
+The other rules add circles, churn, and a buy and a sell in one transaction.
+A swap is wash only for the token amount a rule could follow. Two wallets form a group only
+when tokens moved between them; a shared funder or exit is a model feature, not a group.
 """
 
 from __future__ import annotations
@@ -18,7 +18,6 @@ from washdetect.events import SwapEvent, TransferEvent
 RULE_NAMES = {
     "R1": "Same wallet buys and sells",
     "R2": "Tokens passed along, then sold",
-    "R3": "Wallets funded or paid together",
     "R4": "A circle of wallets",
     "R5": "Many trades, nothing left",
     "R6": "Buy and sell in one transaction",
@@ -69,8 +68,6 @@ def find_rule_hits(
     hits: list[RuleHit] = []
     if "R2" in enabled or "R4" in enabled:
         hits.extend(_trace_lots(swaps, transfers, blocked, config, enabled))
-    if "R3" in enabled:
-        hits.extend(_common_controllers(swaps, transfers, blocked, config))
     if "R5" in enabled:
         hits.extend(_churn(swaps, config))
     if "R6" in enabled:
@@ -273,116 +270,6 @@ def _flow_pattern(buyers: set[str], sellers: set[str], n_wallets: int) -> str:
     if n_wallets > 1:
         return "ring"
     return "round_trip"
-
-
-HUB_PEERS = 25
-
-
-def _common_controllers(
-    swaps: list[SwapEvent],
-    transfers: list[TransferEvent],
-    blocked: set[str],
-    config: HeuristicConfig,
-) -> list[RuleHit]:
-    """Wallets that traded and share a funder, or send proceeds to the same wallet."""
-    traded = {swap.wallet for swap in swaps if swap.wallet not in blocked}
-    books: dict[str, list[SwapEvent]] = defaultdict(list)
-    for swap in swaps:
-        if swap.wallet in traded:
-            books[swap.wallet].append(swap)
-    peers: dict[str, set[str]] = defaultdict(set)
-    for transfer in transfers:
-        peers[transfer.src].add(transfer.dst)
-        peers[transfer.dst].add(transfer.src)
-    hubs = {address for address, seen in peers.items() if len(seen) > HUB_PEERS}
-    incoming: dict[str, list[tuple[str, int, str]]] = defaultdict(list)
-    outgoing: dict[str, list[tuple[str, int, str]]] = defaultdict(list)
-    funded: set[str] = set()
-    for transfer in sorted(transfers, key=lambda t: (t.block, t.log_index)):
-        if transfer.src in blocked or transfer.dst in blocked or transfer.src == transfer.dst:
-            continue
-        if transfer.dst in traded and transfer.src not in traded and transfer.dst not in funded:
-            funded.add(transfer.dst)
-            if transfer.src not in hubs:
-                incoming[transfer.src].append((transfer.dst, transfer.block, transfer.tx_hash))
-        if transfer.src in traded and transfer.dst not in traded and transfer.dst not in hubs:
-            outgoing[transfer.dst].append((transfer.src, transfer.block, transfer.tx_hash))
-    hits: list[RuleHit] = []
-    for funder, rows in incoming.items():
-        hit = _controller_hit(books, rows, config, f"funded by {funder}")
-        if hit is not None:
-            hits.append(hit)
-    for sink, rows in outgoing.items():
-        hit = _controller_hit(books, rows, config, f"proceeds sent to {sink}")
-        if hit is not None:
-            hits.append(hit)
-    return hits
-
-
-def _controller_hit(
-    books: dict[str, list[SwapEvent]],
-    rows: list[tuple[str, int, str]],
-    config: HeuristicConfig,
-    link: str,
-) -> RuleHit | None:
-    ordered = sorted(rows, key=lambda item: (item[1], item[0]))
-    cluster: list[tuple[str, int, str]] = []
-    best: RuleHit | None = None
-    for row in ordered:
-        if cluster and row[1] - cluster[0][1] > config.max_block_gap:
-            hit = _score_controller(books, cluster, config, link)
-            if hit is not None:
-                best = hit
-            cluster = []
-        cluster.append(row)
-    if cluster:
-        hit = _score_controller(books, cluster, config, link)
-        if hit is not None:
-            best = hit
-    return best
-
-
-def _score_controller(
-    books: dict[str, list[SwapEvent]],
-    cluster: list[tuple[str, int, str]],
-    config: HeuristicConfig,
-    link: str,
-) -> RuleHit | None:
-    wallets = tuple(sorted({row[0] for row in cluster}))
-    if len(wallets) < 2 or len(wallets) > config.max_group_size:
-        return None
-    swaps = [swap for wallet in wallets for swap in books.get(wallet, [])]
-    if len(swaps) < 2:
-        return None
-    start = min(swap.block for swap in swaps)
-    end = max(swap.block for swap in swaps)
-    if end - start > config.max_block_gap:
-        return None
-    buy = sum(swap.amount for swap in swaps if swap.side == "buy")
-    sell = sum(swap.amount for swap in swaps if swap.side == "sell")
-    if buy <= 0 or sell <= 0 or not _close(buy, sell, config.net_ratio):
-        return None
-    buyers = {swap.wallet for swap in swaps if swap.side == "buy"}
-    sellers = {swap.wallet for swap in swaps if swap.side == "sell"}
-    portions = {(swap.tx_hash, swap.log_index): swap.amount for swap in swaps}
-    steps = [f"{wallet} {link} in {tx} at block {block}" for wallet, block, tx in cluster]
-    steps.extend(f"{swap.wallet} {swap.side} {swap.amount:g} in {swap.tx_hash} at block {swap.block}" for swap in swaps)
-    return RuleHit(
-        rule="R3",
-        why=(
-            f"{len(wallets)} wallets that traded were {link}, and their buys ({buy:g}) "
-            f"and sells ({sell:g}) cancel."
-        ),
-        path=" → ".join(steps),
-        wallets=wallets,
-        start_block=start,
-        end_block=end,
-        portions=portions,
-        swaps=swaps,
-        pattern_type=_flow_pattern(buyers, sellers, len(wallets)),
-        n_buyers=len(buyers),
-        n_sellers=len(sellers),
-    )
 
 
 def _churn(swaps: list[SwapEvent], config: HeuristicConfig) -> list[RuleHit]:

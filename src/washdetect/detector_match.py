@@ -235,22 +235,6 @@ def _build_links(
                     continue
                 links.append(_Link(src, dst, first.block, second.block))
 
-    # Earliest inbound from a non-hub: wallets that share a funder.
-    first_in: dict[str, tuple[str, int]] = {}
-    for transfer in sorted(cleaned, key=lambda item: (item.block, item.log_index)):
-        if transfer.dst in active and transfer.dst not in first_in and transfer.src not in hubs:
-            first_in[transfer.dst] = (transfer.src, transfer.block)
-    by_funder: dict[str, list[tuple[str, int]]] = defaultdict(list)
-    for wallet, (funder, block) in first_in.items():
-        by_funder[funder].append((wallet, block))
-    for members in by_funder.values():
-        if len(members) < 2 or len(members) > config.hub_degree:
-            continue
-        for i, (w1, b1) in enumerate(members):
-            for w2, b2 in members[i + 1 :]:
-                if abs(b1 - b2) <= config.max_block_gap:
-                    links.append(_Link(w1, w2, min(b1, b2), max(b1, b2)))
-
     links.sort(key=lambda link: (link.start_block, link.a, link.b))
     if len(links) > config.max_links:  # hard cap; ranking by volume is not worth the time
         links = links[: config.max_links]

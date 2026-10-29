@@ -11,11 +11,11 @@ Routers, aggregators (1inch v5, 1inch v6, 0x Exchange Proxy), public MEV searche
 `WashDetector` (Gan et al. 2024 settings: 200 blocks, net within 5%, groups of at most 16 wallets) did four things:
 
 - A same-wallet round trip, using the smallest window whose buys and sells net.
-- Linked pairs, triangles, and transfer cycles between wallets that traded.
+- Linked pairs, triangles, and transfer cycles between wallets that traded. A link is a token transfer, direct or through one middle wallet; a shared first sender alone no longer links two traders.
 - A flow group whose *whole* buy and *whole* sell net within 5%. A hub with degree above 25 was skipped so it could not glue strangers together.
 - A flag of `(confidence, cycle id)` on the swap. There was no rule id, no sentence, and no path.
 
-That matcher misses a partial lot. Buy 10, send 1, sell 1 does not net, so it was not wash. It also had no common-funder rule, no same-transaction rule separate from the round trip, and no way to ask for a day or a week between the buy and the sell without raising the one global window used by every test.
+That matcher misses a partial lot. Buy 10, send 1, sell 1 does not net, so it was not wash. It also had no same-transaction rule separate from the round trip, and no way to ask for a day or a week between the buy and the sell without raising the one global window used by every test.
 
 The 200-block default is unchanged, so those older tests still describe the same groups. A new Find wash groups box starts at 1 day and 24 wallets, and the panel can move that window.
 
@@ -36,16 +36,9 @@ Buys create lots. Transfers move those lots first-in, first-out, skipping any ho
 
 The longest gap is the box setting “Longest time between buy and sell”: about 1 hour (300 blocks), 6 hours (1,800), 1 day (7,200, the new-box default), 3 days (21,600), 7 days (50,400), or the whole loaded window (100,000 blocks). Ethereum blocks are about 12 seconds. The detector default used by the older tests stays 200 blocks.
 
-## R3 — Wallets funded or paid together
+## R3 — retired: shared funder or exit is a model feature
 
-Only wallets that traded this token are clustered. The link is a token transfer already in the loaded window, which is cached and needs no API key:
-
-- The same external wallet sent this token to two or more traders (a shared funder).
-- Two or more traders sent this token to the same external wallet (shared proceeds).
-
-Funding transfers are clustered when they fall inside the same gap, which is the “same funding block” case when they share a block. The traders’ own buys and sells must still cancel, and the cluster cannot be larger than the wallet cap. A hub that only funds buyers, with no matching sells, is not a group.
-
-Native ETH traces are not in the log cache. Two wallets funded only with ETH, with no token transfer from that funder and no shared proceeds in this token, are not linked. Calling a trace API inside `detect()` would break the keyless cache.
+Two different wallets are a wash group only when tokens actually moved between them (R2, R4, or a linked pair). A shared funder or a shared exit address, with no token path, never makes a group. Those links are model features instead (`funder_fanout`, `same_tx_funded`, `exit_fanin`, see `docs/evaluation.md`), so a behaviour is never both a label and a feature. Saved graphs that still list R3 run without it.
 
 ## R4 — A circle of wallets
 
@@ -61,7 +54,7 @@ The same `tx.from` buys and sells this token in one transaction hash. The washed
 
 ## What is not wash
 
-Two unrelated wallets, one buying 2 and one selling 2 within about 10 minutes, with no transfer, no shared funder, and no shared proceeds, are not a group.
+Two unrelated wallets, one buying 2 and one selling 2 within about 10 minutes, with no token transfer between them, are not a group, even when one address funded both.
 
 ## Where a result shows the reason
 

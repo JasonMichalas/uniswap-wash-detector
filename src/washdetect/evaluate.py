@@ -236,9 +236,9 @@ def render_report(
         "Planted groups (kept separate from the chain cache, addresses start with `0x57`) "
         "cover every rule: a same-wallet round trip (R1), a partial lot and fan-in / fan-out / "
         "many-to-many flows (R2), a 16-wallet chain and a 21-wallet chain, a fan-in whose sell "
-        "is 3,000 blocks later, a shared funder (R3), rings (R4), a wallet that churns flat (R5), "
-        "and a buy and a sell in one transaction (R6). A negative decoy, two strangers buying 2 "
-        "and selling 2 about 40 blocks apart, is inserted and labelled not-wash. "
+        "is 3,000 blocks later, rings (R4), a wallet that churns flat (R5), and a buy and a sell "
+        "in one transaction (R6). Two not-wash decoys are inserted: two strangers buying 2 and "
+        "selling 2 about 40 blocks apart, and two wallets with a shared funder but no token path. "
         "Group sizes run from 1 to 21 wallets.",
         "",
         "## Features",

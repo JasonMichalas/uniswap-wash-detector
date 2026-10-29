@@ -27,7 +27,6 @@ DEFAULT_MENU: tuple[tuple[str, int, int, bool], ...] = (
     ("partial_lot", 1, 1, False),
     ("churn", 1, 1, False),
     ("same_tx", 1, 1, False),
-    ("controller", 1, 1, False),
     ("chain", 16, 1, False),
     ("chain", 21, 1, False),
     ("fan_in_later", 5, 1, False),
@@ -116,10 +115,10 @@ def inject_wash_groups(
         extra_swaps.extend(built[0])
         extra_transfers.extend(built[1])
         groups.append(built[2])
-    decoys = _decoys(ids, (block_hi + block_lo) // 2)
+    decoys, decoy_transfers = _decoys(ids, (block_hi + block_lo) // 2)
     return Injection(
         swaps=list(swaps) + extra_swaps + decoys,
-        transfers=list(transfers) + extra_transfers,
+        transfers=list(transfers) + extra_transfers + decoy_transfers,
         groups=groups,
         decoys=decoys,
     )
@@ -171,8 +170,6 @@ def _build(
         return _churn(ids, start)
     if kind == "same_tx":
         return _same_tx(ids, start)
-    if kind == "controller":
-        return _controller(ids, start)
     if kind == "chain":
         return _chain(ids, start, n_buyers)
     if kind == "fan_in_later":
@@ -381,23 +378,6 @@ def _same_tx(ids: _Ids, start: int):
     return swaps, [], _tag(_group("round_trip", [wallet], swaps, n_buyers=1, n_sellers=1), "R6")
 
 
-def _controller(ids: _Ids, start: int):
-    funder, buyer, seller = ids.addr(), ids.addr(), ids.addr()
-    price = ids.rng.uniform(0.5, 8)
-    swaps = [
-        _swap(buyer, start, "buy", 5, price, ids),
-        _swap(seller, start + 20, "sell", 5, price, ids),
-    ]
-    transfers = [
-        TransferEvent(funder, buyer, start - 4, 1, ids.tx(), 0),
-        TransferEvent(funder, seller, start - 4, 1, ids.tx(), 0),
-    ]
-    return swaps, transfers, _tag(
-        _group("ring", [buyer, seller], swaps, n_buyers=1, n_sellers=1),
-        "R3",
-    )
-
-
 def _chain(ids: _Ids, start: int, n_wallets: int):
     wallets = [ids.addr() for _ in range(n_wallets)]
     price = ids.rng.uniform(0.5, 8)
@@ -435,13 +415,21 @@ def _fan_in_later(ids: _Ids, start: int, n_buyers: int):
     )
 
 
-def _decoys(ids: _Ids, start: int) -> list[SwapEvent]:
-    """Two strangers trading the same size a few minutes apart. Not a wash group."""
+def _decoys(ids: _Ids, start: int) -> tuple[list[SwapEvent], list[TransferEvent]]:
+    """Two strangers trading the same size, and two wallets with one funder but no token path. Neither is a wash group."""
     buyer, seller = ids.addr(), ids.addr()
-    return [
+    funder, funded_buyer, funded_seller = ids.addr(), ids.addr(), ids.addr()
+    swaps = [
         _swap(buyer, start, "buy", 2, 1, ids),
         _swap(seller, start + 40, "sell", 2, 1, ids),
+        _swap(funded_buyer, start + 200, "buy", 5, 1, ids),
+        _swap(funded_seller, start + 220, "sell", 5, 1, ids),
     ]
+    transfers = [
+        TransferEvent(funder, funded_buyer, start + 196, 1, ids.tx(), 0),
+        TransferEvent(funder, funded_seller, start + 196, 1, ids.tx(), 0),
+    ]
+    return swaps, transfers
 
 
 def _shares(ids: _Ids, count: int, total: float) -> list[float]:

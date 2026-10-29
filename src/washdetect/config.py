@@ -125,7 +125,9 @@ def hop_addresses() -> set[str]:
     return {*ROUTERS, *AGGREGATORS, *CEX_HOT, *MEV_ACTORS, *PROTOCOLS, POOL_MANAGER}
 
 
-RULE_IDS = ("R1", "R2", "R3", "R4", "R5", "R6")
+# R3 (shared funder or exit) was retired as a rule: it is a model feature now. Old graphs may still name it.
+RULE_IDS = ("R1", "R2", "R4", "R5", "R6")
+LEGACY_RULES = ("R3",)
 
 # The first three accept multi-thousand-block eth_getLogs. dRPC's free plan rejects
 # those and says "10000" while actually capping near 100 blocks; Blast caps at 10.

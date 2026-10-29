@@ -4,6 +4,7 @@ from collections import defaultdict
 from dataclasses import dataclass
 from typing import Any
 
+from washdetect.config import LEGACY_RULES, RULE_IDS
 from washdetect.graph.catalog import (
     INSIGHT_KINDS,
     NODE_BY_TYPE,
@@ -354,7 +355,7 @@ def _check_detector_params(data: dict[str, Any], node_id: str, label: str, error
     rules = data.get("rules")
     if rules not in (None, ""):
         names = [part.strip() for part in str(rules).split(",") if part.strip()]
-        if not names or any(name not in {"R1", "R2", "R3", "R4", "R5", "R6"} for name in names):
+        if not names or any(name not in {*RULE_IDS, *LEGACY_RULES} for name in names):
             errors.append(
                 GraphErrorItem(
                     f"{label} kinds of wash trading must be chosen from R1 through R6.",

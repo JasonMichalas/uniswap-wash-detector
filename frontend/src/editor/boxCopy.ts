@@ -180,7 +180,6 @@ export const GROUP_SIZE_PRESETS = [2, 4, 8, 16, 24, 32, 64];
 export const WASH_RULES: { id: string; name: string }[] = [
   { id: "R1", name: "Same wallet buys and sells" },
   { id: "R2", name: "Tokens passed along, then sold" },
-  { id: "R3", name: "Wallets funded or paid together" },
   { id: "R4", name: "A circle of wallets" },
   { id: "R5", name: "Many trades, nothing left" },
   { id: "R6", name: "Buy and sell in one transaction" },

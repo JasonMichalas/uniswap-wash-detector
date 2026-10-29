@@ -416,7 +416,7 @@ class WindowSignals:
         minimum = ask.whole("min_wallets", 5, 2, 500, "Minimum wallets")
         columns = ["source", "wallet_count", "holdings", "span_minutes", "first_block", "last_block"]
         gap = minutes * _BLOCKS_PER_MINUTE
-        # Same common-funder map as wash rule R3, without requiring buys and sells to cancel.
+        # First-funder map over token transfers. Shared funders are a model feature, never a wash group.
         # The log cache has token transfers, not ETH traces.
         first: dict[str, tuple[str, int]] = {}
         seen: set[str] = set()

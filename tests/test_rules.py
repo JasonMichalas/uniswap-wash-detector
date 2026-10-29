@@ -115,18 +115,12 @@ def test_r2_fan_out_and_many_to_many():
     assert "R2" in rules_of(many, "0xsd")
 
 
-def test_r3_common_funder_links_traders_and_a_hub_does_not():
-    linked = detect(
+def test_shared_funder_without_a_token_path_is_not_a_group():
+    shared = detect(
         [swap("0xa", 100, "buy", 5, 5, "0xbuy"), swap("0xb", 120, "sell", 5, 5, "0xsell")],
         [transfer("0xfunder", "0xa", 50, 1, "0xf1"), transfer("0xfunder", "0xb", 50, 1, "0xf2")],
     )
-    assert "R3" in rules_of(linked, "0xbuy")
-    assert "funded by 0xfunder" in linked.reasons[("0xbuy", 0)]["why"]
-
-    traders = [f"0x{i:040x}" for i in range(1, 31)]
-    transfers = [transfer("0xhub", wallet, 10 + i, 1, f"0xt{i}") for i, wallet in enumerate(traders)]
-    swaps = [swap(wallet, 80, "buy", 10, 10, f"0xs{i}") for i, wallet in enumerate(traders[:2])]
-    assert detect(swaps, transfers).flagged == {}
+    assert shared.flagged == {}
 
 
 def test_r4_circle_is_labelled_when_the_path_returns():

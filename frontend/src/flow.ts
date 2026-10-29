@@ -31,7 +31,7 @@ function paramsForRun(nodeType: string, params: Record<string, unknown>): Record
   if (next.tolerance == null || next.tolerance === "") next.tolerance = 0.05;
   if (next.window_blocks == null || next.window_blocks === "") next.window_blocks = 7200;
   if (next.max_group_size == null || next.max_group_size === "") next.max_group_size = 24;
-  if (next.rules == null || next.rules === "") next.rules = "R1,R2,R3,R4,R5,R6";
+  if (next.rules == null || next.rules === "") next.rules = "R1,R2,R4,R5,R6";
   return next;
 }
 

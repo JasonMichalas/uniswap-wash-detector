@@ -7,7 +7,7 @@ from typing import Any
 import duckdb
 import pandas as pd
 
-from washdetect.config import HeuristicConfig
+from washdetect.config import LEGACY_RULES, RULE_IDS, HeuristicConfig
 from washdetect.detector import Detection, SwapEvent, TransferEvent, WashDetector
 from washdetect.graph.catalog import field_map
 from washdetect.querylang.ast import Detect
@@ -30,9 +30,9 @@ def _detector_config(expr: Detect) -> HeuristicConfig:
     raw_rules = getattr(expr, "rules", None)
     if raw_rules:
         names = tuple(part.strip() for part in str(raw_rules).split(",") if part.strip())
-        unknown = [name for name in names if name not in {"R1", "R2", "R3", "R4", "R5", "R6"}]
+        unknown = [name for name in names if name not in {*RULE_IDS, *LEGACY_RULES}]
         if unknown or not names:
-            raise QueryError("find_wash_groups rules must be chosen from R1, R2, R3, R4, R5, and R6.")
+            raise QueryError("find_wash_groups rules must be chosen from R1, R2, R4, R5, and R6.")
         kwargs["enabled_rules"] = names
     if expr.max_group_size is not None:
         size = int(expr.max_group_size)
