@@ -1,7 +1,9 @@
 import type { Catalog, PaletteItem, TemplateSummary } from "../types";
+import { boxTitle, whatItDoes } from "../editor/boxCopy";
 import { GROUPS } from "../editor/ui";
 import { CategoryIcon } from "./CategoryIcon";
 import { ExampleMenu } from "./ExampleMenu";
+import { QuickStart } from "./QuickStart";
 
 export function PaletteToolbar({
   catalog,
@@ -9,6 +11,7 @@ export function PaletteToolbar({
   examplesOpen,
   onToggleExamples,
   onOpenExample,
+  onOpenRecipe,
   onPlace,
 }: {
   catalog: Catalog;
@@ -16,6 +19,7 @@ export function PaletteToolbar({
   examplesOpen: boolean;
   onToggleExamples: () => void;
   onOpenExample: (id: string) => void;
+  onOpenRecipe: (id: string) => void;
   onPlace: (item: PaletteItem) => void;
 }) {
   return (
@@ -34,7 +38,6 @@ export function PaletteToolbar({
                   key={`${item.node_type}-${item.label}`}
                   type="button"
                   className={`chip cat-${group.id}`}
-                  title={item.blurb}
                   draggable
                   onDragStart={(event) => {
                     event.dataTransfer.setData("application/washdetect", JSON.stringify(item));
@@ -42,12 +45,16 @@ export function PaletteToolbar({
                   }}
                   onClick={() => onPlace(item)}
                 >
-                  {item.label}
+                  {boxTitle(item.node_type, item.data)}
+                  <span className="chip-tip" role="tooltip">
+                    {whatItDoes(item.node_type, item.data)}
+                  </span>
                 </button>
               ))}
           </div>
         </div>
       ))}
+      <QuickStart onOpen={onOpenRecipe} />
       <ExampleMenu templates={templates} open={examplesOpen} onToggle={onToggleExamples} onOpen={onOpenExample} />
     </div>
   );

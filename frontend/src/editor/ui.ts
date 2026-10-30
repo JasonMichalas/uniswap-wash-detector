@@ -5,6 +5,7 @@ export const PRESETS = [7, 30, 60, 90];
 export const GROUPS: { id: string; title: string; categories: string[] }[] = [
   { id: "data", title: "Data", categories: ["source"] },
   { id: "filter", title: "Filter", categories: ["filter"] },
+  { id: "questions", title: "Questions", categories: ["insight"] },
   { id: "detect", title: "Detect", categories: ["detector"] },
   { id: "combine", title: "Combine", categories: ["aggregate", "arrange"] },
   { id: "show", title: "Show", categories: ["output"] },
@@ -17,7 +18,7 @@ export function stepHint(
   boxes: number,
   problems: number,
 ): string {
-  if (loading) return "Fetching this token's swaps and transfers. Nothing is calculated yet.";
+  if (loading) return "Loading this token. Nothing is calculated yet.";
   if (step === 1) return "Search by name, or pick a token from the list. You do not need a contract address.";
   if (step === 2) {
     return preset === 7

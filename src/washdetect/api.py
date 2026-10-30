@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 import threading
+import time
 import uuid
 from datetime import datetime
 from pathlib import Path
@@ -16,10 +17,10 @@ from pydantic import BaseModel, ConfigDict, Field
 from washdetect.config import DEFAULT_DB
 from washdetect.graph.catalog import catalog_payload
 from washdetect.graph.compile import GraphCompileError, compile_graph
-from washdetect.graph.validate import validate_graph
 from washdetect.pipeline import load_token
 from washdetect.querylang.engine import QueryEngine
 from washdetect.querylang.errors import QueryError
+from washdetect.rpc import Cancelled
 from washdetect.snapshot import window_ready
 from washdetect.store import Store
 from washdetect.token import TokenData
@@ -41,6 +42,7 @@ app.add_middleware(
 
 _store: Store | None = None
 _jobs: dict[str, dict[str, Any]] = {}
+_cancels: dict[str, threading.Event] = {}
 _jobs_lock = threading.Lock()
 
 
@@ -85,6 +87,7 @@ class LoadRequest(BaseModel):
     start: str | None = None
     end: str | None = None
     rediscover: bool = False
+    include_forks: bool = False
 
 
 class RunRequest(BaseModel):
@@ -156,14 +159,23 @@ def template(template_id: str) -> dict[str, Any]:
 @app.post("/api/token/load")
 def start_load(body: LoadRequest) -> dict[str, str]:
     job_id = uuid.uuid4().hex[:12]
+    stopped = threading.Event()
     with _jobs_lock:
-        _jobs[job_id] = {"status": "running", "message": "Starting", "result": None, "error": None}
+        _jobs[job_id] = {
+            "status": "running",
+            "message": "Starting",
+            "result": None,
+            "error": None,
+            "moved_at": time.monotonic(),
+        }
+        _cancels[job_id] = stopped
 
     def work() -> None:
         def progress(message: str) -> None:
             with _jobs_lock:
-                if job_id in _jobs:
+                if job_id in _jobs and not stopped.is_set():
                     _jobs[job_id]["message"] = message
+                    _jobs[job_id]["moved_at"] = time.monotonic()
 
         try:
             report = load_token(
@@ -174,19 +186,40 @@ def start_load(body: LoadRequest) -> dict[str, str]:
                 store=get_store(),
                 progress=progress,
                 rediscover=body.rediscover,
+                include_forks=body.include_forks,
+                cancel=stopped.is_set,
             )
             with _jobs_lock:
                 _jobs[job_id]["status"] = "done"
                 _jobs[job_id]["result"] = report.as_dict()
                 _jobs[job_id]["message"] = "Token data is cached. The canvas is empty until you build a graph."
+        except Cancelled:
+            with _jobs_lock:
+                _jobs[job_id]["status"] = "cancelled"
+                _jobs[job_id]["message"] = "Load cancelled. Blocks already read stay cached."
         except Exception as exc:
             with _jobs_lock:
                 _jobs[job_id]["status"] = "error"
-                _jobs[job_id]["error"] = str(exc)
-                _jobs[job_id]["message"] = str(exc)
+                _jobs[job_id]["error"] = "The free data servers could not finish this load."
+                _jobs[job_id]["error_detail"] = str(exc)
+                _jobs[job_id]["message"] = "The free data servers could not finish this load."
 
     threading.Thread(target=work, daemon=True).start()
     return {"job_id": job_id}
+
+
+@app.post("/api/jobs/{job_id}/cancel")
+def cancel_job(job_id: str) -> dict[str, bool]:
+    with _jobs_lock:
+        stopped = _cancels.get(job_id)
+        found = _jobs.get(job_id)
+        if not found:
+            raise HTTPException(404, "Unknown job.")
+        if stopped is not None:
+            stopped.set()
+        if found["status"] == "running":
+            found["message"] = "Cancelling…"
+    return {"ok": True}
 
 
 @app.get("/api/jobs/{job_id}")
@@ -195,13 +228,10 @@ def job(job_id: str) -> dict[str, Any]:
         found = _jobs.get(job_id)
         if not found:
             raise HTTPException(404, "Unknown job.")
-        return {"id": job_id, **found}
-
-
-@app.post("/api/graph/validate")
-def validate(body: GraphModel) -> dict[str, Any]:
-    errors = validate_graph(body.plain())
-    return {"ok": not errors, "errors": [item.to_dict() for item in errors]}
+        shown = {key: value for key, value in found.items() if key != "moved_at"}
+        # Every progress note means a range finished, so silence means the servers are stuck.
+        quiet = time.monotonic() - found["moved_at"] if found["status"] == "running" else 0.0
+        return {"id": job_id, **shown, "quiet_for": round(quiet)}
 
 
 @app.post("/api/graph/compile")
@@ -232,14 +262,10 @@ def run(body: RunRequest) -> dict[str, Any]:
     try:
         result = QueryEngine().run(
             program,
-            swaps=loaded.swaps,
-            transfers=loaded.transfers,
-            wallets=loaded.wallets,
-            pools=loaded.pools,
-            pool_addresses=loaded.pool_addresses,
             end_ts=end_ts,
             window_start=start_ts,
             window_end=end_ts,
+            **loaded.frames(),
         )
     except QueryError as exc:
         raise HTTPException(400, detail=str(exc)) from exc

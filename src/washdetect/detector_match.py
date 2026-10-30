@@ -57,7 +57,9 @@ def _amounts_close(amounts: list[float], tol: float) -> bool:
     return (hi - lo) / hi <= tol + 1e-12
 
 
-def find_round_trips(swaps: list[SwapEvent], config: HeuristicConfig) -> list[_Cluster]:
+def find_round_trips(
+    swaps: list[SwapEvent], config: HeuristicConfig, limit: int | None = None
+) -> list[_Cluster]:
     """Smallest window that nets out. The caller has already limited this to one trader."""
     clusters: list[_Cluster] = []
     ordered = sorted(swaps, key=lambda s: (s.block, s.log_index, s.tx_hash))
@@ -71,7 +73,7 @@ def find_round_trips(swaps: list[SwapEvent], config: HeuristicConfig) -> list[_C
         for j in range(i, n):
             if ordered[j].block - ordered[i].block > config.max_block_gap:
                 break
-            if j - i + 1 > config.max_swaps:
+            if j - i + 1 > (limit or config.max_swaps):
                 break
             if ordered[j].side == "buy":
                 buy += ordered[j].amount
@@ -232,22 +234,6 @@ def _build_links(
                 if dst == src or dst not in active or dst in hubs:
                     continue
                 links.append(_Link(src, dst, first.block, second.block))
-
-    # Earliest inbound from a non-hub: wallets that share a funder.
-    first_in: dict[str, tuple[str, int]] = {}
-    for transfer in sorted(cleaned, key=lambda item: (item.block, item.log_index)):
-        if transfer.dst in active and transfer.dst not in first_in and transfer.src not in hubs:
-            first_in[transfer.dst] = (transfer.src, transfer.block)
-    by_funder: dict[str, list[tuple[str, int]]] = defaultdict(list)
-    for wallet, (funder, block) in first_in.items():
-        by_funder[funder].append((wallet, block))
-    for members in by_funder.values():
-        if len(members) < 2 or len(members) > config.hub_degree:
-            continue
-        for i, (w1, b1) in enumerate(members):
-            for w2, b2 in members[i + 1 :]:
-                if abs(b1 - b2) <= config.max_block_gap:
-                    links.append(_Link(w1, w2, min(b1, b2), max(b1, b2)))
 
     links.sort(key=lambda link: (link.start_block, link.a, link.b))
     if len(links) > config.max_links:  # hard cap; ranking by volume is not worth the time

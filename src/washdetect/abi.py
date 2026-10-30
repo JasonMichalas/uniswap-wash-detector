@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from eth_abi import decode, encode
+from eth_abi import decode, encode  # re-exported for log decoders
 from eth_utils import keccak
 
 from washdetect.config import ZERO_ADDRESS
@@ -49,6 +49,7 @@ SIG_DECIMALS = "decimals()"
 SIG_SYMBOL = "symbol()"
 SIG_FEE = "fee()"
 SIG_SLOT0 = "slot0()"
+SIG_GET_RESERVES = "getReserves()"
 SIG_BALANCE_OF = "balanceOf(address)"
 SIG_AGGREGATE3 = "aggregate3((address,bool,bytes)[])"
 
@@ -59,6 +60,11 @@ SWAP_V3 = topic0("Swap(address,address,int256,int256,uint160,uint128,int24)")
 MINT_V3 = topic0("Mint(address,address,int24,int24,uint128,uint256,uint256)")
 BURN_V3 = topic0("Burn(address,int24,int24,uint128,uint256,uint256)")
 TRANSFER = topic0("Transfer(address,address,uint256)")
+SWAP_V4 = topic0("Swap(bytes32,address,int128,int128,uint160,uint128,int24,uint24)")
+INITIALIZE_V4 = topic0("Initialize(bytes32,address,address,uint24,int24,address,uint160,int24)")
+MODIFY_V4 = topic0("ModifyLiquidity(bytes32,address,int24,int24,int256,bytes32)")
+PAIR_CREATED = topic0("PairCreated(address,address,address,uint256)")
+POOL_CREATED = topic0("PoolCreated(address,address,uint24,int24,address)")
 
 _SEL = {
     "get_pair": selector(SIG_GET_PAIR),
@@ -69,6 +75,7 @@ _SEL = {
     "symbol": selector(SIG_SYMBOL),
     "fee": selector(SIG_FEE),
     "slot0": selector(SIG_SLOT0),
+    "get_reserves": selector(SIG_GET_RESERVES),
     "balance_of": selector(SIG_BALANCE_OF),
     "aggregate3": selector(SIG_AGGREGATE3),
 }
@@ -117,6 +124,11 @@ def decode_symbol(data: str) -> str:
         return ""
 
 
+def decode_reserves(data: str) -> tuple[int, int]:
+    reserve0, reserve1, _stamp = decode(["uint112", "uint112", "uint32"], _bytes(data))
+    return int(reserve0), int(reserve1)
+
+
 def decode_slot0_sqrt(data: str) -> int:
     raw = _bytes(data)
     # slot0: sqrtPriceX96, tick, then observation and fee fields we ignore.
@@ -138,6 +150,28 @@ def decode_v3_swap_amounts(data: str) -> tuple[int, int]:
         ["int256", "int256", "uint160", "uint128", "int24"], raw
     )
     return int(amount0), int(amount1)
+
+
+def decode_v4_swap_amounts(data: str) -> tuple[int, int]:
+    amount0, amount1, *_rest = decode(
+        ["int128", "int128", "uint160", "uint128", "int24", "uint24"], _bytes(data)
+    )
+    return int(amount0), int(amount1)
+
+
+def decode_v4_liquidity_delta(data: str) -> int:
+    _lower, _upper, delta, _salt = decode(["int24", "int24", "int256", "bytes32"], _bytes(data))
+    return int(delta)
+
+
+def decode_pair_created(data: str) -> str:
+    pair, _count = decode(["address", "uint256"], _bytes(data))
+    return normalize_address(pair)
+
+
+def decode_pool_created(data: str) -> str:
+    _spacing, pool = decode(["int24", "address"], _bytes(data))
+    return normalize_address(pool)
 
 
 def decode_v2_mint_amounts(data: str) -> tuple[int, int]:

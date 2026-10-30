@@ -24,6 +24,7 @@ _SWAP_COLUMNS = [
     "amount_quote",
     "quote_token",
     "usd_value",
+    "price_source",
     "tx_hash",
     "log_index",
 ]

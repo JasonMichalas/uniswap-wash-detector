@@ -19,7 +19,7 @@ def main(argv: list[str] | None = None) -> int:
     """fetch only fills the cache. detect and query run because they were asked to."""
     parser = argparse.ArgumentParser(
         prog="washdetect",
-        description="Uniswap Wash Detector. Ethereum mainnet, Uniswap v2 and v3, no API key required.",
+        description="Uniswap Wash Detector. Ethereum mainnet, Uniswap v2, v3, and v4, no API key required.",
     )
     parser.add_argument("--db", default=DEFAULT_DB, help="DuckDB file (default: data/washdetect.duckdb)")
     sub = parser.add_subparsers(dest="cmd", required=True)
@@ -28,6 +28,8 @@ def main(argv: list[str] | None = None) -> int:
     _window_args(fetch)
     fetch.add_argument("token")
     fetch.add_argument("--rediscover", action="store_true")
+    fetch.add_argument("--hours", type=int, help="Window length ending now, in hours")
+    fetch.add_argument("--forks", action="store_true", help="Also read SushiSwap v2/v3 and PancakeSwap v3")
 
     detect = sub.add_parser("detect", help="Load if needed, then print the rule-based wash percentage.")
     _window_args(detect)
@@ -38,10 +40,26 @@ def main(argv: list[str] | None = None) -> int:
     query.add_argument("token")
     query.add_argument("query")
 
-    batch = sub.add_parser("batch", help="Fetch each token in a file and write heuristic features.")
+    batch = sub.add_parser("batch", help="Fetch many tokens. Pass a file, or --top N --days D from GeckoTerminal.")
     _window_args(batch)
-    batch.add_argument("tokens_file")
+    batch.add_argument("tokens_file", nargs="?")
+    batch.add_argument("--top", type=int, default=0, help="How many GeckoTerminal tokens to load")
     batch.add_argument("--out", default="data/training", help="Directory for per-token parquet files")
+    batch.add_argument("--forks", action="store_true", help="Also read SushiSwap v2/v3 and PancakeSwap v3")
+    batch.add_argument(
+        "--token-seconds",
+        type=int,
+        default=360,
+        help="Stop one token after this many seconds and continue with the next",
+    )
+
+    cover = sub.add_parser(
+        "cover",
+        help="Discover and load a short window for GeckoTerminal lists plus the training tokens.",
+    )
+    cover.add_argument("--hours", type=int, default=1)
+    cover.add_argument("--limit", type=int, default=0, help="Cap the GeckoTerminal list; 0 keeps every page fetched")
+    cover.add_argument("--forks", action="store_true")
 
     train = sub.add_parser(
         "train",
@@ -69,6 +87,8 @@ def main(argv: list[str] | None = None) -> int:
             return _query(args)
         if args.cmd == "batch":
             return _batch(args)
+        if args.cmd == "cover":
+            return _cover(args)
         if args.cmd == "train":
             return _train(args)
         if args.cmd == "serve":
@@ -94,6 +114,8 @@ def _load(args: argparse.Namespace) -> LoadReport:
         db_path=args.db,
         progress=lambda message: print(message, flush=True),
         rediscover=getattr(args, "rediscover", False),
+        include_forks=getattr(args, "forks", False),
+        hours=getattr(args, "hours", None) or None,
     )
 
 
@@ -102,8 +124,9 @@ def _print_report(report: LoadReport) -> None:
         f"{report.symbol} {report.token}\n"
         f"window {report.start_time} → {report.end_time} "
         f"blocks {report.start_block}–{report.end_block}\n"
-        f"pools {report.pools} (v2 {report.v2_pools}, v3 {report.v3_pools})\n"
-        f"swaps {report.swaps}  transfers {report.transfers}  priced {report.priced_swaps}\n"
+        f"pools {report.pools} (v2 {report.v2_pools}, v3 {report.v3_pools}, v4 {report.v4_pools})\n"
+        f"swaps {report.swaps}  transfers {report.transfers}  priced {report.priced_swaps}  "
+        f"swap logs {report.swap_logs}\n"
         f"balances {report.balance_wallets}"
         f"{' (capped)' if report.balances_truncated else ''}\n"
         f"fetched {report.blocks_fetched} block-spans, "
@@ -249,23 +272,108 @@ def _query(args: argparse.Namespace) -> int:
         store.close()
 
 
-def _batch(args: argparse.Namespace) -> int:
-    path = Path(args.tokens_file)
+def _token_lines(path: Path) -> list[str]:
     tokens = []
     for line in path.read_text(encoding="utf-8").splitlines():
         text = line.split("#", 1)[0].strip()
         if text:
             tokens.append(text)
-    if not tokens:
-        raise ValueError(f"{path} has no token addresses.")
-    out = Path(args.out)
-    for token in tokens:
-        print(f"\n=== {token}")
-        ns = argparse.Namespace(**vars(args), token=token)
-        code = _detect(ns)
-        if code != 0:
-            return code
-        print(f"features directory: {out}")
+    return tokens
+
+
+def _batch(args: argparse.Namespace) -> int:
+    from washdetect.batch import BatchScrape
+
+    if args.top and args.tokens_file:
+        raise ValueError("Pass either a tokens file or --top, not both.")
+    if not args.days:
+        raise ValueError("batch needs --days D (the window for every token).")
+    if args.top:
+        from washdetect.tokensuggest import training_tokens
+
+        rows = training_tokens(args.top)
+        tokens = [row["address"] for row in rows]
+        if not tokens:
+            raise ValueError("GeckoTerminal returned no Uniswap tokens.")
+        print(f"Training list: {len(tokens)} token(s)", flush=True)
+    else:
+        if not args.tokens_file:
+            raise ValueError("Pass a tokens file, or --top N --days D.")
+        path = Path(args.tokens_file)
+        tokens = _token_lines(path)
+        if not tokens:
+            raise ValueError(f"{path} has no token addresses.")
+    scrape = BatchScrape(
+        args.db,
+        days=args.days,
+        token_seconds=args.token_seconds,
+        include_forks=args.forks,
+        out_dir=args.out,
+    )
+    counts = scrape.run(tokens)
+    return 2 if counts["failed"] or counts["partial"] else 0
+
+
+def _cover(args: argparse.Namespace) -> int:
+    from washdetect.tokensuggest import listed_tokens
+
+    rows = listed_tokens(args.limit or 80)
+    tokens: list[tuple[str, str]] = []
+    seen: set[str] = set()
+    for row in rows:
+        address = row["address"].lower()
+        if address in seen:
+            continue
+        seen.add(address)
+        tokens.append((row.get("symbol") or address[:8], address))
+    train = Path("examples/tokens.train.txt")
+    if train.is_file():
+        for address in _token_lines(train):
+            key = address.lower()
+            if key in seen:
+                continue
+            seen.add(key)
+            tokens.append((key[:8], key))
+    if args.limit and len(tokens) > args.limit:
+        tokens = tokens[: args.limit]
+    print(f"Coverage list: {len(tokens)} token(s), {args.hours} hour(s)")
+    ok = 0
+    failed: list[str] = []
+    started = datetime.now()
+    swap_total = 0
+    window_blocks = 0
+    for symbol, address in tokens:
+        print(f"\n=== {symbol} {address}", flush=True)
+        try:
+            report = load_token(
+                address,
+                hours=args.hours,
+                db_path=args.db,
+                progress=lambda message: print(message, flush=True),
+                include_forks=args.forks,
+            )
+        except Exception as exc:
+            print(f"FAILED {exc}")
+            failed.append(f"{symbol}: {exc}")
+            continue
+        swap_total += report.swaps
+        window_blocks += max(0, report.end_block - report.start_block + 1)
+        _print_report(report)
+        if report.swaps > 0:
+            ok += 1
+        else:
+            failed.append(f"{symbol}: 0 swaps ({'; '.join(report.notes[:2])})")
+    elapsed = max((datetime.now() - started).total_seconds(), 0.001)
+    print(
+        f"\nCoverage: {ok}/{len(tokens)} tokens had swaps "
+        f"({(100 * ok / len(tokens)) if tokens else 0:.1f}%). "
+        f"{swap_total} swaps in {elapsed:.1f}s "
+        f"({swap_total / elapsed:.2f} swaps/s, {window_blocks / elapsed:.1f} window-blocks/s)."
+    )
+    if failed:
+        print("Still empty or failed:")
+        for line in failed:
+            print(f"  - {line}")
     return 0
 
 
@@ -275,11 +383,7 @@ def _train(args: argparse.Namespace) -> int:
     from washdetect.train import train_tables
 
     path = Path(args.tokens)
-    tokens = []
-    for line in path.read_text(encoding="utf-8").splitlines():
-        text = line.split("#", 1)[0].strip()
-        if text:
-            tokens.append(text)
+    tokens = _token_lines(path)
     if not tokens:
         raise ValueError(f"{path} has no token addresses.")
     tables = []
@@ -295,6 +399,8 @@ def _train(args: argparse.Namespace) -> int:
                 end=args.end,
                 db_path=args.db,
                 progress=lambda message: print(message, flush=True),
+                include_forks=True,
+                use_v4_index=True,
             )
             store = Store(args.db)
             try:

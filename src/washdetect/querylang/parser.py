@@ -7,6 +7,7 @@ from pathlib import Path
 
 from lark import Lark, Token, Tree, UnexpectedInput
 
+from washdetect.graph.catalog import INSIGHT_KINDS
 from washdetect.querylang.ast import (
     Aggregate,
     AnomalyScore,
@@ -16,6 +17,7 @@ from washdetect.querylang.ast import (
     Explain,
     Filter,
     GroupBy,
+    Insight,
     Limit,
     MlScore,
     Output,
@@ -99,12 +101,12 @@ def _expr(tree: Tree):
             return Detect(swaps, transfers)
         if len(tree.children) != 5:
             raise QueryError(
-                "detect_cycles takes swaps and transfers, optionally followed by "
+                "find_wash_groups takes swaps and transfers, optionally followed by "
                 "tolerance, window blocks, and max group size."
             )
         tolerance = _number(tree.children[2])
-        window = _int(tree.children[3], "detect_cycles window")
-        group = _int(tree.children[4], "detect_cycles max group size")
+        window = _int(tree.children[3], "find_wash_groups window")
+        group = _int(tree.children[4], "find_wash_groups max group size")
         return Detect(swaps, transfers, net_ratio=float(tolerance), max_block_gap=window, max_group_size=group)
     if kind == "project":
         return Project(str(tree.children[0]), str(tree.children[1]))
@@ -134,6 +136,11 @@ def _expr(tree: Tree):
         return AnomalyScore(str(tree.children[0]))
     if kind == "explainstmt":
         return Explain(str(tree.children[0]))
+    if kind == "insightstmt":
+        name = str(tree.children[0])
+        if name not in INSIGHT_KINDS:
+            raise QueryError(f"Unknown question {name}.")
+        return Insight(name)
     raise QueryError(f"Unknown expression {kind}.")
 
 

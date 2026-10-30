@@ -8,16 +8,21 @@ from washdetect.abi import (
     BURN_V3,
     MINT_V2,
     MINT_V3,
+    MODIFY_V4,
     SWAP_V2,
     SWAP_V3,
+    SWAP_V4,
     classify_leg,
     decode_v2_mint_amounts,
     decode_v2_swap_amounts,
     decode_v3_burn_amounts,
     decode_v3_mint_amounts,
     decode_v3_swap_amounts,
+    decode_v4_liquidity_delta,
+    decode_v4_swap_amounts,
     topic_address,
 )
+from washdetect.config import protocol_family
 from washdetect.discover import PoolMeta
 from washdetect.rpc import RpcClient
 from washdetect.store import Store
@@ -107,8 +112,9 @@ def decode_pool_log(
         return None
     kind_topic = topics[0]
     data = str(log.get("data") or "0x")
+    family = protocol_family(pool.protocol)
     try:
-        if pool.protocol == "v2" and kind_topic == SWAP_V2:
+        if family == "v2" and kind_topic == SWAP_V2:
             a0_in, a1_in, a0_out, a1_out = decode_v2_swap_amounts(data)
             leg = classify_leg(
                 token, pool.token0, pool.token1, pool.token0_decimals, pool.token1_decimals,
@@ -119,7 +125,7 @@ def decode_pool_log(
             sender = topic_address(topics[1]) if len(topics) > 1 else ""
             recipient = topic_address(topics[2]) if len(topics) > 2 else ""
             return "swap", {**leg, "sender": sender, "recipient": recipient}
-        if pool.protocol == "v3" and kind_topic == SWAP_V3:
+        if family == "v3" and kind_topic == SWAP_V3:
             amount0, amount1 = decode_v3_swap_amounts(data)
             leg = classify_leg(
                 token, pool.token0, pool.token1, pool.token0_decimals, pool.token1_decimals,
@@ -130,19 +136,35 @@ def decode_pool_log(
             sender = topic_address(topics[1]) if len(topics) > 1 else ""
             recipient = topic_address(topics[2]) if len(topics) > 2 else ""
             return "swap", {**leg, "sender": sender, "recipient": recipient}
-        if pool.protocol == "v2" and kind_topic == MINT_V2:
+        if family == "v4" and kind_topic == SWAP_V4:
+            amount0, amount1 = decode_v4_swap_amounts(data)
+            # v4 reports the swapper's balance change; v2 and v3 report the pool's.
+            leg = classify_leg(
+                token, pool.token0, pool.token1, pool.token0_decimals, pool.token1_decimals,
+                -amount0, -amount1,
+            )
+            if not leg:
+                return None
+            sender = topic_address(topics[2]) if len(topics) > 2 else ""
+            return "swap", {**leg, "sender": sender, "recipient": sender}
+        if family == "v4" and kind_topic == MODIFY_V4:
+            delta = decode_v4_liquidity_delta(data)
+            sender = topic_address(topics[2]) if len(topics) > 2 else ""
+            kind = "mint" if delta >= 0 else "burn"
+            return "liq", {"kind": kind, "sender": sender, "amount0_raw": str(delta), "amount1_raw": "0"}
+        if family == "v2" and kind_topic == MINT_V2:
             a0, a1 = decode_v2_mint_amounts(data)
             sender = topic_address(topics[1]) if len(topics) > 1 else ""
             return "liq", {"kind": "mint", "sender": sender, "amount0_raw": str(a0), "amount1_raw": str(a1)}
-        if pool.protocol == "v2" and kind_topic == BURN_V2:
+        if family == "v2" and kind_topic == BURN_V2:
             a0, a1 = decode_v2_mint_amounts(data)
             sender = topic_address(topics[1]) if len(topics) > 1 else ""
             return "liq", {"kind": "burn", "sender": sender, "amount0_raw": str(a0), "amount1_raw": str(a1)}
-        if pool.protocol == "v3" and kind_topic == MINT_V3:
+        if family == "v3" and kind_topic == MINT_V3:
             a0, a1 = decode_v3_mint_amounts(data)
             sender = topic_address(topics[1]) if len(topics) > 1 else ""
             return "liq", {"kind": "mint", "sender": sender, "amount0_raw": str(a0), "amount1_raw": str(a1)}
-        if pool.protocol == "v3" and kind_topic == BURN_V3:
+        if family == "v3" and kind_topic == BURN_V3:
             a0, a1 = decode_v3_burn_amounts(data)
             sender = topic_address(topics[1]) if len(topics) > 1 else ""
             return "liq", {"kind": "burn", "sender": sender, "amount0_raw": str(a0), "amount1_raw": str(a1)}
@@ -152,6 +174,9 @@ def decode_pool_log(
 
 
 def _pool_topics(protocol: str) -> list[Any]:
-    if protocol == "v2":
+    family = protocol_family(protocol)
+    if family == "v2":
         return [[SWAP_V2, MINT_V2, BURN_V2]]
+    if family == "v4":
+        return [[SWAP_V4, MODIFY_V4]]
     return [[SWAP_V3, MINT_V3, BURN_V3]]

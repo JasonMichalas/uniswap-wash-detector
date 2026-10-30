@@ -42,6 +42,7 @@ export type Catalog = {
   source_types: Record<string, string>;
   connect: {
     rows: string[];
+    chart?: string[];
     timed: string[];
     walletish: string[];
     scoreable: string[];
@@ -89,6 +90,8 @@ export type LoadResult = {
   pools: number;
   v2_pools: number;
   v3_pools: number;
+  v4_pools: number;
+  swap_logs: number;
   swaps: number;
   transfers: number;
   priced_swaps: number;
@@ -98,8 +101,8 @@ export type LoadResult = {
   blocks_cached: number;
   seconds: number;
   eth_usd: number | null;
-  used_subgraph: boolean;
   notes: string[];
+  note_details?: string[];
   analysis_ran: boolean;
 };
 

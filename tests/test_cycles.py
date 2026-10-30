@@ -70,13 +70,16 @@ def test_borderline_match_is_labelled_but_not_high_confidence():
     assert wallet.confidence < 0.8
 
 
-def test_three_wallet_transfer_cycle_and_not_a_line():
+def test_three_wallet_transfer_cycle_needs_swaps_and_not_a_line():
     ring = [
         transfer("0xa", "0xb", 10, 100, "0xt1"),
         transfer("0xb", "0xc", 20, 100, "0xt2"),
         transfer("0xc", "0xa", 30, 100, "0xt3"),
     ]
     found = detect([], ring, config=CFG)
+    assert [c for c in found.cycles if c.kind == "transfer_cycle"] == []
+    traded = [swap("0xb", 15, "buy", 100, 40, "0xs1"), swap("0xc", 25, "sell", 100, 40, "0xs2")]
+    found = detect(traded, ring, config=CFG)
     sizes = [cycle.size for cycle in found.cycles if cycle.kind == "transfer_cycle"]
     assert 3 in sizes
 

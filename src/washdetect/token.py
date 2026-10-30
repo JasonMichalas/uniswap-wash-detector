@@ -5,6 +5,7 @@ from datetime import datetime
 
 import pandas as pd
 
+from washdetect.behaviour import with_tx_meta
 from washdetect.features import build_wallet_table
 from washdetect.store import Store
 
@@ -23,6 +24,9 @@ class TokenData:
     wallets: pd.DataFrame
     pools: pd.DataFrame
     pool_addresses: set[str]
+    liquidity: pd.DataFrame
+    creator: str
+    creator_status: str
 
     @classmethod
     def load(
@@ -35,14 +39,21 @@ class TokenData:
         end_time: datetime,
     ) -> TokenData:
         token = address.lower()
-        swaps = store.read_swaps(token, start_block, end_block)
+        swaps = with_tx_meta(store.read_swaps(token, start_block, end_block), store.read_tx_meta(token, start_block, end_block))
         transfers = store.read_transfers(token, start_block, end_block)
         balances = store.latest_balances(token, end_block)
-        wallets = build_wallet_table(
-            swaps, transfers, balances, end_ts=end_time, window_start_ts=start_time
-        )
         pools = pd.DataFrame(store.pools_for(token))
         addresses = set(pools["pool_address"].astype(str)) if not pools.empty else set()
+        wallets = build_wallet_table(
+            swaps,
+            transfers,
+            balances,
+            end_ts=end_time,
+            window_start_ts=start_time,
+            pools=addresses,
+        )
+        liquidity = store.read_liquidity(token, start_block, end_block)
+        creator, creator_status = store.creator_from_window(token, start_block, end_block)
         return cls(
             address=token,
             start_block=start_block,
@@ -54,6 +65,9 @@ class TokenData:
             wallets=wallets,
             pools=pools,
             pool_addresses=addresses,
+            liquidity=liquidity,
+            creator=creator,
+            creator_status=creator_status,
         )
 
     def frames(self) -> dict[str, object]:
@@ -63,4 +77,7 @@ class TokenData:
             "wallets": self.wallets,
             "pools": self.pools,
             "pool_addresses": self.pool_addresses,
+            "liquidity": self.liquidity,
+            "creator": self.creator,
+            "creator_status": self.creator_status,
         }

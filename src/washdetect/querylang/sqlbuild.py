@@ -8,6 +8,7 @@ import duckdb
 import pandas as pd
 
 from washdetect.config import MAX_WINDOW_DAYS
+from washdetect.graph.catalog import CHART_STREAMS
 from washdetect.querylang.ast import Aggregate, Condition, Output, TimeWindow
 from washdetect.querylang.errors import QueryError
 from washdetect.querylang.results import OutputResult, _Bundle, _Stream
@@ -39,10 +40,14 @@ def _group_sql(stream: _Stream, key: str, view: str) -> tuple[str, dict[str, str
             if "usd_value" in stream.fields
             else "0 AS sum_usd_value"
         )
+        amount = ""
+        if "amount_token" in stream.fields:
+            amount = ", COALESCE(SUM(amount_token), 0) AS sum_amount_token"
+            fields["sum_amount_token"] = "number"
         sql = (
             f"CREATE VIEW {view} AS SELECT "
             f"strftime(CAST(block_timestamp AS TIMESTAMP), '%Y-%m-%d') AS day, "
-            f"COUNT(*) AS count, {value}{wash} "
+            f"COUNT(*) AS count, {value}{amount}{wash} "
             f"FROM {stream.view} GROUP BY 1 ORDER BY 1"
         )
         return sql, fields
@@ -58,6 +63,9 @@ def _group_sql(stream: _Stream, key: str, view: str) -> tuple[str, dict[str, str
         if "usd_value" in stream.fields:
             extra = ", COALESCE(SUM(usd_value), 0) AS sum_usd_value"
             fields["sum_usd_value"] = "number"
+        if "amount_token" in stream.fields:
+            extra += ", COALESCE(SUM(amount_token), 0) AS sum_amount_token"
+            fields["sum_amount_token"] = "number"
         elif "wash_volume_usd" in stream.fields:
             extra = ", COALESCE(SUM(wash_volume_usd), 0) AS sum_usd_value"
             fields["sum_usd_value"] = "number"
@@ -73,9 +81,13 @@ def _group_sql(stream: _Stream, key: str, view: str) -> tuple[str, dict[str, str
         value = (
             "COALESCE(SUM(usd_value), 0)" if "usd_value" in stream.fields else "0"
         )
+        amount = ""
+        if "amount_token" in stream.fields:
+            amount = ", COALESCE(SUM(amount_token), 0) AS sum_amount_token"
+            fields["sum_amount_token"] = "number"
         sql = (
             f"CREATE VIEW {view} AS SELECT pool_address, COUNT(*) AS count, "
-            f"{value} AS sum_usd_value FROM {stream.view} GROUP BY 1 ORDER BY sum_usd_value DESC"
+            f"{value} AS sum_usd_value{amount} FROM {stream.view} GROUP BY 1 ORDER BY sum_usd_value DESC"
         )
         return sql, fields
     raise QueryError("group by must be day, wallet, or pool.")
@@ -170,9 +182,9 @@ def _check_output(stmt: Output, stream: _Stream) -> None:
             f"A number card needs a single value (count, sum, avg, or percent-of). "
             f"{stmt.name} is a {stream.type_name} table."
         )
-    if stmt.kind == "chart" and stream.type_name != "grouped":
+    if stmt.kind == "chart" and stream.type_name not in CHART_STREAMS:
         raise QueryError(
-            "A chart reads a Group by box. Put Group by day in front of it to plot volume over time."
+            "A chart reads a Group by box, or a question that is already a series over time."
         )
     if stmt.kind == "table" and stream.type_name == "scalar":
         raise QueryError("That stream is a single number. Use a number card, not a table.")
@@ -193,7 +205,7 @@ def _read_output(con: duckdb.DuckDBPyConnection, stream: _Stream, stmt: Output) 
         columns=columns,
         rows=rows,
         truncated=truncated,
-        note=stream.note,
+        note=None if rows and stream.type_name == "wash_wallets" else stream.note,
     )
 
 

@@ -1,0 +1,11 @@
+{
+  "name": "Buy vs sell pressure",
+  "description": "Hourly dollars bought and dollars sold, with the average price beside them.",
+  "nodes": [
+    {"id": "q1", "type": "pressure", "position": {"x": 40, "y": 80}, "data": {}},
+    {"id": "out1", "type": "output_chart", "position": {"x": 380, "y": 80}, "data": {"title": "Buy vs sell pressure"}}
+  ],
+  "edges": [
+    {"id": "e1", "source": "q1", "target": "out1", "sourceHandle": "out", "targetHandle": "in"}
+  ]
+}

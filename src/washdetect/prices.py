@@ -1,6 +1,28 @@
 from __future__ import annotations
 
-from washdetect.config import STABLECOINS, WETH
+from statistics import median
+from typing import Any
+
+from washdetect.abi import (
+    calldata,
+    decode_address_word,
+    decode_reserves,
+    decode_slot0_sqrt,
+    decode_uint,
+    is_zero,
+)
+from washdetect.config import (
+    DAI,
+    STABLECOINS,
+    USDC,
+    USDT,
+    V2_FACTORY,
+    V3_FACTORY,
+    V3_FEES,
+    WETH,
+    ZERO_ADDRESS,
+)
+from washdetect.rpc import RpcClient
 
 Q96 = 2**96
 
@@ -35,12 +57,242 @@ def swap_usd(
         return abs(amount_quote)
     if eth_usd is None or eth_usd <= 0:
         return None
-    if token == WETH:
+    if token in {WETH, ZERO_ADDRESS}:
         return abs(amount_token) * eth_usd
-    if quote == WETH:
+    if quote in {WETH, ZERO_ADDRESS}:
         return abs(amount_quote) * eth_usd
     return None
 
 
 def price_is_plausible(eth_usd: float) -> bool:
     return 100.0 < eth_usd < 100_000.0
+
+
+def direct_source(token: str, quote_token: str) -> str | None:
+    """stable or eth when the leg can be priced without another pool."""
+    token = token.lower()
+    quote = quote_token.lower()
+    if token in STABLECOINS or quote in STABLECOINS:
+        return "stable"
+    if token in {WETH, ZERO_ADDRESS} or quote in {WETH, ZERO_ADDRESS}:
+        return "eth"
+    return None
+
+
+def other_per_quote(token1_per_token0: float, quote_is_token0: bool) -> float | None:
+    if token1_per_token0 <= 0:
+        return None
+    if quote_is_token0:
+        return token1_per_token0
+    return 1.0 / token1_per_token0
+
+
+def quote_usd_from_other(
+    other_per_one_quote: float, *, other_is_stable: bool, eth_usd: float | None
+) -> float | None:
+    if other_per_one_quote <= 0:
+        return None
+    if other_is_stable:
+        return other_per_one_quote
+    if eth_usd is None or eth_usd <= 0:
+        return None
+    return other_per_one_quote * eth_usd
+
+
+def nearest_value(block: int, samples: list[tuple[int, float]]) -> float | None:
+    if not samples:
+        return None
+    return min(samples, key=lambda item: (abs(item[0] - block), item[0]))[1]
+
+
+def rolling_median(block: int, points: list[tuple[int, float]], radius: int = 300) -> float | None:
+    """Median of prices near this block, or the single nearest price when none are close."""
+    near = [price for at, price in points if abs(at - block) <= radius and price > 0]
+    if near:
+        return float(median(near))
+    return nearest_value(block, points)
+
+
+def apply_token_implied(rows: list[dict[str, object]], radius: int = 300) -> None:
+    """Fill usd from the token price implied by swaps that already have one."""
+    points: list[tuple[int, float]] = []
+    for row in rows:
+        usd = row.get("usd")
+        amount = row.get("amount_token")
+        if not isinstance(usd, (int, float)) or not isinstance(amount, (int, float)):
+            continue
+        if amount <= 0 or usd <= 0:
+            continue
+        price = float(usd) / float(amount)
+        if 0 < price < 1e9:
+            points.append((int(row["block"]), price))
+    for row in rows:
+        if row.get("usd") is not None:
+            continue
+        amount = row.get("amount_token")
+        if not isinstance(amount, (int, float)) or amount <= 0 or not points:
+            continue
+        price = rolling_median(int(row["block"]), points, radius)
+        if price is None or not 0 < price < 1e9:
+            continue
+        row["usd"] = abs(float(amount)) * price
+        row["source"] = "token-implied"
+
+
+class QuoteOracle:
+    """USD per unit of a quote, from a direct WETH or stable pool, nearest in time."""
+
+    def __init__(self, client: RpcClient) -> None:
+        self.client = client
+        self._pool: dict[str, tuple[str, str, str, bool] | None] = {}
+        self._meta: dict[str, tuple[str, str, int, int] | None] = {}
+
+    def samples(
+        self, quote: str, blocks: list[int], eth_usd: float | None
+    ) -> list[tuple[int, float]]:
+        quote = quote.lower()
+        if quote in STABLECOINS:
+            return [(block, 1.0) for block in blocks]
+        if quote in {WETH, ZERO_ADDRESS}:
+            if eth_usd is None:
+                return []
+            return [(block, eth_usd) for block in blocks]
+        found = self._find(quote)
+        if found is None or not blocks:
+            return []
+        pool, protocol, _other, other_is_stable = found
+        if not other_is_stable and eth_usd is None:
+            return []
+        meta = self._tokens(pool)
+        if meta is None:
+            return []
+        token0, token1, dec0, dec1 = meta
+        if quote not in (token0, token1):
+            return []
+        points = _sample_blocks(blocks, 8)
+        query = calldata("get_reserves") if protocol == "v2" else calldata("slot0")
+        answers = self.client.batch([_call(pool, query, block) for block in points])
+        out: list[tuple[int, float]] = []
+        for block, raw in zip(points, answers, strict=True):
+            try:
+                if protocol == "v2":
+                    reserve0, reserve1 = decode_reserves(raw)
+                    if reserve0 <= 0 or reserve1 <= 0:
+                        continue
+                    ratio = (reserve1 / 10**dec1) / (reserve0 / 10**dec0)
+                else:
+                    ratio = price_token1_per_token0(decode_slot0_sqrt(raw), dec0, dec1)
+            except Exception:
+                continue
+            other = other_per_quote(ratio, token0 == quote)
+            price = (
+                None
+                if other is None
+                else quote_usd_from_other(other, other_is_stable=other_is_stable, eth_usd=eth_usd)
+            )
+            if price is not None and 0 < price < 1e9:
+                out.append((block, price))
+        return out
+
+    def _find(self, quote: str) -> tuple[str, str, str, bool] | None:
+        if quote in self._pool:
+            return self._pool[quote]
+        found = self._lookup(quote)
+        self._pool[quote] = found
+        return found
+
+    def _lookup(self, quote: str) -> tuple[str, str, str, bool] | None:
+        # Stable pool first so the price is already USD. WETH is the fallback.
+        pairs: list[tuple[str, bool]] = [(USDC, True), (USDT, True), (DAI, True), (WETH, False)]
+        options = [
+            (
+                V3_FACTORY,
+                calldata("get_pool", ["address", "address", "uint24"], [quote, other, fee]),
+                "v3",
+                other,
+                stable,
+            )
+            for other, stable in pairs
+            for fee in V3_FEES
+        ] + [
+            (
+                V2_FACTORY,
+                calldata("get_pair", ["address", "address"], [quote, other]),
+                "v2",
+                other,
+                stable,
+            )
+            for other, stable in pairs
+        ]
+        answers = self.client.batch([_call(factory, data) for factory, data, *_ in options])
+        for (_factory, _data, protocol, other, stable), raw in zip(options, answers, strict=True):
+            pool = _address(raw)
+            if pool:
+                return pool, protocol, other, stable
+        return None
+
+    def _tokens(self, pool: str) -> tuple[str, str, int, int] | None:
+        if pool in self._meta:
+            return self._meta[pool]
+        try:
+            token0 = decode_address_word(self.client.eth_call(pool, calldata("token0")))
+            token1 = decode_address_word(self.client.eth_call(pool, calldata("token1")))
+            dec0 = int(decode_uint(self.client.eth_call(token0, calldata("decimals"))))
+            dec1 = int(decode_uint(self.client.eth_call(token1, calldata("decimals"))))
+        except Exception:
+            self._meta[pool] = None
+            return None
+        if is_zero(token0) or is_zero(token1):
+            return None
+        found = (token0, token1, dec0, dec1)
+        self._meta[pool] = found
+        return found
+
+
+def _call(to: str, data: str, block: int | str = "latest") -> tuple[str, list[Any]]:
+    return "eth_call", [{"to": to, "data": data}, hex(block) if isinstance(block, int) else block]
+
+
+def _address(raw: object) -> str | None:
+    if not isinstance(raw, str) or len(raw) < 66:
+        return None
+    address = decode_address_word(raw)
+    return None if is_zero(address) else address
+
+
+def _sample_blocks(blocks: list[int], cap: int) -> list[int]:
+    uniq = sorted(set(blocks))
+    if len(uniq) <= cap:
+        return uniq
+    step = (len(uniq) - 1) / (cap - 1)
+    picked = [uniq[round(index * step)] for index in range(cap)]
+    return sorted(set(picked))
+
+
+def pricing_note(total: int, sources: list[str | None]) -> str | None:
+    if total <= 0:
+        return None
+    labels = {
+        "stable": "stable",
+        "eth": "ETH",
+        "quote-pool": "quote pool",
+        "token-implied": "implied from other swaps",
+    }
+    counts: dict[str, int] = {}
+    missing = 0
+    for source in sources:
+        if not source:
+            missing += 1
+            continue
+        counts[source] = counts.get(source, 0) + 1
+    priced = total - missing
+    parts = [f"{counts[key]} {labels[key]}" for key in labels if counts.get(key)]
+    detail = ", ".join(parts) if parts else "none priced from a pool"
+    if missing == 0:
+        return f"All {total} swaps have a USD price ({detail})."
+    return (
+        f"{priced} of {total} swaps have a USD price ({detail}). "
+        f"{missing} have no USD price: no stable or ETH leg, no WETH or stable pool for the quote, "
+        f"and no other swap in this window implied a token price. "
+        f"Totals in the token's own units still include every swap."
+    )

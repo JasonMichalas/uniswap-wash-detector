@@ -23,6 +23,18 @@ export function nodeDef(catalog: Catalog, nodeType: string) {
   return catalog.nodes.find((item) => item.type === nodeType);
 }
 
+function paramsForRun(nodeType: string, params: Record<string, unknown>): Record<string, unknown> {
+  if (nodeType !== "detect_cycles") return params;
+  // The inspector shows these when a box was saved with nothing filled in.
+  // Run and the query preview have to use the same numbers.
+  const next = { ...params };
+  if (next.tolerance == null || next.tolerance === "") next.tolerance = 0.05;
+  if (next.window_blocks == null || next.window_blocks === "") next.window_blocks = 7200;
+  if (next.max_group_size == null || next.max_group_size === "") next.max_group_size = 24;
+  if (next.rules == null || next.rules === "") next.rules = "R1,R2,R4,R5,R6";
+  return next;
+}
+
 export function toApiGraph(nodes: BoxNode[], edges: Edge[], name?: string): ApiGraph {
   return {
     name,
@@ -30,7 +42,7 @@ export function toApiGraph(nodes: BoxNode[], edges: Edge[], name?: string): ApiG
       id: node.id,
       type: node.data.nodeType,
       position: node.position,
-      data: node.data.params,
+      data: paramsForRun(node.data.nodeType, node.data.params),
     })),
     edges: edges.map((edge) => ({
       id: edge.id,
@@ -79,6 +91,7 @@ export function sourceLabel(catalog: Catalog, nodeType: string, params: Record<s
 
 export function canConnectTypes(src: string, dst: string, catalog: Catalog): boolean {
   if (dst === "rows") return catalog.connect.rows.includes(src);
+  if (dst === "grouped") return (catalog.connect.chart ?? ["grouped"]).includes(src);
   if (dst === "timed") return catalog.connect.timed.includes(src);
   if (dst === "walletish") return catalog.connect.walletish.includes(src);
   if (dst === "scoreable") return catalog.connect.scoreable.includes(src);
@@ -112,6 +125,11 @@ function produce(
 ): Record<string, StreamInfo> {
   const ntype = node.data.nodeType;
   const params = node.data.params;
+  const definition = nodeDef(catalog, ntype);
+  if (definition?.category === "insight") {
+    const typeName = String(definition.outputs[0]?.type ?? ntype);
+    return { out: { type: typeName, fields: catalog.types[typeName] ?? [] } };
+  }
   if (ntype === "source") {
     const source = String(params.source ?? "");
     const typeName = catalog.source_types[source];
@@ -119,9 +137,24 @@ function produce(
     return { out: { type: typeName, fields: catalog.types[typeName] ?? [] } };
   }
   if (ntype === "detect_cycles") {
+    const wallets = params.show_all === true
+      ? stream(catalog, "wash_wallets")
+      : {
+          type: "wash_wallets",
+          fields: [
+            { name: "wallet", kind: "string" },
+            { name: "wallets_used", kind: "string" },
+            { name: "wash_volume_usd", kind: "number" },
+            { name: "confidence", kind: "number" },
+            { name: "rules", kind: "string" },
+            { name: "why", kind: "string" },
+            { name: "flow", kind: "string" },
+            { name: "path", kind: "string" },
+          ] satisfies FieldDef[],
+        };
     return {
       out_swaps: stream(catalog, "swaps_flagged"),
-      out_wallets: stream(catalog, "wash_wallets"),
+      out_wallets: wallets,
       out_cycles: stream(catalog, "cycles"),
     };
   }
@@ -222,6 +255,63 @@ export function wouldCycle(source: string, target: string, edges: Edge[]): boole
     }
   }
   return false;
+}
+
+export function nextSteps(typeName: string | undefined): Array<{
+  nodeType: string;
+  label: string;
+  params: Record<string, unknown>;
+}> {
+  const table = { nodeType: "output_table", label: "Table", params: { title: "Results" } };
+  const sort = { nodeType: "sort", label: "Sort", params: { direction: "desc", field: "" } };
+  const first = { nodeType: "limit", label: "First rows", params: { n: 10 } };
+  const condition = { nodeType: "condition", label: "Condition", params: { mode: "compare", op: ">", value: 0, field: "" } };
+  if (typeName === "wash_wallets" || typeName === "wallets") return [sort, first, table];
+  if (typeName === "swaps" || typeName === "swaps_flagged") {
+    return [condition, { nodeType: "group_by", label: "Group by", params: { by: "day" } }, sort, table];
+  }
+  if (typeName === "transfers") return [{ nodeType: "detect_cycles", label: "Find wash groups", params: {} }, table];
+  if (typeName === "grouped" || typeName === "pressure" || typeName === "wash_over_time") {
+    const title = typeName === "pressure" ? "Buy vs sell" : typeName === "wash_over_time" ? "Wash share" : "Volume";
+    return [{ nodeType: "output_chart", label: "Chart", params: { title } }, table];
+  }
+  if (
+    typeName === "concentration" ||
+    typeName === "pnl" ||
+    typeName === "sandwich" ||
+    typeName === "insiders" ||
+    typeName === "fake_holders" ||
+    typeName === "liquidity_pull" ||
+    typeName === "whales" ||
+    typeName === "bots"
+  ) {
+    return [table];
+  }
+  if (typeName === "scalar") return [{ nodeType: "output_number", label: "Number", params: { title: "Result", format: "number" } }];
+  if (typeName === "cycles") return [sort, table];
+  return [sort, first, table];
+}
+
+export function connectionProblem(
+  connection: Connection | Edge,
+  nodes: BoxNode[],
+  edges: Edge[],
+  catalog: Catalog,
+): string | null {
+  if (connectionAllowed(connection, nodes, edges, catalog)) return null;
+  const source = connection.source;
+  const target = connection.target;
+  if (!source || !target || source === target) return "A box cannot connect to itself.";
+  if (wouldCycle(source, target, edges)) {
+    return "Two boxes are wired in a circle. A box cannot feed back into itself.";
+  }
+  const outputs = inferOutputs(nodes, edges, catalog);
+  const srcType = outputs.get(source)?.[connection.sourceHandle || "out"]?.type;
+  const names = nextSteps(srcType).map((step) => step.label);
+  const sourceNode = nodes.find((node) => node.id === source);
+  const from = sourceNode?.data.label || "That box";
+  if (names.length) return `${from} can go into ${names.join(", ")}. That wire does not fit.`;
+  return "Those boxes do not fit together.";
 }
 
 export function connectionAllowed(

@@ -34,10 +34,13 @@ def resolve_window(
     days: int | None = None,
     start: str | None = None,
     end: str | None = None,
+    hours: int | None = None,
 ) -> tuple[int, int, datetime, datetime]:
-    if days is None and not (start and end):
+    if hours is not None and (days is not None or start or end):
+        raise ValueError("Pass hours on its own, not with days or start/end.")
+    if days is None and hours is None and not (start and end):
         raise ValueError(
-            "Choose a window: pass days (1-90) or both start and end (YYYY-MM-DD). "
+            "Choose a window: pass days (1-90), hours, or both start and end (YYYY-MM-DD). "
             "There is no default history length."
         )
     if days is not None and (start or end):
@@ -46,6 +49,16 @@ def resolve_window(
     head_block = client.get_block(head)
     head_ts = datetime.fromtimestamp(int(head_block["timestamp"], 16), UTC)
     head_ts = _naive(head_ts)
+    if hours is not None:
+        if not isinstance(hours, int) or isinstance(hours, bool) or not 1 <= hours <= MAX_WINDOW_DAYS * 24:
+            raise ValueError(f"hours must be an integer from 1 to {MAX_WINDOW_DAYS * 24}")
+        end_ts = head_ts
+        start_ts = end_ts - timedelta(hours=hours)
+        end_block = head
+        start_block = client.find_block_by_timestamp(_unix(start_ts), 1, end_block)
+        if start_block > end_block:
+            raise ValueError("The window does not cover any blocks.")
+        return start_block, end_block, start_ts, end_ts
     if days is not None:
         if not isinstance(days, int) or isinstance(days, bool) or not 1 <= days <= MAX_WINDOW_DAYS:
             raise ValueError(f"days must be an integer from 1 to {MAX_WINDOW_DAYS}")

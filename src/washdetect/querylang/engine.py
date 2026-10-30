@@ -10,6 +10,7 @@ from washdetect.config import ROUTERS
 from washdetect.detector import Detection
 from washdetect.features import WALLET_COLUMNS, build_wallet_table
 from washdetect.graph.catalog import TYPES, field_map
+from washdetect.prices import pricing_note
 from washdetect.querylang.ast import (
     Aggregate,
     AnomalyScore,
@@ -18,6 +19,7 @@ from washdetect.querylang.ast import (
     Explain,
     Filter,
     GroupBy,
+    Insight,
     Limit,
     MlScore,
     Output,
@@ -55,6 +57,7 @@ from washdetect.querylang.sqlutil import (
     _strip_strings,
 )
 from washdetect.scoring import ScoreCache
+from washdetect.signals import WindowSignals
 
 # SQL is built here, never pasted from the query. Only CREATE VIEW and SELECT
 # run, on a throwaway connection, so a query cannot touch the cache.
@@ -71,6 +74,9 @@ def execute_frames(
     wallets: pd.DataFrame | None = None,
     pools: pd.DataFrame | None = None,
     pool_addresses: set[str] | None = None,
+    liquidity: pd.DataFrame | None = None,
+    creator: str = "",
+    creator_status: str = "",
     end_ts: datetime | None = None,
     window_start: datetime | None = None,
     window_end: datetime | None = None,
@@ -88,6 +94,15 @@ def execute_frames(
     else:
         wallets_df = _ensure(wallets, WALLET_COLUMNS)
     pools_df = _ensure(pools, _POOL_COLUMNS)
+    signals = WindowSignals(
+        swaps_df,
+        transfers_df,
+        wallets_df,
+        liquidity,
+        pools=pool_addresses,
+        creator=creator,
+        creator_status=creator_status,
+    )
     for frame in (swaps_df, transfers_df):
         if "block_timestamp" in frame.columns:
             frame["block_timestamp"] = pd.to_datetime(frame["block_timestamp"])
@@ -106,6 +121,11 @@ def execute_frames(
         CREATE VIEW base_holders AS
         SELECT * FROM base_wallets
         WHERE balance IS NOT NULL AND balance > 0
+          AND COALESCE(holder_kind, 'wallet') = 'wallet'
+          AND lower(wallet) NOT IN (
+            '0x0000000000000000000000000000000000000000',
+            '0x000000000000000000000000000000000000dead'
+          )
         """
     )
     con.execute(
@@ -130,19 +150,27 @@ def execute_frames(
     excluded = {addr.lower() for addr in (pool_addresses or set())} | set(ROUTERS)
     warnings: list[str] = []
     if not swaps_df.empty and "usd_value" in swaps_df.columns:
-        missing_price = int(swaps_df["usd_value"].isna().sum())
-        if missing_price:
-            warnings.append(
-                f"{missing_price} swaps have no USD price and are left out of USD totals. "
-                "Stablecoin-quoted pools price cleanly; other quotes need an ETH price."
-            )
+        sources: list[str | None] = []
+        source_col = (
+            swaps_df["price_source"].tolist()
+            if "price_source" in swaps_df.columns
+            else [None] * len(swaps_df)
+        )
+        for usd, source in zip(swaps_df["usd_value"].tolist(), source_col, strict=True):
+            if usd is None or (isinstance(usd, float) and usd != usd):
+                sources.append(None)
+            else:
+                sources.append(str(source) if isinstance(source, str) and source else "stable")
+        note = pricing_note(len(sources), sources)
+        if note:
+            warnings.append(note)
     env: dict[str, _Stream | _Bundle] = {}
     sql_lines: list[str] = []
     outputs: list[OutputResult] = []
     detection: Detection | None = None
     counter = 0
     kept: list[pd.DataFrame] = []
-    cache = ScoreCache()
+    cache = ScoreCache(liquidity, pools_df)
 
     def fresh(name: str) -> str:
         nonlocal counter
@@ -173,6 +201,7 @@ def execute_frames(
                 base_transfers=transfers_df,
                 model_dir=model_dir,
                 kept=kept,
+                signals=signals,
             )
             env[stmt.name] = value
             if isinstance(produced, Detection):
@@ -211,6 +240,9 @@ class QueryEngine:
         wallets: pd.DataFrame | None = None,
         pools: pd.DataFrame | None = None,
         pool_addresses: set[str] | None = None,
+        liquidity: pd.DataFrame | None = None,
+        creator: str = "",
+        creator_status: str = "",
         end_ts: datetime | None = None,
         window_start: datetime | None = None,
         window_end: datetime | None = None,
@@ -223,6 +255,9 @@ class QueryEngine:
             wallets=wallets,
             pools=pools,
             pool_addresses=pool_addresses,
+            liquidity=liquidity,
+            creator=creator,
+            creator_status=creator_status,
             end_ts=end_ts,
             window_start=window_start,
             window_end=window_end,
@@ -248,6 +283,7 @@ def _eval(
     base_transfers: pd.DataFrame,
     model_dir: str | None,
     kept: list[pd.DataFrame],
+    signals: WindowSignals,
 ) -> tuple[_Stream | _Bundle, Detection | None]:
     if isinstance(expr, Source):
         view = {
@@ -268,11 +304,11 @@ def _eval(
         transfers_stream = _need_stream(env, expr.transfers)
         if swaps_stream.type_name != "swaps":
             raise QueryError(
-                "detect_cycles wants a swaps stream that has not already been flagged. "
+                "find_wash_groups wants a swaps stream that has not already been flagged. "
                 "Connect the Swaps source, not the detector's own output."
             )
         if transfers_stream.type_name != "transfers":
-            raise QueryError("detect_cycles wants a transfers stream as its second input.")
+            raise QueryError("find_wash_groups wants a transfers stream as its second input.")
         detection = _run_detect(
             con,
             swaps_stream.view,
@@ -281,7 +317,14 @@ def _eval(
             warnings,
             config=_detector_config(expr),
         )
-        bundle = _register_detection(con, swaps_stream.view, detection, fresh)
+        bundle = _register_detection(
+            con,
+            swaps_stream.view,
+            detection,
+            fresh,
+            show_all=bool(getattr(expr, "show_all", False)),
+            transfers_view=transfers_stream.view,
+        )
         sql_lines.append(
             f"-- {comment}\n-- heuristic round-trip / cycle detector "
             f"(Gan et al. 2024 style) on {swaps_stream.view} and {transfers_stream.view}"
@@ -293,7 +336,7 @@ def _eval(
         if not isinstance(bundle, _Bundle):
             raise QueryError(
                 f"{expr.name} is not a detector result. "
-                "project is only valid on detect_cycles(...)."
+                "project is only valid on find_wash_groups(...)."
             )
         chosen = {"swaps": bundle.swaps, "wallets": bundle.wallets, "cycles": bundle.cycles}.get(
             expr.kind
@@ -431,6 +474,30 @@ def _eval(
             model_dir=model_dir,
             kept=kept,
         ), None
+
+    if isinstance(expr, Insight):
+        settings: dict[str, object] = {}
+        if expr.top_n is not None:
+            settings["top_n"] = expr.top_n
+        if expr.minutes is not None:
+            settings["minutes"] = expr.minutes
+        if expr.usd is not None:
+            settings["usd"] = expr.usd
+        if expr.percent is not None:
+            settings["percent"] = expr.percent
+        if expr.min_wallets is not None:
+            settings["min_wallets"] = expr.min_wallets
+        if expr.creator:
+            settings["creator"] = expr.creator
+        frame, note = signals.run(expr.kind, **settings)
+        view = fresh()
+        held = f"{view}_src"
+        con.register(held, frame)
+        kept.append(frame)
+        sql = f"CREATE VIEW {view} AS SELECT * FROM {held}"
+        _run(con, sql)
+        sql_lines.append(f"-- {comment}\n{sql}")
+        return _Stream(view, expr.kind, field_map(expr.kind), note=note), None
 
     if isinstance(expr, Explain):
         return _explain_stream(

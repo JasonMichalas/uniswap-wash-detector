@@ -12,6 +12,8 @@ export function GraphActions({
   onClear,
   onRun,
   onFile,
+  resultRows,
+  onShowResults,
 }: {
   status: string;
   graphName: string;
@@ -24,6 +26,8 @@ export function GraphActions({
   onClear: () => void;
   onRun: () => void;
   onFile: (file: File) => void;
+  resultRows: number | null;
+  onShowResults: () => void;
 }) {
   return (
     <div className="action-bar">
@@ -39,6 +43,11 @@ export function GraphActions({
         <button type="button" onClick={onClear} disabled={boxCount === 0 && edgeCount === 0}>
           Clear
         </button>
+        {resultRows !== null && (
+          <button type="button" className="show-results" onClick={onShowResults}>
+            Show results ({resultRows.toLocaleString()} rows)
+          </button>
+        )}
         <button type="button" className="primary" disabled={!runReady} onClick={onRun}>
           {running ? "Running…" : "Run"}
         </button>

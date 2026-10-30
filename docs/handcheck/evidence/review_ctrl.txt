@@ -1,0 +1,168 @@
+=== C01 pepe rule=CTRL conf=- wallets=1 usd=0
+  M 0x681aa348865b1ee3b106e4b807684ac4e5dd6457 c=True n=134 lab='' fund=0xc4463c | in_pool=1.109e+06 out_other=1.109e+06 net=0 nT=3
+   b26278158 i307 from=0x681aa3 to=0x7a250d(Uniswap V2: Router 2) actorΔ=+1.10914e+06 gross=1.109e+06 swaps=1/1p wethΔ=+0 eth=0.0021
+   b26278349 i52 from=0x681aa3 to=0x8d4cb2() actorΔ=-554569 gross=5.546e+05 swaps=12/11p wethΔ=+0 eth=0
+  actor buy=1.10914e+06 sell=554569 net_ratio=0.500 senders={'0x681aa3': 2} internal_transfers=0 sandwich=[]
+  top other counterparties: [('0x8d4cb2', '1.109e+06', '')]
+=== C02 pepe rule=CTRL conf=- wallets=1 usd=0
+  M 0xaccfde8031e759acd222d83c307fe8fbe488c782 c=False n=13544 lab='' fund=0xd152f5 | net=0 nT=0
+  B 0xeff6cb8b614999d130e537751ee99724d01aa167 c=True n=1 lab='' fund=- | out_other=8.886e+07 out_pool=3.265e+09 in_pool=2.45e+08 in_other=3.108e+09 net=-1.412e+06 nT=91
+   b26274489 i26 from=0xaccfde to=0xeff6cb() actorΔ=+2.02205e+06 gross=2.022e+06 swaps=1/1p wethΔ=+0 eth=0
+   b26276660 i263 from=0xaccfde to=0xeff6cb() actorΔ=-2.76358e+07 gross=2.764e+07 swaps=1/1p wethΔ=+0.05177 eth=0
+   b26278706 i32 from=0xaccfde to=0xeff6cb() actorΔ=-4.33532e+07 gross=4.335e+07 swaps=1/1p wethΔ=+0 eth=0
+   b26279438 i24 from=0xaccfde to=0xeff6cb() actorΔ=-5.75031e+06 gross=5.75e+06 swaps=1/1p wethΔ=+0 eth=0
+  actor buy=2.02205e+06 sell=7.67394e+07 net_ratio=0.974 senders={'0xaccfde': 4} internal_transfers=0 sandwich=[]
+  top other counterparties: [('0xdfd529', '3.025e+09', 'Binance 16'), ('0x3202ac', '9.183e+07', ''), ('0x248823', '7.912e+07', 'Uniswap V3: PEPE-SHIB')]
+=== C03 pepe rule=CTRL conf=- wallets=1 usd=0
+  M 0x0477c2b67d25370a6defb63a2a890ee9b72d5be2 c=False n=13349 lab='' fund=0xd152f5 | net=0 nT=0
+  B 0xeff6cb8b614999d130e537751ee99724d01aa167 c=True n=1 lab='' fund=- | out_other=8.886e+07 out_pool=3.265e+09 in_pool=2.45e+08 in_other=3.108e+09 net=-1.412e+06 nT=91
+   b26274489 i27 from=0x0477c2 to=0xeff6cb() actorΔ=+8.05712e+06 gross=8.057e+06 swaps=1/1p wethΔ=+0 eth=0
+   b26278919 i144 from=0x0477c2 to=0xeff6cb() actorΔ=+1.68029e+07 gross=1.68e+07 swaps=1/1p wethΔ=-0.03133 eth=0
+   b26279438 i22 from=0x0477c2 to=0xeff6cb() actorΔ=-1.7803e+07 gross=1.78e+07 swaps=1/1p wethΔ=+0.03306 eth=0
+   b26279443 i194 from=0x0477c2 to=0xeff6cb() actorΔ=-3.02401e+06 gross=3.024e+06 swaps=1/1p wethΔ=+0 eth=0
+  actor buy=2.486e+07 sell=2.0827e+07 net_ratio=0.162 senders={'0x0477c2': 4} internal_transfers=0 sandwich=[]
+  top other counterparties: [('0xdfd529', '3.025e+09', 'Binance 16'), ('0x3202ac', '9.183e+07', ''), ('0x248823', '7.912e+07', 'Uniswap V3: PEPE-SHIB')]
+=== C04 pepe rule=CTRL conf=- wallets=1 usd=0
+  M 0x5b3b269ea31ec76d7a975a5b62269b50eaf9e15c c=False n=13540 lab='' fund=0xd152f5 | net=0 nT=0
+  B 0xeff6cb8b614999d130e537751ee99724d01aa167 c=True n=1 lab='' fund=- | out_other=8.886e+07 out_pool=3.265e+09 in_pool=2.45e+08 in_other=3.108e+09 net=-1.412e+06 nT=91
+   b26274489 i23 from=0x5b3b26 to=0xeff6cb() actorΔ=+7.4337e+06 gross=7.434e+06 swaps=1/1p wethΔ=+0 eth=0
+   b26274493 i55 from=0x5b3b26 to=0xeff6cb() actorΔ=+3.71789e+07 gross=3.718e+07 swaps=1/1p wethΔ=-0.07008 eth=0
+   b26274509 i107 from=0x5b3b26 to=0xeff6cb() actorΔ=+1.07844e+07 gross=1.078e+07 swaps=1/1p wethΔ=+0 eth=0
+   b26274902 i63 from=0x5b3b26 to=0xeff6cb() actorΔ=+5.29278e+06 gross=5.293e+06 swaps=1/1p wethΔ=-0.01008 eth=0
+   b26275686 i83 from=0x5b3b26 to=0xeff6cb() actorΔ=-1.2706e+07 gross=1.271e+07 swaps=1/1p wethΔ=+0.02399 eth=0
+   b26277663 i217 from=0x5b3b26 to=0xeff6cb() actorΔ=-3.34491e+08 gross=3.345e+08 swaps=1/1p wethΔ=+0.6268 eth=0
+   b26277719 i153 from=0x5b3b26 to=0xeff6cb() actorΔ=-5.98753e+08 gross=5.988e+08 swaps=1/1p wethΔ=+1.12 eth=0
+  actor buy=6.06898e+07 sell=9.4595e+08 net_ratio=0.936 senders={'0x5b3b26': 7} internal_transfers=0 sandwich=[]
+  top other counterparties: [('0xdfd529', '3.025e+09', 'Binance 16'), ('0x3202ac', '9.183e+07', ''), ('0x248823', '7.912e+07', 'Uniswap V3: PEPE-SHIB')]
+=== C05 rlusd rule=CTRL conf=- wallets=1 usd=0
+  M 0x425bbc2cff0c7e7960baa9bac2f0cb67b41d3bef c=False n=7611 lab='' fund=0xc55883 | net=0 nT=0
+  B 0x1111110f0f73c0b2ef09ec012eae758b3e03a902 c=True n=726 lab='' fund=0x8f10b4 | in_other=0.0051 net=0.0051 nT=1
+  B 0xd1a3c20488899c038b7daae1ede0c6da6c36c326 c=True n=1 lab='' fund=- | in_other=9561 out_other=9561 net=0.3225 nT=4
+  B 0xdc385c31c322351dac9ff4d7ded24e29b5d94768 c=True n=1 lab='' fund=- | in_other=40.01 out_other=40.01 net=-1.295e-11 nT=2
+   b26277448 i251 from=0x425bbc to=0xd1a3c2() actorΔ=-8920.14 gross=8920 swaps=1/1p wethΔ=+0 eth=0
+   b26283260 i131 from=0x425bbc to=0xdc385c() actorΔ=+40.0093 gross=40.01 swaps=3/3p wethΔ=+0 eth=0
+   b26284729 i223 from=0x425bbc to=0xd1a3c2() actorΔ=-640.674 gross=640.7 swaps=1/1p wethΔ=+0 eth=0
+  actor buy=40.0093 sell=9560.81 net_ratio=0.996 senders={'0x425bbc': 3} internal_transfers=0 sandwich=[]
+  top other counterparties: [('0x923c98', '9601', 'Makina: Swap Module'), ('0xbbbbbb', '9561', 'Morpho: Morpho'), ('0xe31901', '40.01', ''), ('0x8f10b4', '0.0051', '')]
+=== C06 rlusd rule=CTRL conf=- wallets=1 usd=0
+  M 0xa66ffc655c7370aaa80d684845f036219a5343bf c=False n=4137 lab='' fund=0xd21972 | net=0 nT=0
+  B 0x1717396157a22d83e7864c72ac23540402a09f2a c=False n=180 lab='' fund=0x71660c | in_other=277.4 net=277.4 nT=2
+  B 0x90cbe4bdd538d6e9b379bff5fe72c3d67a521de5 c=True n=1 lab='' fund=- | in_other=31.26 net=31.26 nT=25
+  B 0x9b858be6e3047d88820f439b240deac2418a2551 c=False n=809 lab='' fund=0x897ce7 | in_other=0.05548 net=0.05548 nT=2
+   b26266432 i2 from=0xa66ffc to=0x950fd5() actorΔ=+0 gross=0 swaps=4/4p wethΔ=+0 eth=0
+   b26272993 i129 from=0xa66ffc to=0x9b1303() actorΔ=+0 gross=215.2 swaps=2/2p wethΔ=+0 eth=0
+  actor buy=0 sell=0 net_ratio=0.000 senders={'0xa66ffc': 2} internal_transfers=0 sandwich=[]
+  top other counterparties: [('0xc0dfdb', '277.5', ''), ('0x111116', '31.2', '')]
+=== C07 rlusd rule=CTRL conf=- wallets=1 usd=0
+  M 0xa67d7eb4dc68fa6ce8e34ef8cadaf075b9893fbb c=False n=528663 lab='Relay: Solver 0xa67...fbb' fund=0xf70da9 | net=0 nT=0
+  B 0x2080fbb01a6fafc8f317d48020e0fec71ea09344 c=False n=32 lab='' fund=0x8c8d7c | in_other=20.14 out_other=20.14 net=0 nT=3
+  B 0xbd1a8e1eba5e8ffcee5d336d543ecf4544ce88f3 c=True n=16 lab='' fund=0x5070fc | in_other=5.66 net=5.66 nT=5
+   b26268486 i136 from=0xa67d7e to=0xb92fe9(Relay: Router V3) actorΔ=+0 gross=10.29 swaps=2/2p wethΔ=+0 eth=0.0044
+   b26270544 i93 from=0xa67d7e to=0xccc88a(Relay: Approval Proxy V3) actorΔ=+0 gross=1.369 swaps=1/1p wethΔ=+0 eth=0
+   b26270550 i97 from=0xa67d7e to=0xccc88a(Relay: Approval Proxy V3) actorΔ=+0 gross=1.026 swaps=1/1p wethΔ=+0 eth=0
+  actor buy=0 sell=0 net_ratio=0.000 senders={'0xa67d7e': 3} internal_transfers=0 sandwich=[]
+  top other counterparties: [('0xb92fe9', '25.15', 'Relay: Router V3'), ('0xf91e8a', '20.14', ''), ('0x663dc1', '0.6493', 'deBridge: Crosschain Forw')]
+=== C08 rlusd rule=CTRL conf=- wallets=1 usd=0
+  M 0x0aeddc45455d79fb3b805de8075042ac49b789ba c=False n=134 lab='' fund=0x4976a4 | in_other=404.9 out_other=404.9 net=4.902e-09 nT=3
+  B 0x00700052c0608f670705380a4900e0a8080010cc c=True n=1 lab='Velora: Augustus Fee Vault' fund=- | in_other=7.378 out_other=25.68 net=-18.3 nT=3
+   b26272154 i54 from=0x0aeddc to=0x6a000f(Velora: Augustus V6.2) actorΔ=+404.924 gross=407.7 swaps=2/2p wethΔ=+0 eth=0
+   b26272730 i143 from=0x0aeddc to=0x6a000f(Velora: Augustus V6.2) actorΔ=-30 gross=30 swaps=1/1p wethΔ=+0 eth=0
+   b26272760 i63 from=0x0aeddc to=0x6a000f(Velora: Augustus V6.2) actorΔ=-374.924 gross=374.9 swaps=1/1p wethΔ=+0 eth=0
+  actor buy=404.924 sell=404.924 net_ratio=0.000 senders={'0x0aeddc': 3} internal_transfers=0 sandwich=[]
+  top other counterparties: [('0x6a000f', '412.3', 'Velora: Augustus V6.2'), ('0x006d0e', '374.9', ''), ('0x082738', '30', ''), ('0x9cd6ab', '25.68', '')]
+=== C09 spx rule=CTRL conf=- wallets=1 usd=0
+  M 0x6d36a1d24e151ed2a5fb730f3eb96599c596c707 c=False n=40714 lab='' fund=0xf29da8 | net=0 nT=0
+  B 0x67336cec42645f55059eff241cb02ea5cc52ff86 c=True n=810 lab='' fund=0x77134c | out_other=1.215e+04 in_other=1.805e+04 out_pool=1.144e+04 in_pool=5532 net=-0.9993 nT=47
+   b26279856 i33 from=0x6d36a1 to=0xe60fae() actorΔ=+0 gross=4061 swaps=1/1p wethΔ=+0.6483 eth=0
+   b26281494 i7 from=0x6d36a1 to=0xe60fae() actorΔ=+0 gross=5532 swaps=1/1p wethΔ=-0.8904 eth=0
+   b26281526 i34 from=0x6d36a1 to=0xe60fae() actorΔ=+0 gross=1844 swaps=1/1p wethΔ=+0.2962 eth=0
+  actor buy=0 sell=0 net_ratio=0.000 senders={'0x6d36a1': 3} internal_transfers=0 sandwich=[]
+  top other counterparties: [('0xbeb000', '2.915e+04', 'Bebop: RFQ-A'), ('0x8f10b4', '318.2', ''), ('0x9008d1', '273.1', 'CoW Protocol: GPv2Settlem'), ('0x0cef32', '197', '')]
+=== C10 spx rule=CTRL conf=- wallets=1 usd=0
+  M 0x6f8c4a7f5aa22d2a33a1a29d2f56d6f9f55744e3 c=False n=151 lab='' fund=0x33ee79 | in_pool=1.342 out_pool=0.2302 net=1.112 nT=2
+   b26273906 i139 from=0x6f8c4a to=0x68b346(Uniswap V3: Router 2) actorΔ=+1.34223 gross=1.342 swaps=1/1p wethΔ=+0 eth=0.000206
+   b26274480 i95 from=0x6f8c4a to=0x68b346(Uniswap V3: Router 2) actorΔ=-0.230188 gross=0.2302 swaps=1/1p wethΔ=+0 eth=0
+  actor buy=1.34223 sell=0.230188 net_ratio=0.829 senders={'0x6f8c4a': 2} internal_transfers=0 sandwich=[]
+=== C11 spx rule=CTRL conf=- wallets=1 usd=0
+  M 0xf05875882f0e38d7a60904d2b26d0ef40ec2410a c=False n=724 lab='' fund=0x331d9a | net=0 nT=0
+   b26282062 i94 from=0xf05875 to=0x4313c3() actorΔ=+0 gross=0 swaps=2/2p wethΔ=+0 eth=0.02
+   b26286097 i5 from=0xf05875 to=0xba412d() actorΔ=+0 gross=0 swaps=2/2p wethΔ=+0 eth=0
+  actor buy=0 sell=0 net_ratio=0.000 senders={'0xf05875': 2} internal_transfers=0 sandwich=[]
+=== C12 spx rule=CTRL conf=- wallets=1 usd=0
+  M 0x7a5d0795e32c4f4961b571a7688221cb8ee599bd c=False n=2539 lab='' fund=0x370a7e | net=0 nT=0
+   b26282263 i82 from=0x7a5d07 to=0x5228ed() actorΔ=+0 gross=0 swaps=2/2p wethΔ=+0 eth=0.19
+   b26282295 i14 from=0x7a5d07 to=0x5228ed() actorΔ=+0 gross=0 swaps=2/2p wethΔ=+0 eth=0
+  actor buy=0 sell=0 net_ratio=0.000 senders={'0x7a5d07': 2} internal_transfers=0 sandwich=[]
+=== C13 mog rule=CTRL conf=- wallets=1 usd=0
+  M 0x7202932b3be70edf0657d5bada261d610e0d7db9 c=False n=144505 lab='Bundler: 0x720...db9' fund=0xf7c2d0 | net=0 nT=0
+  B 0x02e96d8db0d690dfaa4164411736d1c0391a6ff8 c=True n=23 lab='' fund=0xb334a6 | in_other=1.099e+08 out_other=0 out_pool=1.099e+08 net=1.49e-08 nT=3
+  B 0x1ad180040c61ddf80b65b09a4ab675d9db80879a c=True n=2 lab='' fund=0x5cb16a | in_other=8.123e+07 net=8.123e+07 nT=1
+  B 0x315d854f795fb749e0687f78b3127a70839db2c8 c=True n=10 lab='' fund=0xa9ac43 | in_other=1.292e+09 out_other=4.057e+08 out_member=5.327e+06 in_pool=1.396e+08 out_pool=2.527e+08 net=7.677e+08 nT=15
+  B 0x5a16adff8eca84098ed7ccb53862819ad31d0b30 c=True n=1 lab='' fund=- | out_other=2.139e+07 net=-2.139e+07 nT=2
+   b26274048 i296 from=0x720293 to=0x000000(Entry Point 0.7.0) actorΔ=+0 gross=3.231e+07 swaps=1/1p wethΔ=+0 eth=0
+   b26276113 i165 from=0x720293 to=0x000000(Entry Point 0.7.0) actorΔ=+0 gross=1.099e+08 swaps=1/1p wethΔ=+0 eth=0
+   b26279749 i198 from=0x720293 to=0x000000(Entry Point 0.7.0) actorΔ=+0 gross=1.033e+08 swaps=4/4p wethΔ=+0 eth=0
+   b26283186 i216 from=0x720293 to=0x000000(Entry Point 0.7.0) actorΔ=+0 gross=1.396e+08 swaps=1/1p wethΔ=+0 eth=0
+   b26283617 i158 from=0x720293 to=0x000000(Entry Point 0.7.0) actorΔ=+0 gross=2.569e+08 swaps=2/2p wethΔ=+0 eth=0
+  actor buy=0 sell=0 net_ratio=0.000 senders={'0x720293': 5} internal_transfers=0 sandwich=[]
+  top other counterparties: [('0xb7131f', '1.292e+09', ''), ('0x0729e2', '4.057e+08', ''), ('0x0cef32', '1.099e+08', ''), ('0x4c82d1', '1.033e+08', 'Uniswap: Universal Router')]
+=== C14 mog rule=CTRL conf=- wallets=1 usd=0
+  M 0xbc3d8111bdac14a78a9d87cfc98f29a12e4d7dcf c=False n=1562 lab='' fund=0xf2fd61 | net=0 nT=0
+  B 0x377900904c573b02148025e1d8ea660808c8c757 c=True n=1 lab='' fund=- | in_member=4.32e+10 out_other=4.017e+10 out_member=4.339e+10 in_other=6.465e+10 net=2.429e+10 nT=72
+  B 0xfdcb36127c3d4d188d3cbd127a3502e5369bc264 c=True n=1 lab='' fund=- | in_pool=4.32e+10 out_other=0 out_member=4.32e+10 in_member=4.339e+10 out_pool=4.339e+10 net=0.0005493 nT=57
+   b26278912 i88 from=0xbc3d81 to=0xfdcb36() actorΔ=-3.47982e+09 gross=3.48e+09 swaps=1/1p wethΔ=+0 eth=0
+   b26279917 i91 from=0xbc3d81 to=0xfdcb36() actorΔ=+5.19753e-05 gross=2.375e+09 swaps=1/1p wethΔ=+0.000101 eth=0
+   b26282588 i148 from=0xbc3d81 to=0xfdcb36() actorΔ=-1.28892e+09 gross=1.289e+09 swaps=1/1p wethΔ=+0 eth=0
+   b26284175 i56 from=0xbc3d81 to=0xfdcb36() actorΔ=+6.54459e-05 gross=9.989e+08 swaps=1/1p wethΔ=+0.000101 eth=0
+  actor buy=0.000117421 sell=4.76873e+09 net_ratio=1.000 senders={'0xbc3d81': 4} internal_transfers=0 sandwich=[]
+  top other counterparties: [('0xa41a30', '5.093e+10', ''), ('0xb67819', '1.548e+10', ''), ('0xd7ca08', '1.167e+10', ''), ('0x63b2d3', '8.119e+09', '')]
+=== C15 mog rule=CTRL conf=- wallets=1 usd=0
+  M 0x1057c855a823203b32f49e1c1741a77fbe13ae31 c=False n=47634 lab='' fund=0x5d4760 | net=0 nT=0
+  B 0x51c72848c68a965f66fa7a88855f9f7784502a7f c=True n=1 lab='' fund=- | in_pool=6.563e+11 out_other=6.198e+11 in_other=3.343e+09 out_pool=3.529e+10 net=4.487e+09 nT=61
+   b26275971 i6 from=0x1057c8 to=0x51c728() actorΔ=+8.5677e+09 gross=8.568e+09 swaps=1/1p wethΔ=-0.3653 eth=0
+   b26285833 i1 from=0x1057c8 to=0x51c728() actorΔ=-1.99354e+10 gross=1.994e+10 swaps=1/1p wethΔ=+0.843 eth=0
+  actor buy=8.5677e+09 sell=1.99354e+10 net_ratio=0.570 senders={'0x1057c8': 2} internal_transfers=0 sandwich=[]
+  top other counterparties: [('0x57483d', '6.198e+11', 'ByBit Deposit: 0x57483D84'), ('0x9008d1', '3.343e+09', 'CoW Protocol: GPv2Settlem'), ('0xaaee1a', '0', 'Mog Coin: Mog Token')]
+=== C16 mog rule=CTRL conf=- wallets=1 usd=0
+  M 0x657eecaf94a46f00c68551c787876cebd569f0d9 c=False n=55044 lab='Bundler: 0x657...0d9' fund=0xca11bd | net=0 nT=0
+  B 0x7d8eb200c45c273e3bef1bc55c09f76805158e96 c=False n=0 lab='' fund=0x666fed | in_other=1.155e+07 in_member=6.439e+05 net=1.219e+07 nT=8
+  B 0xad01c20d5886137e056775af56915de824c8fce5 c=False n=8291 lab='' fund=0x897ce7 | in_other=3.42e+06 net=3.42e+06 nT=2
+  B 0xc8c98a477f63ebf49c022dc63c8b64da51f5c802 c=True n=44 lab='' fund=0xa7ceed | out_other=3.014e+09 net=-3.014e+09 nT=2
+  B 0xef384be66f2c7b6103ccf8e9c6d92fdc8b609e2a c=True n=143 lab='' fund=0xb5d85c | in_pool=1.102e+08 out_other=0 out_member=6.439e+05 net=1.095e+08 nT=3
+   b26278304 i204 from=0x657eec to=0x000000(Entry Point 0.7.0) actorΔ=+0 gross=3.017e+09 swaps=3/3p wethΔ=+0 eth=0
+   b26280671 i95 from=0x657eec to=0x000000(Entry Point 0.7.0) actorΔ=+0 gross=1.102e+08 swaps=1/1p wethΔ=+0 eth=0
+  actor buy=0 sell=0 net_ratio=0.000 senders={'0x657eec': 2} internal_transfers=0 sandwich=[]
+  top other counterparties: [('0x0729e2', '3.014e+09', ''), ('0x315d85', '5.327e+06', ''), ('0x10e101', '3.602e+06', ''), ('0x0cef32', '3.42e+06', '')]
+=== C17 neiro rule=CTRL conf=- wallets=1 usd=0
+  M 0xb64619712b73fb0e6740040af205a0f8134ef8f9 c=False n=42994 lab='' fund=0x5d4760 | net=0 nT=0
+  B 0x51c72848c68a965f66fa7a88855f9f7784502a7f c=True n=1 lab='' fund=- | in_pool=4.809e+08 out_pool=5.271e+08 net=-4.621e+07 nT=250
+   b26266675 i47 from=0xb64619 to=0x51c728() actorΔ=-4.22907e+06 gross=4.229e+06 swaps=1/1p wethΔ=+0.121 eth=0
+   b26269961 i355 from=0xb64619 to=0x51c728() actorΔ=+3.22713e+06 gross=3.227e+06 swaps=1/1p wethΔ=-0.09159 eth=0
+   b26270461 i16 from=0xb64619 to=0x51c728() actorΔ=+8.44684e+06 gross=8.447e+06 swaps=1/1p wethΔ=-0.2398 eth=0
+   b26285192 i218 from=0xb64619 to=0x51c728() actorΔ=+8.23274e+06 gross=8.233e+06 swaps=1/1p wethΔ=-0.2375 eth=0
+  actor buy=1.99067e+07 sell=4.22907e+06 net_ratio=0.788 senders={'0xb64619': 4} internal_transfers=0 sandwich=[]
+=== C18 neiro rule=CTRL conf=- wallets=1 usd=0
+  M 0xa57e55ec968aaf937c4df7179cc884381b684c28 c=False n=43142 lab='' fund=0x5d4760 | net=0 nT=0
+  B 0x51c72848c68a965f66fa7a88855f9f7784502a7f c=True n=1 lab='' fund=- | in_pool=6.239e+08 out_pool=5.271e+08 net=9.681e+07 nT=276
+   b26268630 i8 from=0xa57e55 to=0x51c728() actorΔ=-943874 gross=9.439e+05 swaps=1/1p wethΔ=+0.02663 eth=0
+   b26270615 i12 from=0xa57e55 to=0x51c728() actorΔ=+6.97842e+06 gross=6.978e+06 swaps=1/1p wethΔ=-0.1985 eth=0
+   b26275429 i2 from=0xa57e55 to=0x51c728() actorΔ=-950868 gross=9.509e+05 swaps=1/1p wethΔ=+0.02684 eth=0
+   b26284646 i22 from=0xa57e55 to=0x51c728() actorΔ=+1.07284e+07 gross=1.073e+07 swaps=1/1p wethΔ=-0.3085 eth=0
+  actor buy=1.77068e+07 sell=1.89474e+06 net_ratio=0.893 senders={'0xa57e55': 4} internal_transfers=0 sandwich=[]
+=== C19 neiro rule=CTRL conf=- wallets=1 usd=0
+  M 0x44a72754b072998e14ae22609ee30231d33c6ec5 c=False n=76124 lab='' fund=0x5d4760 | net=0 nT=0
+  B 0x51c72848c68a965f66fa7a88855f9f7784502a7f c=True n=1 lab='' fund=- | in_pool=6.239e+08 out_pool=5.271e+08 net=9.681e+07 nT=276
+   b26274634 i22 from=0x44a727 to=0x51c728() actorΔ=+6.68166e+06 gross=6.682e+06 swaps=1/1p wethΔ=-0.1907 eth=0
+   b26275112 i4 from=0x44a727 to=0x51c728() actorΔ=-948554 gross=9.486e+05 swaps=1/1p wethΔ=+0.02688 eth=0
+   b26281284 i67 from=0x44a727 to=0x51c728() actorΔ=-4.13433e+06 gross=4.134e+06 swaps=1/1p wethΔ=+0.1179 eth=0
+   b26285874 i37 from=0x44a727 to=0x51c728() actorΔ=+7.31731e+06 gross=7.317e+06 swaps=1/1p wethΔ=-0.2121 eth=0
+  actor buy=1.3999e+07 sell=5.08289e+06 net_ratio=0.637 senders={'0x44a727': 4} internal_transfers=0 sandwich=[]
+=== C20 neiro rule=CTRL conf=- wallets=1 usd=0
+  M 0xae326bcd07536f1d5403b19f41563c70f3275748 c=False n=42836 lab='' fund=0x5d4760 | net=0 nT=0
+  B 0x51c72848c68a965f66fa7a88855f9f7784502a7f c=True n=1 lab='' fund=- | in_pool=6.239e+08 out_pool=5.271e+08 net=9.681e+07 nT=276
+   b26266857 i118 from=0xae326b to=0x51c728() actorΔ=-2.96503e+06 gross=2.965e+06 swaps=1/1p wethΔ=+0.08469 eth=0
+   b26267807 i4 from=0xae326b to=0x51c728() actorΔ=-928416 gross=9.284e+05 swaps=1/1p wethΔ=+0.02642 eth=0
+   b26275162 i248 from=0xae326b to=0x51c728() actorΔ=-949420 gross=9.494e+05 swaps=1/1p wethΔ=+0.02684 eth=0
+   b26277591 i285 from=0xae326b to=0x51c728() actorΔ=+6.78418e+06 gross=6.784e+06 swaps=1/1p wethΔ=-0.1958 eth=0
+   b26278706 i12 from=0xae326b to=0x51c728() actorΔ=-8.1837e+06 gross=8.184e+06 swaps=1/1p wethΔ=+0.2336 eth=0
+  actor buy=6.78418e+06 sell=1.30266e+07 net_ratio=0.479 senders={'0xae326b': 5} internal_transfers=0 sandwich=[]

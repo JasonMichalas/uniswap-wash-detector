@@ -14,6 +14,7 @@ import {
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ApiError,
+  cancelJob,
   compileGraph,
   fetchJob,
   fetchTemplate,
@@ -21,10 +22,16 @@ import {
   runGraph,
   startLoad,
 } from "../api";
+import { describeProblem } from "../editor/boxCopy";
+import { BOX_STRIDE_X, freePosition } from "../editor/place";
+import { RECIPES } from "../editor/recipes";
 import { actionStatus, addressProblem, numericSuffix, sleep, slug, stepHint } from "../editor/ui";
 import {
-  connectionAllowed,
+  connectionProblem,
   fromApiGraph,
+  inferOutputs,
+  nextSteps,
+  wouldCycle,
   isAddress,
   logicKey,
   rangeProblem,
@@ -34,14 +41,16 @@ import {
 import type { Catalog, GraphError, LoadResult, PaletteItem, RunResult, TemplateSummary, TokenSuggestion } from "../types";
 import { BoxNodeView } from "./BoxNode";
 import { ExampleMenu } from "./ExampleMenu";
+import { QuickStart } from "./QuickStart";
 import { GraphActions } from "./GraphActions";
 import { Inspector } from "./Inspector";
 import { LoadStatus } from "./LoadStatus";
 import { PaletteToolbar } from "./PaletteToolbar";
-import { Results } from "./Results";
+import { Results, ResultsModal, resultRowCount, resultsWindowLabel } from "./Results";
 import { TokenWindow } from "./TokenWindow";
 
 const nodeTypes = { box: BoxNodeView };
+const STALL_SECONDS = 60;
 
 export function Editor({ catalog }: { catalog: Catalog }) {
   const [nodes, setNodes, onNodesChange] = useNodesState<BoxNode>([]);
@@ -55,7 +64,11 @@ export function Editor({ catalog }: { catalog: Catalog }) {
   const [endDate, setEndDate] = useState("");
   const [loading, setLoading] = useState(false);
   const [progress, setProgress] = useState("");
+  const [forks, setForks] = useState(false);
+  const jobRef = useRef<string | null>(null);
+  const [stalled, setStalled] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [loadErrorDetail, setLoadErrorDetail] = useState<string | null>(null);
   const [loaded, setLoaded] = useState<LoadResult | null>(null);
   const [query, setQuery] = useState("");
   const [sql, setSql] = useState("");
@@ -70,8 +83,9 @@ export function Editor({ catalog }: { catalog: Catalog }) {
     document.documentElement.dataset.theme === "dark" ? "dark" : "light",
   );
   const [examplesAt, setExamplesAt] = useState<"toolbar" | "canvas" | null>(null);
-  const [panelHeight, setPanelHeight] = useState(140);
+  const [panelHeight, setPanelHeight] = useState(420);
   const [panelCollapsed, setPanelCollapsed] = useState(false);
+  const [resultsOpen, setResultsOpen] = useState(false);
   const idRef = useRef(1);
   const fileRef = useRef<HTMLInputElement>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
@@ -80,7 +94,7 @@ export function Editor({ catalog }: { catalog: Catalog }) {
   const edgesRef = useRef(edges);
   nodesRef.current = nodes;
   edgesRef.current = edges;
-  const { screenToFlowPosition, fitView, setCenter } = useReactFlow();
+  const { screenToFlowPosition, fitView, setCenter, getViewport } = useReactFlow();
 
   const key = useMemo(() => logicKey(nodes, edges), [nodes, edges]);
   const latestKey = useRef(key);
@@ -164,14 +178,23 @@ export function Editor({ catalog }: { catalog: Catalog }) {
 
   const onConnect: OnConnect = useCallback(
     (connection: Connection) => {
+      const problem = connectionProblem(connection, nodesRef.current, edgesRef.current, catalog);
+      if (problem) {
+        setBanner(problem);
+        return;
+      }
+      setBanner(null);
       setEdges((current) => addEdge({ ...connection, id: `e${idRef.current++}` }, current));
     },
-    [setEdges],
+    [catalog, setEdges],
   );
 
   const isValidConnection = useCallback(
-    (connection: Connection | Edge) => connectionAllowed(connection, nodes, edges, catalog),
-    [nodes, edges, catalog],
+    (connection: Connection | Edge) => {
+      if (!connection.source || !connection.target || connection.source === connection.target) return false;
+      return !wouldCycle(connection.source, connection.target, edges);
+    },
+    [edges],
   );
 
   const shownNodes = nodes.map((node) => ({
@@ -192,12 +215,12 @@ export function Editor({ catalog }: { catalog: Catalog }) {
 
   function clickPosition(): { x: number; y: number } {
     const rect = wrapRef.current?.getBoundingClientRect();
-    const count = nodesRef.current.length;
-    if (!rect) return { x: 80 + count * 24, y: 80 };
-    return screenToFlowPosition({
-      x: rect.left + 56 + (count % 3) * 28,
-      y: rect.top + 40 + count * 16,
-    });
+    const preferred = rect
+      ? screenToFlowPosition({ x: rect.left + 48, y: rect.top + 64 })
+      : { x: 48, y: 48 };
+    const zoom = getViewport().zoom || 1;
+    const columns = rect ? Math.floor((rect.width - 64) / (BOX_STRIDE_X * zoom)) : 3;
+    return freePosition(nodesRef.current, preferred, columns);
   }
 
   function placeChip(item: PaletteItem) {
@@ -206,8 +229,10 @@ export function Editor({ catalog }: { catalog: Catalog }) {
 
   async function onLoad() {
     setLoadError(null);
+    setLoadErrorDetail(null);
     setBanner(null);
     setLoading(true);
+    setStalled(false);
     setProgress("Starting");
     setRun(null);
     setRunError(null);
@@ -216,18 +241,27 @@ export function Editor({ catalog }: { catalog: Catalog }) {
     try {
       const token = address.trim().toLowerCase();
       const body = preset !== null ? { token, days: preset } : { token, start: startDate, end: endDate };
-      const { job_id: jobId } = await startLoad(body);
+      const { job_id: jobId } = await startLoad({ ...body, include_forks: forks });
+      jobRef.current = jobId;
       for (;;) {
         const job = await fetchJob(jobId);
-        if (!alive.current) return;
+        if (!alive.current || jobRef.current !== jobId) return;
         setProgress(job.message);
+        setStalled(job.status === "running" && job.quiet_for >= STALL_SECONDS);
         if (job.status === "done" && job.result) {
           setLoaded(job.result);
           setLoading(false);
           return;
         }
+        if (job.status === "cancelled") {
+          setLoadError(null);
+          setLoadErrorDetail(null);
+          setLoading(false);
+          return;
+        }
         if (job.status === "error") {
-          setLoadError(job.error || job.message || "The load failed.");
+          setLoadError(job.error || "The free data servers could not finish this load.");
+          setLoadErrorDetail(typeof job.error_detail === "string" ? job.error_detail : job.message || null);
           setLoading(false);
           return;
         }
@@ -235,9 +269,24 @@ export function Editor({ catalog }: { catalog: Catalog }) {
       }
     } catch (error) {
       if (!alive.current) return;
-      setLoadError(error instanceof Error ? error.message : "The load failed.");
+      setLoadError("The free data servers could not finish this load.");
+      setLoadErrorDetail(error instanceof Error ? error.message : "The load failed.");
       setLoading(false);
     }
+  }
+
+  function onCancel() {
+    const jobId = jobRef.current;
+    if (jobId) void cancelJob(jobId).catch(() => undefined);
+    setStalled(false);
+    setProgress("Cancelling…");
+  }
+
+  function onRetry() {
+    const jobId = jobRef.current;
+    jobRef.current = null;
+    if (jobId) void cancelJob(jobId).catch(() => undefined);
+    void onLoad();
   }
 
   async function onRun() {
@@ -257,12 +306,11 @@ export function Editor({ catalog }: { catalog: Catalog }) {
       setSql(result.sql);
       setQuery(result.query);
       setTab("result");
-      setPanelCollapsed(false);
+      setResultsOpen(true);
     } catch (error) {
-      setRun(null);
       setRunError(error instanceof ApiError ? error.message : "The run failed.");
       setTab("result");
-      setPanelCollapsed(false);
+      setResultsOpen(true);
     } finally {
       setRunning(false);
     }
@@ -306,6 +354,37 @@ export function Editor({ catalog }: { catalog: Catalog }) {
     window.setTimeout(() => fitView({ padding: 0.2, duration: 200 }), 30);
   }
 
+  function openRecipe(id: string) {
+    const recipe = RECIPES.find((item) => item.id === id);
+    if (!recipe) return;
+    placeGraph(recipe.graph, recipe.title);
+  }
+
+  function addNext(nodeType: string, params: Record<string, unknown>, label: string) {
+    const source = nodes.find((node) => node.selected);
+    if (!source) return;
+    const outputs = inferOutputs(nodes, edges, catalog);
+    const handle = Object.keys(outputs.get(source.id) ?? {})[0] ?? "out";
+    const id = `b${idRef.current++}`;
+    const position = freePosition(nodes, { x: source.position.x + 320, y: source.position.y });
+    setNodes((current) => [
+      ...current.map((node) => ({ ...node, selected: false })),
+      { id, type: "box", position, selected: true, data: { nodeType, params, label } },
+    ]);
+    setEdges((current) =>
+      addEdge(
+        {
+          id: `e${idRef.current++}`,
+          source: source.id,
+          target: id,
+          sourceHandle: handle,
+          targetHandle: nodeType === "detect_cycles" ? "in_transfers" : "in",
+        },
+        current,
+      ),
+    );
+  }
+
   async function openTemplate(id: string) {
     try {
       const graph = await fetchTemplate(id);
@@ -326,7 +405,7 @@ export function Editor({ catalog }: { catalog: Catalog }) {
   function focusNode(id: string) {
     setNodes((current) => current.map((node) => ({ ...node, selected: node.id === id })));
     const node = nodes.find((item) => item.id === id);
-    if (node) setCenter(node.position.x + 110, node.position.y + 50, { zoom: 1.1, duration: 200 });
+    if (node) setCenter(node.position.x + 140, node.position.y + 70, { zoom: 1.1, duration: 200 });
   }
 
   function toggleTheme() {
@@ -377,7 +456,11 @@ export function Editor({ catalog }: { catalog: Catalog }) {
         }}
         canLoad={canLoad}
         loading={loading}
+        progress={progress}
+        forks={forks}
+        onForks={setForks}
         onLoad={() => void onLoad()}
+        onCancel={onCancel}
       />
 
       <LoadStatus
@@ -385,8 +468,12 @@ export function Editor({ catalog }: { catalog: Catalog }) {
         customProblem={customProblem}
         showCustomProblem={preset === null}
         loadError={loadError}
+        loadErrorDetail={loadErrorDetail}
         loading={loading}
         progress={progress}
+        stalled={stalled}
+        onRetry={onRetry}
+        onCancel={onCancel}
         loaded={loaded}
         ran={run !== null}
       />
@@ -397,6 +484,7 @@ export function Editor({ catalog }: { catalog: Catalog }) {
         examplesOpen={examplesAt === "toolbar"}
         onToggleExamples={() => setExamplesAt((current) => (current === "toolbar" ? null : "toolbar"))}
         onOpenExample={(id) => void openTemplate(id)}
+        onOpenRecipe={openRecipe}
         onPlace={placeChip}
       />
 
@@ -416,6 +504,8 @@ export function Editor({ catalog }: { catalog: Catalog }) {
         }}
         onRun={() => void onRun()}
         onFile={onFile}
+        resultRows={resultRowCount(run)}
+        onShowResults={() => setResultsOpen(true)}
       />
 
       <div className="workspace">
@@ -431,12 +521,14 @@ export function Editor({ catalog }: { catalog: Catalog }) {
             const raw = event.dataTransfer.getData("application/washdetect");
             if (!raw) return;
             const item = JSON.parse(raw) as { node_type: string; label: string; data: Record<string, unknown> };
-            addBox(item.node_type, item.data, item.label, screenToFlowPosition({ x: event.clientX, y: event.clientY }));
+            const preferred = screenToFlowPosition({ x: event.clientX, y: event.clientY });
+            addBox(item.node_type, item.data, item.label, freePosition(nodesRef.current, preferred));
           }}
         >
           {nodes.length === 0 && (
             <div className="empty-canvas">
               <p>Drag a Data box here to start</p>
+              <QuickStart onOpen={openRecipe} />
               <ExampleMenu
                 templates={templates}
                 open={examplesAt === "canvas"}
@@ -456,7 +548,6 @@ export function Editor({ catalog }: { catalog: Catalog }) {
             nodeTypes={nodeTypes}
             deleteKeyCode={["Backspace", "Delete"]}
             proOptions={{ hideAttribution: false }}
-            fitView
             colorMode={theme}
           >
             <Background gap={22} color={theme === "dark" ? "#3a372f" : "#e4ddd0"} />
@@ -476,6 +567,12 @@ export function Editor({ catalog }: { catalog: Catalog }) {
           nodes={nodes}
           edges={edges}
           onChange={updateParams}
+          onAddNext={addNext}
+          suggestions={
+            selected
+              ? nextSteps(Object.values(inferOutputs(nodes, edges, catalog).get(selected.id) ?? {})[0]?.type)
+              : []
+          }
           onDelete={(id) => {
             setNodes((current) => current.filter((node) => node.id !== id));
             setEdges((current) => current.filter((edge) => edge.source !== id && edge.target !== id));
@@ -490,6 +587,10 @@ export function Editor({ catalog }: { catalog: Catalog }) {
         sql={sql}
         run={run}
         errors={errors}
+        problemText={(error) => {
+          const node = nodes.find((item) => item.id === error.node_id);
+          return describeProblem(error.message, node?.data.nodeType);
+        }}
         runError={runError}
         checking={checking}
         tab={tab}
@@ -499,6 +600,16 @@ export function Editor({ catalog }: { catalog: Catalog }) {
         collapsed={panelCollapsed}
         onCollapsed={setPanelCollapsed}
         onHeight={setPanelHeight}
+        onOpenResults={() => setResultsOpen(true)}
+      />
+      <ResultsModal
+        open={resultsOpen}
+        onClose={() => setResultsOpen(false)}
+        run={run}
+        runError={runError}
+        noSwaps={loaded !== null && loaded.swaps === 0}
+        symbol={loaded?.symbol ?? ""}
+        windowLabel={loaded ? resultsWindowLabel(loaded.start_time, loaded.end_time) : ""}
       />
     </div>
   );

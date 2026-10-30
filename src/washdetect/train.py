@@ -11,6 +11,7 @@ from washdetect.evaluate import (
     group_recall,
     recall_table,
     render_report,
+    rule_metric_table,
     wash_percent_row,
     write_plots,
 )
@@ -71,6 +72,20 @@ def _downsample(frame: pd.DataFrame, cap: int, seed: int) -> pd.DataFrame:
     return pd.concat([positive, negative], ignore_index=True)
 
 
+def _detector_rule_table(tables: list[TokenTables]) -> pd.DataFrame:
+    frames = [table.groups for table in tables if not table.groups.empty and "rule" in table.groups.columns]
+    if not frames:
+        return pd.DataFrame(columns=["rule", "n", "recall"])
+    groups = pd.concat(frames, ignore_index=True)
+    groups = groups[groups["rule"].astype(str) != ""]
+    if groups.empty:
+        return pd.DataFrame(columns=["rule", "n", "recall"])
+    rows = []
+    for rule, part in groups.groupby("rule"):
+        rows.append({"rule": rule, "n": int(len(part)), "recall": float(part["rule_hit"].mean())})
+    return pd.DataFrame(rows).sort_values("rule").reset_index(drop=True)
+
+
 def _concat(tables: list[TokenTables], attr: str) -> pd.DataFrame:
     frames = [getattr(table, attr) for table in tables if not getattr(table, attr).empty]
     if not frames:
@@ -128,7 +143,9 @@ def train_tables(
 
     pattern_recall = recall_table(test_trades, ["pattern_type"])
     pair_recall = recall_table(test_trades, ["n_buyers", "n_sellers"])
+    rule_model = rule_metric_table(test_trades) if "rule" in test_trades.columns else pd.DataFrame()
     groups = group_recall(test_trades)
+    rule_detector = _detector_rule_table(test)
 
     role = {}
     for name, ids in split.items():
@@ -163,6 +180,8 @@ def train_tables(
         pattern_recall=pattern_recall,
         pair_recall=pair_recall,
         group_level=groups,
+        rule_model=rule_model,
+        rule_detector=rule_detector,
         comparison=comparison,
         split=split,
         tokens=summary,

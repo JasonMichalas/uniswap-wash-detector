@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import threading
+from collections import defaultdict
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -8,7 +9,54 @@ from typing import Any
 import duckdb
 import pandas as pd
 
-from washdetect.ranges import covers, merge_intervals, missing_intervals
+from washdetect.ranges import covers, intersect_intervals, merge_intervals, missing_intervals
+
+CHAIN = "__chain__"
+_EVENT_KEY = ("token", "tx_hash", "log_index")
+_SWAP_COLS = tuple(
+    (
+        "token tx_hash log_index block_number block_timestamp pool_address protocol "
+        "sender recipient trader side amount_token amount_quote quote_token usd_value "
+        "amount0_raw amount1_raw"
+    ).split()
+)
+_TRANSFER_COLS = tuple(
+    (
+        "token tx_hash log_index block_number block_timestamp from_address to_address "
+        "amount_raw amount"
+    ).split()
+)
+_LIQUIDITY_COLS = tuple(
+    (
+        "token tx_hash log_index block_number block_timestamp pool_address protocol kind "
+        "sender amount0_raw amount1_raw"
+    ).split()
+)
+_POOL_COLS = tuple(
+    (
+        "token pool_address protocol token0 token1 fee token0_decimals token1_decimals "
+        "token0_symbol token1_symbol"
+    ).split()
+)
+
+
+def pool_log_gaps(
+    have: dict[str, list[tuple[int, int]]], pool_address: str, start: int, end: int
+) -> list[tuple[int, int]]:
+    """Block ranges this pool has not had its swap and liquidity logs read for.
+
+    Coverage is per pool. A row for another pool, or a token-wide ``swaps`` row,
+    does not cover this one. Caches from before liquidity had its own key stored
+    both event types on the swap key, so a pool with no liquidity row still
+    counts that scan.
+    """
+    swaps = have.get(f"swaps:{pool_address}", [])
+    liquidity_key = f"liquidity:{pool_address}"
+    if liquidity_key not in have:
+        return missing_intervals(swaps, start, end)
+    covered = intersect_intervals(swaps, have[liquidity_key])
+    return missing_intervals(covered, start, end)
+
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS tokens (
@@ -52,6 +100,7 @@ CREATE TABLE IF NOT EXISTS swaps (
     amount_quote DOUBLE,
     quote_token VARCHAR,
     usd_value DOUBLE,
+    price_source VARCHAR,
     amount0_raw VARCHAR,
     amount1_raw VARCHAR,
     PRIMARY KEY (token, tx_hash, log_index)
@@ -97,6 +146,16 @@ CREATE TABLE IF NOT EXISTS tx_senders (
     sender VARCHAR
 );
 
+CREATE TABLE IF NOT EXISTS tx_meta (
+    tx_hash VARCHAR PRIMARY KEY,
+    tx_to VARCHAR,
+    nonce BIGINT,
+    tx_index INTEGER,
+    gas_price DOUBLE,
+    priority_fee DOUBLE,
+    gas_limit BIGINT
+);
+
 CREATE TABLE IF NOT EXISTS wallet_balance_daily (
     token VARCHAR,
     wallet VARCHAR,
@@ -126,6 +185,30 @@ CREATE TABLE IF NOT EXISTS labelled_swaps (
     PRIMARY KEY (token, start_block, end_block, tx_hash, log_index)
 );
 
+CREATE TABLE IF NOT EXISTS chain_pools (
+    pool_address VARCHAR PRIMARY KEY,
+    protocol VARCHAR,
+    dex VARCHAR,
+    token0 VARCHAR,
+    token1 VARCHAR,
+    fee INTEGER,
+    hooks VARCHAR
+);
+
+CREATE TABLE IF NOT EXISTS batch_token (
+    token VARCHAR,
+    window_key VARCHAR,
+    status VARCHAR,
+    reason VARCHAR,
+    symbol VARCHAR,
+    pools INTEGER,
+    swaps INTEGER,
+    transfers INTEGER,
+    seconds DOUBLE,
+    updated_at VARCHAR,
+    PRIMARY KEY (token, window_key)
+);
+
 CREATE TABLE IF NOT EXISTS wallet_features (
     token VARCHAR,
     start_block BIGINT,
@@ -153,6 +236,9 @@ CREATE TABLE IF NOT EXISTS wallet_features (
 """
 
 
+TX_META_COLUMNS = ("tx_hash", "tx_to", "nonce", "tx_index", "gas_price", "priority_fee", "gas_limit")
+
+
 class Store:
     """The editor only reads this file. CLI detect and batch are what write labels."""
 
@@ -163,6 +249,34 @@ class Store:
         self.con = duckdb.connect(self.path)
         self.lock = threading.RLock()
         self.con.execute(SCHEMA)
+        self._ensure_swap_price_source()
+        self._fix_v4_sides()
+        self.con.execute(
+            "CREATE INDEX IF NOT EXISTS coverage_token_dataset ON coverage(token, dataset)"
+        )
+        self.con.execute("CREATE INDEX IF NOT EXISTS chain_pools_token0 ON chain_pools(token0)")
+        self.con.execute("CREATE INDEX IF NOT EXISTS chain_pools_token1 ON chain_pools(token1)")
+
+    def _ensure_swap_price_source(self) -> None:
+        rows = self.con.execute(
+            "SELECT column_name FROM information_schema.columns WHERE table_name = 'swaps'"
+        ).fetchall()
+        names = {str(row[0]) for row in rows}
+        if "price_source" not in names:
+            self.con.execute("ALTER TABLE swaps ADD COLUMN price_source VARCHAR")
+
+    def _fix_v4_sides(self) -> None:
+        """Older caches stored v4 swaps with buy and sell swapped."""
+        self.con.execute("CREATE TABLE IF NOT EXISTS fixes (name VARCHAR PRIMARY KEY)")
+        if self.con.execute("SELECT 1 FROM fixes WHERE name = 'v4_side'").fetchone():
+            return
+        flip = "CASE WHEN {0} LIKE '-%' THEN substr({0}, 2) WHEN {0} IN ('0', '') OR {0} IS NULL THEN {0} ELSE '-' || {0} END"
+        self.con.execute(
+            f"""UPDATE swaps SET side = CASE side WHEN 'buy' THEN 'sell' WHEN 'sell' THEN 'buy' ELSE side END,
+            amount0_raw = {flip.format('amount0_raw')}, amount1_raw = {flip.format('amount1_raw')}
+            WHERE protocol LIKE '%v4%'"""
+        )
+        self.con.execute("INSERT INTO fixes VALUES ('v4_side')")
 
     def close(self) -> None:
         with self.lock:
@@ -170,6 +284,42 @@ class Store:
 
     def _df(self, sql: str, params: list[Any] | None = None) -> pd.DataFrame:
         return self.con.execute(sql, params or []).df()
+
+    def _framed(
+        self,
+        sql: str,
+        columns: tuple[str, ...],
+        rows: list[tuple[Any, ...]],
+        keys: tuple[str, ...] = (),
+        params: list[Any] | None = None,
+    ) -> list[tuple[Any, ...]]:
+        """One statement over a DataFrame. DuckDB's executemany runs row by row: 14k transfers took 45s."""
+        if not rows:
+            return []
+        frame = pd.DataFrame(rows, columns=list(columns))
+        if keys:
+            frame = frame.drop_duplicates(subset=list(keys), keep="last")
+        with self.lock:
+            cursor = self.con.cursor()
+            try:
+                cursor.register("_rows", frame)
+                result = cursor.execute(sql, params or [])
+                return result.fetchall() if result.description else []
+            finally:
+                cursor.close()
+
+    def _put(
+        self,
+        table: str,
+        columns: tuple[str, ...],
+        rows: list[tuple[Any, ...]],
+        keys: tuple[str, ...] = (),
+    ) -> None:
+        names = ", ".join(columns)
+        verb = "INSERT OR REPLACE" if keys else "INSERT"
+        self._framed(
+            f"{verb} INTO {table} ({names}) SELECT {names} FROM _rows", columns, rows, keys
+        )
 
     def upsert_token(self, token: str, symbol: str, decimals: int) -> None:
         with self.lock:
@@ -188,17 +338,13 @@ class Store:
         return {"symbol": rows[0][0], "decimals": rows[0][1]}
 
     def save_pools(self, rows: list[tuple[Any, ...]]) -> None:
-        if not rows:
-            return
-        with self.lock:
-            self.con.executemany(
-                "INSERT OR REPLACE INTO pools VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                rows,
-            )
+        self._put("pools", _POOL_COLS, rows, ("token", "pool_address"))
 
     def pools_for(self, token: str) -> list[dict[str, Any]]:
         with self.lock:
-            frame = self._df("SELECT * FROM pools WHERE token = ? ORDER BY protocol, pool_address", [token])
+            frame = self._df(
+                "SELECT * FROM pools WHERE token = ? ORDER BY protocol, pool_address", [token]
+            )
         return frame.to_dict(orient="records")
 
     def coverage(self, token: str, dataset: str) -> list[tuple[int, int]]:
@@ -209,11 +355,30 @@ class Store:
             ).fetchall()
         return [(int(a), int(b)) for a, b in rows]
 
+    def coverage_by_dataset(self, token: str) -> dict[str, list[tuple[int, int]]]:
+        """Every cached span for a token, in one read. A large pool set uses this once."""
+        with self.lock:
+            rows = self.con.execute(
+                "SELECT dataset, start_block, end_block FROM coverage WHERE token = ?",
+                [token],
+            ).fetchall()
+        grouped: dict[str, list[tuple[int, int]]] = defaultdict(list)
+        for dataset, start, end in rows:
+            grouped[str(dataset)].append((int(start), int(end)))
+        return grouped
+
     def missing(self, token: str, dataset: str, start: int, end: int) -> list[tuple[int, int]]:
         return missing_intervals(self.coverage(token, dataset), start, end)
 
     def range_covered(self, token: str, dataset: str, start: int, end: int) -> bool:
         return covers(self.coverage(token, dataset), start, end)
+
+    def clear_coverage(self, token: str, dataset: str) -> None:
+        with self.lock:
+            self.con.execute(
+                "DELETE FROM coverage WHERE token = ? AND dataset = ?",
+                [token, dataset],
+            )
 
     def add_coverage(self, token: str, dataset: str, start: int, end: int) -> None:
         if start > end:
@@ -235,88 +400,87 @@ class Store:
                 [(token, dataset, a, b) for a, b in merged],
             )
 
+    def add_coverage_many(self, rows: list[tuple[str, str, int, int]]) -> None:
+        """Insert many coverage spans. Readers merge overlaps, so a bulk scan can write once."""
+        kept = [row for row in rows if row[2] <= row[3]]
+        self._put("coverage", ("token", "dataset", "start_block", "end_block"), kept)
+
     def insert_swaps(self, rows: list[tuple[Any, ...]]) -> None:
-        if not rows:
-            return
-        with self.lock:
-            self.con.executemany(
-                "INSERT OR REPLACE INTO swaps VALUES "
-                "(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                rows,
-            )
+        self._put("swaps", _SWAP_COLS, rows, _EVENT_KEY)
 
     def insert_transfers(self, rows: list[tuple[Any, ...]]) -> None:
-        if not rows:
-            return
-        with self.lock:
-            self.con.executemany(
-                "INSERT OR REPLACE INTO transfers VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                rows,
-            )
+        self._put("transfers", _TRANSFER_COLS, rows, _EVENT_KEY)
 
     def insert_liquidity(self, rows: list[tuple[Any, ...]]) -> None:
-        if not rows:
-            return
-        with self.lock:
-            self.con.executemany(
-                "INSERT OR REPLACE INTO liquidity_events VALUES "
-                "(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                rows,
-            )
+        self._put("liquidity_events", _LIQUIDITY_COLS, rows, _EVENT_KEY)
 
     def remember_blocks(self, rows: list[tuple[int, datetime]]) -> None:
-        if not rows:
-            return
-        with self.lock:
-            self.con.executemany("INSERT OR REPLACE INTO blocks VALUES (?, ?)", rows)
+        self._put("blocks", ("block_number", "ts"), rows, ("block_number",))
 
     def known_blocks(self, numbers: list[int]) -> dict[int, datetime]:
-        if not numbers:
-            return {}
-        with self.lock:
-            self.con.execute("CREATE TEMP TABLE IF NOT EXISTS _nums (n BIGINT)")
-            self.con.execute("DELETE FROM _nums")
-            self.con.executemany("INSERT INTO _nums VALUES (?)", [(n,) for n in numbers])
-            rows = self.con.execute(
-                "SELECT b.block_number, b.ts FROM blocks b JOIN _nums u ON b.block_number = u.n"
-            ).fetchall()
+        rows = self._framed(
+            "SELECT b.block_number, b.ts FROM blocks b JOIN _rows u ON b.block_number = u.n",
+            ("n",),
+            [(n,) for n in set(numbers)],
+        )
         return {int(n): ts for n, ts in rows}
 
     def remember_senders(self, rows: list[tuple[str, str]]) -> None:
-        if not rows:
-            return
-        with self.lock:
-            self.con.executemany("INSERT OR REPLACE INTO tx_senders VALUES (?, ?)", rows)
+        self._put("tx_senders", ("tx_hash", "sender"), rows, ("tx_hash",))
 
     def known_senders(self, tx_hashes: list[str]) -> dict[str, str]:
-        if not tx_hashes:
-            return {}
-        with self.lock:
-            self.con.execute("CREATE TEMP TABLE IF NOT EXISTS _txs (h VARCHAR)")
-            self.con.execute("DELETE FROM _txs")
-            self.con.executemany("INSERT INTO _txs VALUES (?)", [(h,) for h in tx_hashes])
-            rows = self.con.execute(
-                "SELECT s.tx_hash, s.sender FROM tx_senders s JOIN _txs t ON s.tx_hash = t.h"
-            ).fetchall()
+        rows = self._framed(
+            "SELECT s.tx_hash, s.sender FROM tx_senders s JOIN _rows t ON s.tx_hash = t.h",
+            ("h",),
+            [(h,) for h in set(tx_hashes)],
+        )
         return {h: sender for h, sender in rows}
 
-    def apply_traders(self, token: str, rows: list[tuple[str, str]]) -> None:
-        if not rows:
-            return
+    def remember_tx_meta(self, rows: list[tuple]) -> None:
+        self._put("tx_meta", TX_META_COLUMNS, rows, ("tx_hash",))
+
+    def txs_missing_meta(self, token: str, start: int, end: int) -> list[str]:
         with self.lock:
-            self.con.executemany(
-                "UPDATE swaps SET trader = ? WHERE token = ? AND tx_hash = ? AND trader IS NULL",
-                [(sender, token, tx) for tx, sender in rows],
+            rows = self.con.execute(
+                """
+                SELECT DISTINCT s.tx_hash FROM swaps s
+                LEFT JOIN tx_meta m ON m.tx_hash = s.tx_hash
+                WHERE s.token = ? AND s.block_number BETWEEN ? AND ? AND m.tx_hash IS NULL
+                """,
+                [token, start, end],
+            ).fetchall()
+        return [r[0] for r in rows]
+
+    def read_tx_meta(self, token: str, start: int, end: int) -> pd.DataFrame:
+        with self.lock:
+            return self._df(
+                """
+                SELECT DISTINCT m.* FROM tx_meta m
+                JOIN swaps s ON s.tx_hash = m.tx_hash
+                WHERE s.token = ? AND s.block_number BETWEEN ? AND ?
+                """,
+                [token, start, end],
             )
 
-    def apply_prices(self, token: str, rows: list[tuple[float, str, int]]) -> None:
-        if not rows:
-            return
-        with self.lock:
-            self.con.executemany(
-                "UPDATE swaps SET usd_value = ? WHERE token = ? AND tx_hash = ? AND log_index = ?",
-                [(usd, token, tx, log_index) for usd, tx, log_index in rows],
-            )
+    def apply_traders(self, token: str, rows: list[tuple[str, str]]) -> None:
+        self._framed(
+            "UPDATE swaps SET trader = _rows.sender FROM _rows "
+            "WHERE swaps.token = ? AND swaps.tx_hash = _rows.tx AND swaps.trader IS NULL",
+            ("tx", "sender"),
+            rows,
+            ("tx",),
+            [token],
+        )
+
+    def apply_prices(self, token: str, rows: list[tuple[float, str, str, int]]) -> None:
+        self._framed(
+            "UPDATE swaps SET usd_value = _rows.usd, price_source = _rows.source FROM _rows "
+            "WHERE swaps.token = ? AND swaps.tx_hash = _rows.tx AND swaps.log_index = _rows.log",
+            ("usd", "source", "tx", "log"),
+            rows,
+            ("tx", "log"),
+            [token],
+        )
 
     def swaps_missing_trader(self, token: str, start: int, end: int) -> list[str]:
         with self.lock:
@@ -333,7 +497,7 @@ class Store:
         with self.lock:
             return self._df(
                 """
-                SELECT tx_hash, log_index, amount_token, amount_quote, quote_token, side
+                SELECT tx_hash, log_index, block_number, amount_token, amount_quote, quote_token, side
                 FROM swaps
                 WHERE token = ? AND block_number BETWEEN ? AND ? AND usd_value IS NULL
                 """,
@@ -350,6 +514,52 @@ class Store:
                 """,
                 [token, start, end],
             )
+
+    def read_liquidity(self, token: str, start: int, end: int) -> pd.DataFrame:
+        with self.lock:
+            return self._df(
+                """
+                SELECT l.*, s.sender AS provider FROM liquidity_events l
+                LEFT JOIN tx_senders s ON s.tx_hash = l.tx_hash
+                WHERE l.token = ? AND l.block_number BETWEEN ? AND ?
+                ORDER BY l.block_number, l.log_index
+                """,
+                [token, start, end],
+            )
+
+    def liquidity_missing_sender(self, token: str, start: int, end: int) -> list[str]:
+        """Liquidity events log the router as sender; the provider is tx.from."""
+        with self.lock:
+            rows = self.con.execute(
+                """
+                SELECT DISTINCT l.tx_hash FROM liquidity_events l
+                LEFT JOIN tx_senders s ON s.tx_hash = l.tx_hash
+                WHERE l.token = ? AND l.block_number BETWEEN ? AND ? AND s.sender IS NULL
+                """,
+                [token, start, end],
+            ).fetchall()
+        return [row[0] for row in rows]
+
+    def creator_from_window(self, token: str, start: int, end: int) -> tuple[str, str]:
+        """tx.from of the earliest mint in the window. The mint recipient is not the creator."""
+        zero = "0x" + "00" * 20
+        with self.lock:
+            row = self.con.execute(
+                """
+                SELECT tx_hash FROM transfers
+                WHERE token = ? AND block_number BETWEEN ? AND ?
+                  AND lower(from_address) = ?
+                ORDER BY block_number, log_index
+                LIMIT 1
+                """,
+                [token.lower(), start, end, zero],
+            ).fetchone()
+        if not row:
+            return "", "no_mint"
+        sender = self.known_senders([str(row[0])]).get(str(row[0]), "")
+        if sender:
+            return sender.lower(), "found"
+        return "", "mint_without_sender"
 
     def read_transfers(self, token: str, start: int, end: int) -> pd.DataFrame:
         with self.lock:
@@ -409,6 +619,27 @@ class Store:
             ).fetchall()
         return [r[0] for r in rows]
 
+    def transfer_parties(self, token: str, start: int, end: int, limit: int) -> list[str]:
+        """Addresses that sent or received the token, largest amount first."""
+        with self.lock:
+            rows = self.con.execute(
+                """
+                SELECT addr FROM (
+                    SELECT from_address AS addr, amount FROM transfers
+                    WHERE token = ? AND block_number BETWEEN ? AND ?
+                    UNION ALL
+                    SELECT to_address AS addr, amount FROM transfers
+                    WHERE token = ? AND block_number BETWEEN ? AND ?
+                )
+                WHERE addr IS NOT NULL AND addr <> ''
+                GROUP BY addr
+                ORDER BY SUM(amount) DESC
+                LIMIT ?
+                """,
+                [token, start, end, token, start, end, limit],
+            ).fetchall()
+        return [str(row[0]) for row in rows]
+
     def top_receivers(self, token: str, start: int, end: int, limit: int) -> list[str]:
         with self.lock:
             rows = self.con.execute(
@@ -424,13 +655,12 @@ class Store:
         return [r[0] for r in rows]
 
     def save_balances(self, token: str, block: int, rows: list[tuple[str, float]]) -> None:
-        if not rows:
-            return
-        with self.lock:
-            self.con.executemany(
-                "INSERT OR REPLACE INTO wallet_balances_end VALUES (?, ?, ?, ?)",
-                [(token, block, wallet, balance) for wallet, balance in rows],
-            )
+        self._put(
+            "wallet_balances_end",
+            ("token", "block_number", "wallet", "balance"),
+            [(token, block, wallet, balance) for wallet, balance in rows],
+            ("token", "block_number", "wallet"),
+        )
 
     def balances_at(self, token: str, block: int) -> dict[str, float]:
         with self.lock:
@@ -456,11 +686,12 @@ class Store:
     def replace_daily_balances(self, token: str, rows: list[tuple[Any, ...]]) -> None:
         with self.lock:
             self.con.execute("DELETE FROM wallet_balance_daily WHERE token = ?", [token])
-            if rows:
-                self.con.executemany(
-                    "INSERT INTO wallet_balance_daily VALUES (?, ?, ?, ?, ?)",
-                    rows,
-                )
+            self._put(
+                "wallet_balance_daily",
+                ("token", "wallet", "day", "block_number", "balance"),
+                rows,
+                ("token", "wallet", "day"),
+            )
 
     def save_labels(
         self,
@@ -503,7 +734,9 @@ class Store:
                             float(row.sell_amount),
                             float(row.net_position_change),
                             int(row.round_trip_count),
-                            None if pd.isna(row.trade_interval_cv) else float(row.trade_interval_cv),
+                            None
+                            if pd.isna(row.trade_interval_cv)
+                            else float(row.trade_interval_cv),
                             None
                             if pd.isna(row.median_inter_swap_blocks)
                             else float(row.median_inter_swap_blocks),
@@ -522,6 +755,69 @@ class Store:
                     "(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                     records,
                 )
+
+    def upsert_chain_pools(self, rows: list[tuple[Any, ...]]) -> None:
+        self._put(
+            "chain_pools",
+            ("pool_address", "protocol", "dex", "token0", "token1", "fee", "hooks"),
+            rows,
+            ("pool_address",),
+        )
+
+    def batch_status(self, token: str, window: str) -> str | None:
+        with self.lock:
+            rows = self.con.execute(
+                "SELECT status FROM batch_token WHERE token = ? AND window_key = ?",
+                [token, window],
+            ).fetchall()
+        if not rows:
+            return None
+        return str(rows[0][0])
+
+    def save_batch(
+        self,
+        token: str,
+        window: str,
+        status: str,
+        reason: str,
+        symbol: str,
+        pools: int,
+        swaps: int,
+        transfers: int,
+        seconds: float,
+    ) -> None:
+        with self.lock:
+            self.con.execute(
+                "INSERT OR REPLACE INTO batch_token VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                [
+                    token,
+                    window,
+                    status,
+                    reason[:500],
+                    symbol,
+                    int(pools),
+                    int(swaps),
+                    int(transfers),
+                    float(seconds),
+                    datetime.now().isoformat(timespec="seconds"),
+                ],
+            )
+
+    def batch_rows(self, window: str) -> list[dict[str, Any]]:
+        with self.lock:
+            frame = self._df(
+                "SELECT * FROM batch_token WHERE window_key = ? ORDER BY token",
+                [window],
+            )
+        return frame.to_dict(orient="records")
+
+    def chain_pools_for(self, token: str) -> list[dict[str, Any]]:
+        with self.lock:
+            frame = self._df(
+                "SELECT * FROM chain_pools WHERE token0 = ? OR token1 = ? ORDER BY protocol, pool_address",
+                [token, token],
+            )
+        return frame.to_dict(orient="records")
 
     def export_features(self, token: str, path: str) -> int:
         Path(path).parent.mkdir(parents=True, exist_ok=True)

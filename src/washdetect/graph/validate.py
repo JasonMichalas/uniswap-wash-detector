@@ -4,7 +4,14 @@ from collections import defaultdict
 from dataclasses import dataclass
 from typing import Any
 
-from washdetect.graph.catalog import NODE_BY_TYPE, SOURCE_TYPES, can_connect, field_map
+from washdetect.config import LEGACY_RULES, RULE_IDS
+from washdetect.graph.catalog import (
+    INSIGHT_KINDS,
+    NODE_BY_TYPE,
+    SOURCE_TYPES,
+    can_connect,
+    field_map,
+)
 
 _MAX_NODES = 80
 _GROUP_KEYS = {
@@ -123,7 +130,7 @@ def validate_graph(graph: dict[str, Any]) -> list[GraphErrorItem]:
         errors.append(
             GraphErrorItem(
                 "This graph has a loop. Data-flow graphs have to be acyclic. "
-                "Wash-trading cycles are found by the Cycle detector box, not by wiring a box back into itself.",
+                "Wash-trading cycles are found by the Find wash groups box, not by wiring a box back into itself.",
                 code="cycle",
             )
         )
@@ -215,6 +222,8 @@ def _produce(
     node_id = node["id"]
     ntype = node["type"]
     label = _label(node)
+    if ntype in INSIGHT_KINDS:
+        return {"out": (ntype, field_map(ntype))}
     if ntype == "source":
         source = data.get("source")
         if source not in SOURCE_TYPES:
@@ -335,10 +344,21 @@ def _check_detector_params(data: dict[str, Any], node_id: str, label: str, error
             )
     window = data.get("window_blocks")
     if window not in (None, ""):
-        if isinstance(window, bool) or not isinstance(window, (int, float)) or int(window) != window or not 1 <= int(window) <= 50_000:
+        if isinstance(window, bool) or not isinstance(window, (int, float)) or int(window) != window or not 1 <= int(window) <= 120_000:
             errors.append(
                 GraphErrorItem(
-                    f"{label} window must be a whole number of blocks from 1 to 50000.",
+                    f"{label} window must be a whole number of blocks from 1 to 120000.",
+                    node_id,
+                    code="param",
+                )
+            )
+    rules = data.get("rules")
+    if rules not in (None, ""):
+        names = [part.strip() for part in str(rules).split(",") if part.strip()]
+        if not names or any(name not in {*RULE_IDS, *LEGACY_RULES} for name in names):
+            errors.append(
+                GraphErrorItem(
+                    f"{label} kinds of wash trading must be chosen from R1 through R6.",
                     node_id,
                     code="param",
                 )

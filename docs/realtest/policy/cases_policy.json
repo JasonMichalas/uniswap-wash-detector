@@ -1,0 +1,140 @@
+{
+ "cls_nexf": {
+  "policy P>=0.95": {
+   "wallets_found": 14,
+   "wallets": 30,
+   "trades_caught": 141,
+   "case_trades": 740,
+   "flagged": 199,
+   "precision": 0.709,
+   "active_flagged": 199,
+   "active_precision": 0.709,
+   "recall": 0.191
+  },
+  "rules or policy P>=0.95": {
+   "wallets_found": 30,
+   "wallets": 30,
+   "trades_caught": 679,
+   "case_trades": 740,
+   "flagged": 737,
+   "precision": 0.921,
+   "active_flagged": 737,
+   "active_precision": 0.921,
+   "recall": 0.918
+  },
+  "policy P>=0.99": {
+   "wallets_found": 0,
+   "wallets": 30,
+   "trades_caught": 0,
+   "case_trades": 740,
+   "flagged": 0,
+   "precision": 0.0,
+   "active_flagged": 0,
+   "active_precision": 0.0,
+   "recall": 0.0
+  },
+  "rules or policy P>=0.99": {
+   "wallets_found": 30,
+   "wallets": 30,
+   "trades_caught": 658,
+   "case_trades": 740,
+   "flagged": 668,
+   "precision": 0.985,
+   "active_flagged": 668,
+   "active_precision": 0.985,
+   "recall": 0.889
+  }
+ },
+ "zm_nexf": {
+  "policy P>=0.95": {
+   "wallets_found": 0,
+   "wallets": 9,
+   "trades_caught": 0,
+   "case_trades": 32,
+   "flagged": 406,
+   "precision": 0.0,
+   "active_flagged": 4,
+   "active_precision": 0.0,
+   "recall": 0.0
+  },
+  "rules or policy P>=0.95": {
+   "wallets_found": 4,
+   "wallets": 9,
+   "trades_caught": 17,
+   "case_trades": 32,
+   "flagged": 631,
+   "precision": 0.027,
+   "active_flagged": 21,
+   "active_precision": 0.81,
+   "recall": 0.531
+  },
+  "policy P>=0.99": {
+   "wallets_found": 0,
+   "wallets": 9,
+   "trades_caught": 0,
+   "case_trades": 32,
+   "flagged": 84,
+   "precision": 0.0,
+   "active_flagged": 2,
+   "active_precision": 0.0,
+   "recall": 0.0
+  },
+  "rules or policy P>=0.99": {
+   "wallets_found": 4,
+   "wallets": 9,
+   "trades_caught": 17,
+   "case_trades": 32,
+   "flagged": 475,
+   "precision": 0.036,
+   "active_flagged": 19,
+   "active_precision": 0.895,
+   "recall": 0.531
+  }
+ },
+ "gotbit_rbif": {
+  "policy P>=0.95": {
+   "wallets_found": 0,
+   "wallets": 2,
+   "trades_caught": 0,
+   "case_trades": 34,
+   "flagged": 6,
+   "precision": 0.0,
+   "active_flagged": 1,
+   "active_precision": 0.0,
+   "recall": 0.0
+  },
+  "rules or policy P>=0.95": {
+   "wallets_found": 2,
+   "wallets": 2,
+   "trades_caught": 29,
+   "case_trades": 34,
+   "flagged": 37,
+   "precision": 0.784,
+   "active_flagged": 30,
+   "active_precision": 0.967,
+   "recall": 0.853
+  },
+  "policy P>=0.99": {
+   "wallets_found": 0,
+   "wallets": 2,
+   "trades_caught": 0,
+   "case_trades": 34,
+   "flagged": 0,
+   "precision": 0.0,
+   "active_flagged": 0,
+   "active_precision": 0.0,
+   "recall": 0.0
+  },
+  "rules or policy P>=0.99": {
+   "wallets_found": 2,
+   "wallets": 2,
+   "trades_caught": 29,
+   "case_trades": 34,
+   "flagged": 31,
+   "precision": 0.935,
+   "active_flagged": 29,
+   "active_precision": 1.0,
+   "recall": 0.853
+  }
+ }
+}

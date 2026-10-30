@@ -50,9 +50,11 @@ class Detect:
     net_ratio: float | None = None
     max_block_gap: int | None = None
     max_group_size: int | None = None
+    rules: str | None = None
+    show_all: bool = False
 
     def to_text(self) -> str:
-        head = f"detect_cycles({self.swaps}, {self.transfers}"
+        head = f"find_wash_groups({self.swaps}, {self.transfers}"
         if self.net_ratio is None and self.max_block_gap is None and self.max_group_size is None:
             return head + ")"
         tolerance = 0.05 if self.net_ratio is None else self.net_ratio
@@ -173,6 +175,22 @@ class Explain:
         return f"explain {self.name}"
 
 
+@dataclass
+class Insight:
+    """A question answered from the loaded window, with no input wires."""
+
+    kind: str
+    top_n: int | None = None
+    minutes: int | None = None
+    usd: float | None = None
+    percent: float | None = None
+    min_wallets: int | None = None
+    creator: str = ""
+
+    def to_text(self) -> str:
+        return f"insight {self.kind}"
+
+
 Expr = (
     Source
     | Detect
@@ -187,6 +205,7 @@ Expr = (
     | MlScore
     | AnomalyScore
     | Explain
+    | Insight
 )
 
 

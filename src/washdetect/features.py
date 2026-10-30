@@ -105,6 +105,7 @@ WALLET_COLUMNS = [
     "swap_count",
     "buy_volume_usd",
     "sell_volume_usd",
+    "holder_kind",
 ]
 
 
@@ -328,6 +329,7 @@ def build_wallet_table(
     *,
     end_ts: datetime,
     window_start_ts: datetime,
+    pools: set[str] | None = None,
 ) -> pd.DataFrame:
     balances = {k.lower(): float(v) for k, v in (balances or {}).items()}
     wallets: set[str] = set()
@@ -376,6 +378,7 @@ def build_wallet_table(
                     first_in[dst] = ts
 
     end_naive = end_ts.replace(tzinfo=None) if end_ts.tzinfo else end_ts
+    pool_set = {addr.lower() for addr in (pools or set())}
     rows: list[dict[str, object]] = []
     for wallet in wallets:
         balance = balances.get(wallet)
@@ -403,6 +406,7 @@ def build_wallet_table(
                 "swap_count": int(swap_count.get(wallet, 0)),
                 "buy_volume_usd": float(buys.get(wallet, 0.0)),
                 "sell_volume_usd": float(sells.get(wallet, 0.0)),
+                "holder_kind": "pool" if wallet in pool_set else "wallet",
             }
         )
     frame = pd.DataFrame(rows, columns=WALLET_COLUMNS)

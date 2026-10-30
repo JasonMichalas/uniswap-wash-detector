@@ -1,0 +1,11 @@
+{
+  "name": "How concentrated is ownership?",
+  "description": "Share of the balances we could read held by the 10 largest wallets, plus a Gini score. Pools and burn addresses are left out. Change 10 on the box.",
+  "nodes": [
+    {"id": "q1", "type": "concentration", "position": {"x": 40, "y": 80}, "data": {"top_n": 10}},
+    {"id": "out1", "type": "output_table", "position": {"x": 380, "y": 80}, "data": {"title": "Holder concentration"}}
+  ],
+  "edges": [
+    {"id": "e1", "source": "q1", "target": "out1", "sourceHandle": "out", "targetHandle": "in"}
+  ]
+}

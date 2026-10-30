@@ -1,6 +1,16 @@
-import httpx
+import time
 
-from washdetect.rpc import RpcClient, RpcRangeError, RpcRateError, fetch_logs_adaptive
+import httpx
+import pytest
+
+from washdetect.rpc import (
+    RpcClient,
+    RpcError,
+    RpcRangeError,
+    RpcRateError,
+    fetch_logs_adaptive,
+    suggested_span,
+)
 
 
 def test_adaptive_splits_until_the_range_fits():
@@ -34,6 +44,27 @@ def test_adaptive_shrinks_when_a_page_hits_the_cap():
     assert [row["i"] for row in logs] == list(range(31))
 
 
+def test_a_wide_empty_page_is_kept_only_when_the_caller_trusts_it():
+    wide: list[tuple[int, int]] = []
+
+    def fetch(start: int, end: int) -> list[dict]:
+        wide.append((start, end))
+        return []
+
+    fetch_logs_adaptive(0, 199_999, fetch, init_span=200_000, empty_limit=200_000)
+    assert wide == [(0, 199_999)]
+
+    split: list[tuple[int, int]] = []
+
+    def fetch_split(start: int, end: int) -> list[dict]:
+        split.append((start, end))
+        return []
+
+    fetch_logs_adaptive(0, 199_999, fetch_split, init_span=200_000)
+    assert split[0] == (0, 199_999)
+    assert split[1][1] - split[1][0] + 1 <= 50_000
+
+
 def test_client_rotates_after_a_rate_limit(monkeypatch):
     monkeypatch.setattr("washdetect.rpc.random.random", lambda: 0.0)
     seen: list[str] = []
@@ -51,6 +82,239 @@ def test_client_rotates_after_a_rate_limit(monkeypatch):
     )
     assert client.call("eth_blockNumber", []) == "0x10"
     assert seen == ["https://a.example", "https://b.example"]
+
+
+def test_get_logs_skips_an_endpoint_that_rejects_wide_ranges():
+    seen: list[tuple[str, int]] = []
+
+    def transport(url: str, payload: dict) -> dict:
+        filt = payload["params"][0]
+        width = int(filt["toBlock"], 16) - int(filt["fromBlock"], 16) + 1
+        seen.append((url, width))
+        if url.endswith("narrow.example"):
+            return {
+                "jsonrpc": "2.0",
+                "id": payload["id"],
+                "error": {"code": 35, "message": "ranges over 10000 blocks are not supported on free plan"},
+            }
+        return {"jsonrpc": "2.0", "id": payload["id"], "result": [{"blockNumber": hex(1)}]}
+
+    client = RpcClient(
+        ["https://narrow.example", "https://wide.example"],
+        transport=transport,
+        sleep=lambda _seconds: None,
+    )
+    logs = client.get_logs(
+        address="0x" + "11" * 20,
+        topics=[],
+        start_block=1,
+        end_block=500,
+        init_span=500,
+    )
+    assert len(logs) == 1
+    assert seen[0][0].endswith("narrow.example")
+    assert any(url.endswith("wide.example") and width == 500 for url, width in seen)
+
+
+def test_empty_log_page_from_a_pruned_endpoint_is_not_the_answer():
+    def transport(url: str, payload: dict) -> dict:
+        if "mevblocker" in url or "drpc.org" in url:
+            raise RpcRateError("429 rate limit")
+        if "flashbots" in url:
+            return {"jsonrpc": "2.0", "id": payload["id"], "result": []}
+        return {"jsonrpc": "2.0", "id": payload["id"], "result": [{"blockNumber": "0x10"}]}
+
+    client = RpcClient(
+        [
+            "https://rpc.mevblocker.io",
+            "https://eth.drpc.org",
+            "https://rpc.flashbots.net",
+            "https://ethereum-rpc.publicnode.com",
+        ],
+        transport=transport,
+        sleep=lambda _seconds: None,
+        max_attempts=6,
+    )
+    client._head = 100
+    logs = client.get_logs(
+        address="0x" + "22" * 20,
+        topics=[],
+        start_block=1,
+        end_block=100,
+        init_span=100,
+    )
+    assert logs == [{"blockNumber": "0x10"}]
+
+
+def test_an_empty_page_from_a_pruned_endpoint_is_not_saved_when_archive_is_down():
+    def transport(url: str, payload: dict) -> dict:
+        if "flashbots" in url:
+            return {"jsonrpc": "2.0", "id": payload["id"], "result": []}
+        raise RpcRateError("503 unavailable")
+
+    client = RpcClient(
+        [
+            "https://rpc.mevblocker.io",
+            "https://eth.drpc.org",
+            "https://rpc.flashbots.net",
+        ],
+        transport=transport,
+        sleep=lambda _seconds: None,
+        max_attempts=8,
+    )
+    with pytest.raises(RpcError):
+        client.get_logs(
+            address="0x" + "33" * 20,
+            topics=[],
+            start_block=1,
+            end_block=100,
+            init_span=100,
+        )
+
+
+def test_log_chunks_rotate_across_endpoints():
+    client = RpcClient(
+        ["https://one.example", "https://two.example"],
+        transport=lambda _url, payload: payload,
+        sleep=lambda _seconds: None,
+    )
+    assert client._pick_log_endpoint(100, set(), 100).endswith("one.example")
+    client._cursor = 1
+    assert client._pick_log_endpoint(100, set(), 100).endswith("two.example")
+
+
+def test_adaptive_regrows_the_chunk_after_a_small_page():
+    widths: list[int] = []
+
+    def fetch(start: int, end: int) -> list[dict]:
+        width = end - start + 1
+        widths.append(width)
+        if width > 80:
+            raise RpcRangeError("too wide")
+        return [{"i": start}]
+
+    fetch_logs_adaptive(0, 400, fetch, init_span=200, min_span=20, max_logs=40)
+    first_ok = next(index for index, width in enumerate(widths) if width <= 80)
+    assert any(width > widths[first_ok] for width in widths[first_ok + 1 :])
+
+
+def test_batched_transaction_lookups_are_faster_than_one_by_one():
+    def transport(url: str, payload: dict | list) -> dict | list:
+        time.sleep(0.01)
+        if isinstance(payload, list):
+            return [
+                {"jsonrpc": "2.0", "id": item["id"], "result": {"from": "0x" + "ab" * 20}}
+                for item in payload
+            ]
+        return {"jsonrpc": "2.0", "id": payload["id"], "result": {"from": "0x" + "ab" * 20}}
+
+    client = RpcClient(["https://a.example"], transport=transport, sleep=lambda _seconds: None)
+    calls = [("eth_getTransactionByHash", [f"0x{index:064x}"]) for index in range(40)]
+    started = time.perf_counter()
+    client.batch(calls, batch_size=20)
+    batched = time.perf_counter() - started
+    started = time.perf_counter()
+    for method, params in calls:
+        client.call(method, params)
+    serial = time.perf_counter() - started
+    assert batched < serial / 4, f"batch {batched:.3f}s vs one-by-one {serial:.3f}s"
+
+
+def test_suggested_span_uses_the_range_the_server_offered():
+    message = "query returned more than 10000 results. try with this block range [0x10, 0x20]"
+    assert suggested_span(message) == 17
+    assert suggested_span("no hint here") is None
+
+
+def test_drpc_is_not_asked_for_a_range_over_10000_blocks():
+    seen: list[str] = []
+
+    def transport(url: str, payload: dict) -> dict:
+        seen.append(url)
+        return {"jsonrpc": "2.0", "id": payload["id"], "result": []}
+
+    client = RpcClient(
+        ["https://eth.drpc.org", "https://rpc.mevblocker.io"],
+        transport=transport,
+        sleep=lambda _seconds: None,
+    )
+    client.get_logs(
+        address="0x" + "11" * 20,
+        topics=[],
+        start_block=1,
+        end_block=20_000,
+        init_span=20_000,
+        empty_limit=20_000,
+    )
+    assert seen
+    assert all("drpc.org" not in url for url in seen)
+    assert client.notes == []
+
+
+def test_publicnode_is_skipped_for_archive_blocks():
+    seen: list[str] = []
+
+    def transport(url: str, payload: dict) -> dict:
+        seen.append(url)
+        return {"jsonrpc": "2.0", "id": payload["id"], "result": [{"blockNumber": "0x2"}]}
+
+    client = RpcClient(
+        ["https://ethereum-rpc.publicnode.com"],
+        transport=transport,
+        sleep=lambda _seconds: None,
+        max_attempts=2,
+    )
+    client._head = 1_000_000
+    with pytest.raises(RpcError):
+        client.get_logs(
+            address="0x" + "11" * 20,
+            topics=[],
+            start_block=1,
+            end_block=10,
+            init_span=10,
+        )
+    assert seen == []
+    client._head = 20
+    logs = client.get_logs(
+        address="0x" + "11" * 20,
+        topics=[],
+        start_block=1,
+        end_block=10,
+        init_span=10,
+    )
+    assert logs
+    assert seen
+
+
+def test_recovered_refusals_stay_out_of_the_banner():
+    def transport(url: str, payload: dict) -> dict:
+        if "narrow" in url:
+            return {
+                "jsonrpc": "2.0",
+                "id": payload["id"],
+                "error": {
+                    "code": -32005,
+                    "message": "query returned more than 10000 results. try with this block range [0x1, 0xa]",
+                },
+            }
+        return {"jsonrpc": "2.0", "id": payload["id"], "result": [{"blockNumber": "0x2"}]}
+
+    client = RpcClient(
+        ["https://narrow.example", "https://wide.example"],
+        transport=transport,
+        sleep=lambda _seconds: None,
+    )
+    logs = client.get_logs(
+        address="0x" + "11" * 20,
+        topics=[],
+        start_block=1,
+        end_block=30,
+        init_span=30,
+    )
+    assert logs
+    assert client.notes == []
+    assert client.details
+    assert "narrow.example" in client.details[0]
 
 
 def test_http_status_is_classified_without_a_network():

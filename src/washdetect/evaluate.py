@@ -39,6 +39,37 @@ def binary_metrics(labels, scores, *, threshold: float = 0.5) -> dict[str, float
     }
 
 
+def rule_metric_table(frame: pd.DataFrame, *, score: str = "ml_score") -> pd.DataFrame:
+    """Precision, recall, and F1 per planted rule on held-out swaps.
+
+    Other rules' plants are left out of the negatives, so an R2 plant is not a
+    false positive for R1. Real swaps are the negatives.
+    """
+    columns = ["rule", "n", "precision", "recall", "f1"]
+    if frame.empty or "rule" not in frame.columns or "injected" not in frame.columns:
+        return pd.DataFrame(columns=columns)
+    real = frame[frame["injected"] == 0]
+    planted = frame[frame["injected"] == 1]
+    rows = []
+    for rule, part in planted.groupby("rule", dropna=False):
+        if not str(rule):
+            continue
+        scored = pd.concat([part, real], ignore_index=True)
+        metrics = binary_metrics(scored["injected"], scored[score])
+        rows.append(
+            {
+                "rule": rule,
+                "n": int(metrics["n_pos"]),
+                "precision": metrics["precision"],
+                "recall": metrics["recall"],
+                "f1": metrics["f1"],
+            }
+        )
+    if not rows:
+        return pd.DataFrame(columns=columns)
+    return pd.DataFrame(rows).sort_values("rule").reset_index(drop=True)
+
+
 def recall_table(frame: pd.DataFrame, keys: list[str], *, score: str = "ml_score") -> pd.DataFrame:
     planted = frame[frame["injected"] == 1]
     if planted.empty:
@@ -168,6 +199,8 @@ def render_report(
     pattern_recall: pd.DataFrame,
     pair_recall: pd.DataFrame,
     group_level: pd.DataFrame,
+    rule_model: pd.DataFrame | None = None,
+    rule_detector: pd.DataFrame | None = None,
     comparison: pd.DataFrame,
     split: dict[str, list[str]],
     tokens: pd.DataFrame,
@@ -201,9 +234,12 @@ def render_report(
         f"Test tokens: {len(split['test'])}.",
         "",
         "Planted groups (kept separate from the chain cache, addresses start with `0x57`) "
-        "cover round trips, rings, one-to-many, many-to-one including a 2+2→4.01 fan-in, "
-        "many-to-many with an intermediate shuffle, and a wallet that both buys and sells. "
-        "Group sizes run from 1 to more than 10 wallets.",
+        "cover every rule: a same-wallet round trip (R1), a partial lot and fan-in / fan-out / "
+        "many-to-many flows (R2), a 16-wallet chain and a 21-wallet chain, a fan-in whose sell "
+        "is 3,000 blocks later, rings (R4), a wallet that churns flat (R5), and a buy and a sell "
+        "in one transaction (R6). Two not-wash decoys are inserted: two strangers buying 2 and "
+        "selling 2 about 40 blocks apart, and two wallets with a shared funder but no token path. "
+        "Group sizes run from 1 to 21 wallets.",
         "",
         "## Features",
         "",
@@ -240,6 +276,35 @@ def render_report(
         "",
         "![Recall by pattern](figures/recall_by_pattern.png)",
         "",
+        "## Recall by rule",
+        "",
+        "Model precision, recall, and F1 are on planted test swaps of that rule. "
+        "Other rules' plants are left out of that rule's negatives. Real test swaps are the negatives. "
+        "Detector recall is the fraction of planted groups on the test tokens whose swaps "
+        "the rule labelled with that rule id. A 21-wallet chain and the 3,000-block fan-in are "
+        "scored with a 8,000-block gap and a 32-wallet cap. The other plants use the 200-block, "
+        "16-wallet default.",
+        "",
+        "### Model, planted test swaps",
+        "",
+        _md_table(
+            rule_model if rule_model is not None else pd.DataFrame(),
+            percent={"precision", "recall", "f1"},
+        ),
+        "",
+        "### Detector, planted groups on test tokens",
+        "",
+        _md_table(rule_detector if rule_detector is not None else pd.DataFrame(), percent={"recall"}),
+        "",
+        "The previous published run was 22 tokens, blocks 26,264,761–26,279,564 "
+        "(2026-10-24 20:00 through 2026-10-26 21:30 UTC): 20,758 real swaps and 145,308 transfers. "
+        "Swap model precision 91.9%, recall 100%, F1 95.8%, PR-AUC 1.000 (784 / 5219). "
+        "Wallet model precision 93.7%, recall 100%, F1 96.7%, PR-AUC 1.000 (714 / 2003). "
+        "Rule agreement on real test swaps precision 95.7%, recall 29.2%, F1 44.7%. "
+        "Model recall by planted rule was 100% for R1 (14), R2 (658), R3 (14), R4 (56), R5 (28), and R6 (14). "
+        "Detector group recall was 100% for R1 (22), R2 (374), R3 (22), R4 (88), R5 (22), and R6 (22). "
+        "That run did not report precision or F1 per rule.",
+        "",
         "## Recall by buyers × sellers",
         "",
         "Same swap-level recall, split by the planted group's `n_buyers` and `n_sellers`.",
@@ -263,6 +328,10 @@ def render_report(
         "",
         "## Limitations",
         "",
+        "- These precision, recall, and F1 figures are optimistic. The positive class is "
+        "synthetic wash planted by the same rules the detector implements, on tokens the "
+        "model did not train on. A high score means the model recognised that generator, "
+        "not that the same score would hold for wash that was never planted.",
         "- The plants are drawn from one generator. High recall means the model recognised "
         "that generator on a new token, not that it has seen every real wash ring.",
         "- Real wash in a test token lowers planted-task precision when the model is right "
@@ -270,7 +339,7 @@ def render_report(
         "- The rule and the model share the same block window and tolerance family. "
         "They can agree because the behaviour is obvious (a buyer who forwards the tokens), "
         "not because the model was shown the rule's output column.",
-        "- USD uses one end-of-window ETH price for WETH legs. A 2-day public-RPC window "
+        "- USD uses one end-of-window ETH price for WETH legs. The public-RPC window "
         "is not the token's life. `held_days` and quiet wallets outside the window are invisible.",
         "- Isolation Forest is fit on non-planted training rows. It is an anomaly rank, "
         "not a calibrated probability.",
