@@ -1,0 +1,54 @@
+{
+ "cls_nexf": {
+  "rules": {
+   "case": "cls_nexf",
+   "wallets": 31,
+   "wallets_trading": 30,
+   "wallets_found": 30,
+   "case_trades": 740,
+   "trades_caught": 658,
+   "flagged": 668,
+   "precision": 0.985,
+   "recall": 0.889,
+   "window_swaps": 827
+  },
+  "model": {
+   "case": "cls_nexf",
+   "wallets": 31,
+   "wallets_trading": 30,
+   "wallets_found": 30,
+   "case_trades": 740,
+   "trades_caught": 740,
+   "flagged": 798,
+   "precision": 0.927,
+   "recall": 1.0,
+   "window_swaps": 827
+  }
+ },
+ "zm_nexf": {
+  "rules": {
+   "case": "zm_nexf",
+   "wallets": 9,
+   "wallets_trading": 9,
+   "wallets_found": 4,
+   "case_trades": 32,
+   "trades_caught": 17,
+   "flagged": 419,
+   "precision": 0.041,
+   "recall": 0.531,
+   "window_swaps": 1359
+  },
+  "model": {
+   "case": "zm_nexf",
+   "wallets": 9,
+   "wallets_trading": 9,
+   "wallets_found": 7,
+   "case_trades": 32,
+   "trades_caught": 27,
+   "flagged": 382,
+   "precision": 0.071,
+   "recall": 0.844,
+   "window_swaps": 1359
+  }
+ }
+}
