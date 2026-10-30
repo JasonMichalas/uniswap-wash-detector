@@ -21,7 +21,8 @@ from washdetect.store import Store
 from washdetect.weakmodel import WEAK_DIR, WeakWashModel, frames_from_db
 
 HERE = Path(__file__).resolve().parent
-TOKEN = {"cls_nexf": "0x16ca471ae755f8a2cd4ec315a4a7439dcfebe54c", "zm_nexf": "0x16ca471ae755f8a2cd4ec315a4a7439dcfebe54c"}
+TOKEN = {"cls_nexf": "0x16ca471ae755f8a2cd4ec315a4a7439dcfebe54c", "zm_nexf": "0x16ca471ae755f8a2cd4ec315a4a7439dcfebe54c",
+         "gotbit_rbif": "0x7b32e70e8d73ac87c1b342e063528b2930b15ceb"}
 APP = HeuristicConfig(net_ratio=0.05, max_block_gap=7200, max_group_size=24)
 
 

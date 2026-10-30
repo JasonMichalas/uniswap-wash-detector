@@ -62,5 +62,37 @@
    "active_flagged": 27,
    "active_precision": 1.0
   }
+ },
+ "gotbit_rbif": {
+  "rules": {
+   "case": "gotbit_rbif",
+   "wallets": 2,
+   "wallets_trading": 2,
+   "wallets_found": 2,
+   "case_trades": 34,
+   "trades_caught": 29,
+   "flagged": 31,
+   "precision": 0.935,
+   "recall": 0.853,
+   "window_swaps": 481,
+   "active_swaps": 193,
+   "active_flagged": 29,
+   "active_precision": 1.0
+  },
+  "model": {
+   "case": "gotbit_rbif",
+   "wallets": 2,
+   "wallets_trading": 2,
+   "wallets_found": 2,
+   "case_trades": 34,
+   "trades_caught": 34,
+   "flagged": 97,
+   "precision": 0.351,
+   "recall": 1.0,
+   "window_swaps": 481,
+   "active_swaps": 193,
+   "active_flagged": 65,
+   "active_precision": 0.523
+  }
  }
 }
