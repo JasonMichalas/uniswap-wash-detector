@@ -1220,3 +1220,89 @@ model using batch 2 adds up to the 10 s lookup budget plus the context features.
 - USD uses one end-of-window ETH price for WETH legs. The public-RPC window is not the token's life. `held_days` and quiet wallets outside the window are invisible.
 - Isolation Forest is fit on non-planted training rows. It is an anomaly rank, not a calibrated probability.
 - SHAP explains the raw XGBoost margin. Platt scaling is monotone, so the sign of a reason is the same after calibration, but the probability itself is not a SHAP unit.
+
+## Final protocol and results
+
+### Ground truth on real cases
+
+Searched: SEC and DOJ filings from the October 2024 FBI NexFundAI sting (ZM Quant, Gotbit, CLS Global, MyTrade, Saitama), CFTC and Hong Kong SFC releases, exchange delisting notices, Chainalysis and Solidus reports, and published labelled datasets. Only cases with on-chain wallets on an Ethereum DEX the pipeline loads can be tested.
+
+| Case | Source | Token / pool | Period | Wallets | How confirmed | Testable |
+|---|---|---|---|---|---|---|
+| CLS Global on NexF | SEC v. CLS Global 1:24-cv-12590 ¶65-70; guilty plea Jan 2025 | NexF `0x16ca…e54c`, Uniswap v2 | 2024-08-23 to 09-18 | 31 (30 traded) | Court filing plus the 31 addresses fee-whitelisted by the NexF deployer on 2024-08-22 | Yes |
+| ZM Quant on NexF | SEC v. ZM Quant 1:24-cv-12587 ¶71-76; DOJ indictment | NexF, Uniswap v2 | 2024-05-31, about 9 h | 9 (8 in the filing's 9 hours) | 200 listed wallets whitelisted on 2024-05-31; the 8 that traded match the filing (about $4,600 volume, 31 of 40 transactions, 9 hours) | Yes |
+| Gotbit on Robo Inu | SEC v. Gotbit 1:24-cv-12588 ¶111-117 | RBIF v1 `0x7b32…5ceb`, Uniswap v2 | from 2022-03-18 | 2 | Inferred: the filing describes the pattern but not the addresses; two wallets funded 24 s apart by one address start on 2022-03-18 and trade balanced $10-20k swaps about hourly | Yes, labelled inferred |
+| MyTrade (Zhou) | DOJ information | planned for LBank | after 2024-09 | none | | No |
+| Gotbit plea | DOJ plea and forfeiture | CEX trading | | forfeiture wallets only | | No |
+| Saitama / SaitaRealty | SEC v. ZM Quant ¶78 on | mostly CEX | 2021-22 | none published | | No |
+| Hydrogen, Moonwalkers | SEC, DOJ | US CEX | | none | | No |
+| Victor & Weintraud; Gan et al. | papers | IDEX, EtherDelta; 847 pools | | labels are algorithm output or unpublished | | No |
+
+Wallets and sources are in `docs/realtest/confirmed_cases.csv`.
+
+### Protocol
+
+The rules (app defaults) and the shipped model were run once on each confirmed case, with no change to any threshold, rule or feature, and scored afterwards. A case swap is any swap whose transaction moves the token between the pool and a case wallet, so the truth set does not depend on the detector's trader resolution. Precision is reported over the active period (first to last case swap), the period the filings describe. Any other wash in that period counts as a false positive, so precision is a lower bound. Intervals are Wilson 95%.
+
+All tuning used a separate policy-labelled set on eight tokens never used before (AAVE, ONDO, SHIB, KENDU, APU, PEIPEI, MAGA, BOBO; 2026-10-27 to 28). The tokens were split before any scoring into dev (AAVE, SHIB, KENDU, PEIPEI; 7,087 swaps) and a frozen test set (ONDO, APU, MAGA, BOBO; 2,278 swaps). Labels come from a policy oracle (`docs/realtest/policy/oracle.py`) that shares no code with the detector. It uses only net token flows per transaction:
+- A wallet that bought and sold the token within 24 h, unwinding at least half, is wash.
+- A contract that takes the token from one pool and sends it to another in the same transaction (not a known router or aggregator) is wash, under the churn rule.
+- A pair joined by a direct token transfer of at least 10% of the smaller wallet's volume that between them bought and sold within 24 h is wash. Receivers with five or more senders are treated as services and do not join pairs.
+- Each swap takes the label of the address with the largest net flow in its transaction.
+
+Thresholds were chosen on dev only. The test set was scored once with the frozen settings in `docs/realtest/policy/frozen.json`. Scripts and outputs are in `docs/realtest/policy/`; the scripts read local DuckDB swap databases.
+
+### Confirmed cases (blind)
+
+| Case | Method | Wallets found | Trades caught | Flagged in active period | Precision (95% CI) | Recall (95% CI) |
+|---|---|---|---|---|---|---|
+| CLS / NexF | Rules | 30/30 | 658/740 | 668 of 827 | 0.985 (0.97-0.99) | 0.889 (0.86-0.91) |
+| CLS / NexF | Model | 30/30 | 740/740 | 798 of 827 | 0.927 (0.91-0.94) | 1.000 (0.99-1.00) |
+| ZM Quant / NexF | Rules | 4/9 | 17/32 | 19 of 37 | 0.895 (0.69-0.97) | 0.531 (0.36-0.69) |
+| ZM Quant / NexF | Model | 7/9 | 27/32 | 27 of 37 | 1.000 (0.88-1.00) | 0.844 (0.68-0.93) |
+| Gotbit / Robo Inu | Rules | 2/2 | 29/34 | 29 of 193 | 1.000 (0.88-1.00) | 0.853 (0.70-0.94) |
+| Gotbit / Robo Inu | Model | 2/2 | 34/34 | 65 of 193 | 0.523 (0.40-0.64) | 1.000 (0.90-1.00) |
+
+Over the whole loaded window (four launch days for ZM), precision falls to 0.04 for the rules and 0.07 for the model. Launch-day sniper bots that buy and sell quickly are flagged, and most of them are wash under the policy, so those numbers say little.
+
+### Rule tuning on dev
+
+Swap-level, against the policy oracle (`policy/sweep_dev.json`):
+
+| net_ratio | max_block_gap | max_self_swaps | Flagged | Precision | Recall |
+|---|---|---|---|---|---|
+| 0.01 | 300 | 10 | 462 | 0.989 | 0.084 |
+| 0.05 | 1800 | 40 | 2,694 | 0.997 | 0.492 |
+| **0.05** | **7200** | **40** (app) | 3,026 | 0.995 | 0.551 |
+| 0.15 | 7200 | 40 | 3,148 | 0.992 | 0.572 |
+
+Per rule at app settings: R1 0.999, R4 0.993, R2 0.946 and R5 1.000 precision. Tightening any threshold lowers recall without raising precision, so the app defaults stay as they are.
+
+### Rules vs model vs baselines (swap level)
+
+The policy-trained model is an XGBoost on the shipped trade features, trained on oracle labels of the 18 earlier tokens (no dev or test tokens).
+
+| Method | Dev P | Dev R | Test P (95% CI) | Test R (95% CI) |
+|---|---|---|---|---|
+| Rules (app defaults) | 0.995 | 0.551 | 0.986 (0.976-0.994) | 0.422 (0.390-0.452) |
+| Shipped model, shipped cut | 0.886 | 0.735 | 0.912 (0.892-0.931) | 0.774 (0.746-0.801) |
+| Shipped model, P≥0.95 cut on dev | 0.951 | 0.308 | 0.989 (0.980-0.998) | 0.320 (0.294-0.347) |
+| Policy-trained, P≥0.95 cut on dev | 0.950 | 0.710 | 0.957 (0.938-0.972) | 0.676 (0.647-0.704) |
+| Policy-trained, P≥0.99 cut on dev | 0.990 | 0.445 | 1.000 (1.000-1.000) | 0.508 (0.478-0.541) |
+| Rules or policy-trained (P≥0.99) | 0.989 | 0.685 | 0.989 (0.982-0.995) | 0.543 (0.513-0.575) |
+| Flag everything | 0.771 | 1.000 | 0.643 | 1.000 |
+
+CIs are bootstrapped by transaction (1,000 resamples). Average precision on dev: policy-trained 0.960, shipped 0.923, base rate 0.771.
+
+### Decision
+
+The policy-trained model beats the rules and the shipped model on the policy test set. On the confirmed cases, though, it finds almost nothing: CLS 141/740 at the P≥0.95 cut and 0 at P≥0.99, ZM 0/32, Gotbit 0/34. It has learned the oracle's picture of bot churn on liquid tokens, not paid volume schemes. The confirmed cases are the main test, so nothing new ships. The rules keep the app defaults and the shipped model stays. Adding the policy-trained model to the rules leaves the case results unchanged (it adds no case trades) and only helps on the policy set.
+
+### Caveats
+
+- Policy labels are produced by a program, not people. An audit of 30 dev wallets agreed on 29. The disagreement, a dust transfer joining two wallets, led to the 10% link minimum. A later check of 11 "atomic churn" contracts found two public routers (TychoRouterV3, DexAggregatorCore) labelled wash. This was not corrected, because the test set had already been scored.
+- Under the policy, 77% of dev swaps and 64% of test swaps are wash, mostly bot churn on AAVE and ONDO. High precision on this set is partly the base rate; compare against "flag everything".
+- AAVE is 89% of dev swaps and ONDO 93% of test swaps, so micro averages follow them. Macro precision by token is in `policy/final_*.json`.
+- The Gotbit wallets are inferred from the filing's description, not named in it. ZM has 9 wallets, of which the filing counts 8.
+- Three testable cases, all small and all from the same 2024 sting, are too few for leave-one-actor-out training. None of the models was trained on them, so every case result is out-of-actor.
+- Shared-funder voting and window-normalised lifecycle features were not added. CLS is already found in full, so the room left is ZM recall, on a 32-trade case.
