@@ -3,7 +3,8 @@
 usage: cases.py CASE=DB [CASE=DB ...]   (cases and wallets from confirmed_cases.csv)
 A case swap is a swap in a transaction that moves the token between the pool and a case wallet,
 so attribution does not depend on the detector's trader resolution. Precision is a lower bound:
-other wash in the same window counts against it.
+other wash in the same window counts against it. Active precision counts only swaps between the
+first and last case swap, the period the filings describe.
 """
 
 from __future__ import annotations
@@ -36,8 +37,9 @@ def case_swaps(swaps, transfers, pools, wallets):
     return {(str(s.tx_hash).lower(), int(s.log_index)): tx_wallet[str(s.tx_hash).lower()] for s in swaps.itertuples() if str(s.tx_hash).lower() in tx_wallet}
 
 
-def score(name, flagged, truth, n_swaps, wallets):
+def score(name, flagged, truth, n_swaps, wallets, active):
     tp = {k for k in flagged if k in truth}
+    live = {k for k in flagged if k in active}
     return {
         "case": name,
         "wallets": len(wallets),
@@ -49,6 +51,9 @@ def score(name, flagged, truth, n_swaps, wallets):
         "precision": round(len(tp) / len(flagged), 3) if flagged else None,
         "recall": round(len(tp) / len(truth), 3) if truth else None,
         "window_swaps": n_swaps,
+        "active_swaps": len(active),
+        "active_flagged": len(live),
+        "active_precision": round(len(tp) / len(live), 3) if live else None,
     }
 
 
@@ -60,6 +65,9 @@ def run(name: str, db: str, model: WeakWashModel) -> dict:
     pools = {str(p["pool_address"]).lower() for p in store.pools_for(token)}
     swaps, transfers = store.read_swaps(token, lo, hi), store.read_transfers(token, lo, hi)
     truth = case_swaps(swaps, transfers, pools, wallets)
+    block = {(str(s.tx_hash).lower(), int(s.log_index)): int(s.block_number) for s in swaps.itertuples()}
+    first, last = min(block[k] for k in truth), max(block[k] for k in truth)
+    active = {k for k, b in block.items() if first <= b <= last}
     events, transfer_events = events_from_frames(swaps, transfers)
     det = WashDetector(config=APP).find_groups(events, transfer_events, pools)
     rules = {(str(a).lower(), int(b)) for a, b in det.flagged}
@@ -67,7 +75,7 @@ def run(name: str, db: str, model: WeakWashModel) -> dict:
     cut = model.manifest["trade_threshold"]
     keys = zip(trades["tx_hash"].str.lower(), trades["log_index"].astype(int), strict=False)
     ml = {k for k, p in zip(keys, model.trade.proba(trades), strict=False) if p >= cut}
-    return {"rules": score(name, rules, truth, len(swaps), wallets), "model": score(name, ml, truth, len(swaps), wallets)}
+    return {"rules": score(name, rules, truth, len(swaps), wallets, active), "model": score(name, ml, truth, len(swaps), wallets, active)}
 
 
 if __name__ == "__main__":

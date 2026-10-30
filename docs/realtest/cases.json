@@ -10,7 +10,10 @@
    "flagged": 668,
    "precision": 0.985,
    "recall": 0.889,
-   "window_swaps": 827
+   "window_swaps": 827,
+   "active_swaps": 827,
+   "active_flagged": 668,
+   "active_precision": 0.985
   },
   "model": {
    "case": "cls_nexf",
@@ -22,7 +25,10 @@
    "flagged": 798,
    "precision": 0.927,
    "recall": 1.0,
-   "window_swaps": 827
+   "window_swaps": 827,
+   "active_swaps": 827,
+   "active_flagged": 798,
+   "active_precision": 0.927
   }
  },
  "zm_nexf": {
@@ -36,7 +42,10 @@
    "flagged": 419,
    "precision": 0.041,
    "recall": 0.531,
-   "window_swaps": 1359
+   "window_swaps": 1359,
+   "active_swaps": 37,
+   "active_flagged": 19,
+   "active_precision": 0.895
   },
   "model": {
    "case": "zm_nexf",
@@ -48,7 +57,10 @@
    "flagged": 382,
    "precision": 0.071,
    "recall": 0.844,
-   "window_swaps": 1359
+   "window_swaps": 1359,
+   "active_swaps": 37,
+   "active_flagged": 27,
+   "active_precision": 1.0
   }
  }
 }
