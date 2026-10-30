@@ -1,0 +1,515 @@
+{
+ "app": {
+  "R1": {
+   "flagged": 2633,
+   "precision": 0.999,
+   "recall": 0.482
+  },
+  "R4": {
+   "flagged": 872,
+   "precision": 0.993,
+   "recall": 0.159
+  },
+  "R2": {
+   "flagged": 203,
+   "precision": 0.946,
+   "recall": 0.035
+  },
+  "R5": {
+   "flagged": 14,
+   "precision": 1.0,
+   "recall": 0.003
+  },
+  "ALL": {
+   "flagged": 3026,
+   "precision": 0.995,
+   "recall": 0.551
+  }
+ },
+ "nr=0.01 gap=300 self=10": {
+  "R1": {
+   "flagged": 375,
+   "precision": 0.995,
+   "recall": 0.068
+  },
+  "R4": {
+   "flagged": 96,
+   "precision": 1.0,
+   "recall": 0.018
+  },
+  "R5": {
+   "flagged": 5,
+   "precision": 1.0,
+   "recall": 0.001
+  },
+  "R2": {
+   "flagged": 15,
+   "precision": 0.8,
+   "recall": 0.002
+  },
+  "ALL": {
+   "flagged": 462,
+   "precision": 0.989,
+   "recall": 0.084
+  }
+ },
+ "nr=0.01 gap=300 self=40": {
+  "R1": {
+   "flagged": 1390,
+   "precision": 0.999,
+   "recall": 0.254
+  },
+  "R4": {
+   "flagged": 96,
+   "precision": 1.0,
+   "recall": 0.018
+  },
+  "R2": {
+   "flagged": 15,
+   "precision": 0.8,
+   "recall": 0.002
+  },
+  "R5": {
+   "flagged": 5,
+   "precision": 1.0,
+   "recall": 0.001
+  },
+  "ALL": {
+   "flagged": 1439,
+   "precision": 0.997,
+   "recall": 0.263
+  }
+ },
+ "nr=0.01 gap=1800 self=10": {
+  "R1": {
+   "flagged": 447,
+   "precision": 0.996,
+   "recall": 0.081
+  },
+  "R4": {
+   "flagged": 485,
+   "precision": 0.998,
+   "recall": 0.089
+  },
+  "R2": {
+   "flagged": 91,
+   "precision": 0.945,
+   "recall": 0.016
+  },
+  "R5": {
+   "flagged": 5,
+   "precision": 1.0,
+   "recall": 0.001
+  },
+  "ALL": {
+   "flagged": 949,
+   "precision": 0.992,
+   "recall": 0.172
+  }
+ },
+ "nr=0.01 gap=1800 self=40": {
+  "R1": {
+   "flagged": 2061,
+   "precision": 0.999,
+   "recall": 0.377
+  },
+  "R4": {
+   "flagged": 485,
+   "precision": 0.998,
+   "recall": 0.089
+  },
+  "R2": {
+   "flagged": 91,
+   "precision": 0.945,
+   "recall": 0.016
+  },
+  "R5": {
+   "flagged": 5,
+   "precision": 1.0,
+   "recall": 0.001
+  },
+  "ALL": {
+   "flagged": 2332,
+   "precision": 0.997,
+   "recall": 0.425
+  }
+ },
+ "nr=0.01 gap=7200 self=10": {
+  "R1": {
+   "flagged": 466,
+   "precision": 0.996,
+   "recall": 0.085
+  },
+  "R4": {
+   "flagged": 868,
+   "precision": 0.993,
+   "recall": 0.158
+  },
+  "R2": {
+   "flagged": 188,
+   "precision": 0.941,
+   "recall": 0.032
+  },
+  "R5": {
+   "flagged": 14,
+   "precision": 1.0,
+   "recall": 0.003
+  },
+  "ALL": {
+   "flagged": 1358,
+   "precision": 0.988,
+   "recall": 0.246
+  }
+ },
+ "nr=0.01 gap=7200 self=40": {
+  "R1": {
+   "flagged": 2215,
+   "precision": 0.999,
+   "recall": 0.405
+  },
+  "R4": {
+   "flagged": 868,
+   "precision": 0.993,
+   "recall": 0.158
+  },
+  "R2": {
+   "flagged": 188,
+   "precision": 0.941,
+   "recall": 0.032
+  },
+  "R5": {
+   "flagged": 14,
+   "precision": 1.0,
+   "recall": 0.003
+  },
+  "ALL": {
+   "flagged": 2721,
+   "precision": 0.994,
+   "recall": 0.495
+  }
+ },
+ "nr=0.05 gap=300 self=10": {
+  "R1": {
+   "flagged": 993,
+   "precision": 0.998,
+   "recall": 0.181
+  },
+  "R4": {
+   "flagged": 96,
+   "precision": 1.0,
+   "recall": 0.018
+  },
+  "R2": {
+   "flagged": 25,
+   "precision": 0.88,
+   "recall": 0.004
+  },
+  "R5": {
+   "flagged": 5,
+   "precision": 1.0,
+   "recall": 0.001
+  },
+  "ALL": {
+   "flagged": 1062,
+   "precision": 0.995,
+   "recall": 0.194
+  }
+ },
+ "nr=0.05 gap=300 self=40": {
+  "R1": {
+   "flagged": 1958,
+   "precision": 0.999,
+   "recall": 0.358
+  },
+  "R4": {
+   "flagged": 96,
+   "precision": 1.0,
+   "recall": 0.018
+  },
+  "R2": {
+   "flagged": 25,
+   "precision": 0.88,
+   "recall": 0.004
+  },
+  "R5": {
+   "flagged": 5,
+   "precision": 1.0,
+   "recall": 0.001
+  },
+  "ALL": {
+   "flagged": 1997,
+   "precision": 0.997,
+   "recall": 0.365
+  }
+ },
+ "nr=0.05 gap=1800 self=10": {
+  "R1": {
+   "flagged": 1144,
+   "precision": 0.998,
+   "recall": 0.209
+  },
+  "R4": {
+   "flagged": 474,
+   "precision": 0.998,
+   "recall": 0.087
+  },
+  "R2": {
+   "flagged": 100,
+   "precision": 0.95,
+   "recall": 0.017
+  },
+  "R5": {
+   "flagged": 5,
+   "precision": 1.0,
+   "recall": 0.001
+  },
+  "ALL": {
+   "flagged": 1524,
+   "precision": 0.995,
+   "recall": 0.278
+  }
+ },
+ "nr=0.05 gap=1800 self=40": {
+  "R1": {
+   "flagged": 2510,
+   "precision": 0.999,
+   "recall": 0.459
+  },
+  "R4": {
+   "flagged": 474,
+   "precision": 0.998,
+   "recall": 0.087
+  },
+  "R2": {
+   "flagged": 100,
+   "precision": 0.95,
+   "recall": 0.017
+  },
+  "R5": {
+   "flagged": 5,
+   "precision": 1.0,
+   "recall": 0.001
+  },
+  "ALL": {
+   "flagged": 2694,
+   "precision": 0.997,
+   "recall": 0.492
+  }
+ },
+ "nr=0.05 gap=7200 self=10": {
+  "R1": {
+   "flagged": 1200,
+   "precision": 0.998,
+   "recall": 0.219
+  },
+  "R4": {
+   "flagged": 872,
+   "precision": 0.993,
+   "recall": 0.159
+  },
+  "R2": {
+   "flagged": 203,
+   "precision": 0.946,
+   "recall": 0.035
+  },
+  "R5": {
+   "flagged": 14,
+   "precision": 1.0,
+   "recall": 0.003
+  },
+  "ALL": {
+   "flagged": 1904,
+   "precision": 0.992,
+   "recall": 0.346
+  }
+ },
+ "nr=0.05 gap=7200 self=40": {
+  "R1": {
+   "flagged": 2633,
+   "precision": 0.999,
+   "recall": 0.482
+  },
+  "R4": {
+   "flagged": 872,
+   "precision": 0.993,
+   "recall": 0.159
+  },
+  "R2": {
+   "flagged": 203,
+   "precision": 0.946,
+   "recall": 0.035
+  },
+  "R5": {
+   "flagged": 14,
+   "precision": 1.0,
+   "recall": 0.003
+  },
+  "ALL": {
+   "flagged": 3026,
+   "precision": 0.995,
+   "recall": 0.551
+  }
+ },
+ "nr=0.15 gap=300 self=10": {
+  "R1": {
+   "flagged": 1384,
+   "precision": 0.999,
+   "recall": 0.253
+  },
+  "R2": {
+   "flagged": 29,
+   "precision": 0.793,
+   "recall": 0.004
+  },
+  "R4": {
+   "flagged": 100,
+   "precision": 1.0,
+   "recall": 0.018
+  },
+  "R5": {
+   "flagged": 5,
+   "precision": 1.0,
+   "recall": 0.001
+  },
+  "ALL": {
+   "flagged": 1441,
+   "precision": 0.994,
+   "recall": 0.262
+  }
+ },
+ "nr=0.15 gap=300 self=40": {
+  "R1": {
+   "flagged": 2201,
+   "precision": 0.999,
+   "recall": 0.403
+  },
+  "R4": {
+   "flagged": 100,
+   "precision": 1.0,
+   "recall": 0.018
+  },
+  "R2": {
+   "flagged": 29,
+   "precision": 0.793,
+   "recall": 0.004
+  },
+  "R5": {
+   "flagged": 5,
+   "precision": 1.0,
+   "recall": 0.001
+  },
+  "ALL": {
+   "flagged": 2232,
+   "precision": 0.996,
+   "recall": 0.407
+  }
+ },
+ "nr=0.15 gap=1800 self=10": {
+  "R1": {
+   "flagged": 1595,
+   "precision": 0.997,
+   "recall": 0.291
+  },
+  "R4": {
+   "flagged": 465,
+   "precision": 1.0,
+   "recall": 0.085
+  },
+  "R2": {
+   "flagged": 101,
+   "precision": 0.921,
+   "recall": 0.017
+  },
+  "R5": {
+   "flagged": 5,
+   "precision": 1.0,
+   "recall": 0.001
+  },
+  "ALL": {
+   "flagged": 1891,
+   "precision": 0.994,
+   "recall": 0.344
+  }
+ },
+ "nr=0.15 gap=1800 self=40": {
+  "R1": {
+   "flagged": 2706,
+   "precision": 0.999,
+   "recall": 0.495
+  },
+  "R4": {
+   "flagged": 465,
+   "precision": 1.0,
+   "recall": 0.085
+  },
+  "R2": {
+   "flagged": 101,
+   "precision": 0.921,
+   "recall": 0.017
+  },
+  "R5": {
+   "flagged": 5,
+   "precision": 1.0,
+   "recall": 0.001
+  },
+  "ALL": {
+   "flagged": 2858,
+   "precision": 0.996,
+   "recall": 0.521
+  }
+ },
+ "nr=0.15 gap=7200 self=10": {
+  "R1": {
+   "flagged": 1640,
+   "precision": 0.995,
+   "recall": 0.299
+  },
+  "R4": {
+   "flagged": 869,
+   "precision": 0.992,
+   "recall": 0.158
+  },
+  "R2": {
+   "flagged": 211,
+   "precision": 0.934,
+   "recall": 0.036
+  },
+  "R5": {
+   "flagged": 14,
+   "precision": 1.0,
+   "recall": 0.003
+  },
+  "ALL": {
+   "flagged": 2249,
+   "precision": 0.988,
+   "recall": 0.407
+  }
+ },
+ "nr=0.15 gap=7200 self=40": {
+  "R1": {
+   "flagged": 2813,
+   "precision": 0.997,
+   "recall": 0.514
+  },
+  "R4": {
+   "flagged": 869,
+   "precision": 0.992,
+   "recall": 0.158
+  },
+  "R2": {
+   "flagged": 211,
+   "precision": 0.934,
+   "recall": 0.036
+  },
+  "R5": {
+   "flagged": 14,
+   "precision": 1.0,
+   "recall": 0.003
+  },
+  "ALL": {
+   "flagged": 3148,
+   "precision": 0.992,
+   "recall": 0.572
+  }
+ }
+}

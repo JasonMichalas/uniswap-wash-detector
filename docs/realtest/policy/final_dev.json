@@ -1,0 +1,128 @@
+{
+ "rules (app defaults)": {
+  "flagged": 3026,
+  "precision": 0.995,
+  "p_ci": [
+   0.992,
+   0.997
+  ],
+  "recall": 0.551,
+  "r_ci": [
+   0.535,
+   0.569
+  ],
+  "macro_precision": 0.97
+ },
+ "model, shipped cut": {
+  "flagged": 4530,
+  "precision": 0.886,
+  "p_ci": [
+   0.875,
+   0.897
+  ],
+  "recall": 0.735,
+  "r_ci": [
+   0.719,
+   0.749
+  ],
+  "macro_precision": 0.622
+ },
+ "model, best-F1 cut on dev": {
+  "flagged": 6023,
+  "precision": 0.851,
+  "p_ci": [
+   0.84,
+   0.864
+  ],
+  "recall": 0.939,
+  "r_ci": [
+   0.93,
+   0.947
+  ],
+  "macro_precision": 0.612
+ },
+ "model, P>=0.95 cut on dev": {
+  "flagged": 1771,
+  "precision": 0.951,
+  "p_ci": [
+   0.94,
+   0.962
+  ],
+  "recall": 0.308,
+  "r_ci": [
+   0.294,
+   0.323
+  ],
+  "macro_precision": 0.882
+ },
+ "policy-trained, best-F1 cut": {
+  "flagged": 6176,
+  "precision": 0.85,
+  "p_ci": [
+   0.838,
+   0.863
+  ],
+  "recall": 0.962,
+  "r_ci": [
+   0.956,
+   0.967
+  ],
+  "macro_precision": 0.579
+ },
+ "policy-trained, P>=0.95 cut": {
+  "flagged": 4080,
+  "precision": 0.95,
+  "p_ci": [
+   0.942,
+   0.958
+  ],
+  "recall": 0.71,
+  "r_ci": [
+   0.695,
+   0.724
+  ],
+  "macro_precision": 0.707
+ },
+ "policy-trained, P>=0.99 cut": {
+  "flagged": 2452,
+  "precision": 0.99,
+  "p_ci": [
+   0.986,
+   0.994
+  ],
+  "recall": 0.445,
+  "r_ci": [
+   0.426,
+   0.462
+  ],
+  "macro_precision": 0.995
+ },
+ "rules or policy-trained P>=0.99": {
+  "flagged": 3781,
+  "precision": 0.989,
+  "p_ci": [
+   0.986,
+   0.993
+  ],
+  "recall": 0.685,
+  "r_ci": [
+   0.67,
+   0.7
+  ],
+  "macro_precision": 0.969
+ },
+ "flag everything": {
+  "flagged": 7087,
+  "precision": 0.771,
+  "p_ci": [
+   0.757,
+   0.784
+  ],
+  "recall": 1.0,
+  "r_ci": [
+   1.0,
+   1.0
+  ],
+  "macro_precision": 0.487
+ }
+}
